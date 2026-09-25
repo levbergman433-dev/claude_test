@@ -43,7 +43,7 @@ internal class ArtistRepositoryImpl(
         channelId: String,
         thumbnail: String,
     ) = withContext(
-        Dispatchers.Main,
+        Dispatchers.IO,
     ) {
         localDataSource.updateArtistImage(
             channelId,
@@ -70,7 +70,7 @@ internal class ArtistRepositoryImpl(
         channelId: String,
         followedStatus: Int,
     ): Boolean? =
-        withContext(Dispatchers.Main) {
+        withContext(Dispatchers.IO) {
             localDataSource.updateFollowed(followedStatus, channelId)
             if (followedStatus == 0) {
                 localDataSource.deleteNotificationsByChannelId(channelId)
@@ -131,7 +131,7 @@ internal class ArtistRepositoryImpl(
     override suspend fun updateArtistInLibrary(
         inLibrary: LocalDateTime,
         channelId: String,
-    ) = withContext(Dispatchers.Main) {
+    ) = withContext(Dispatchers.IO) {
         localDataSource.updateArtistInLibrary(
             inLibrary,
             channelId,

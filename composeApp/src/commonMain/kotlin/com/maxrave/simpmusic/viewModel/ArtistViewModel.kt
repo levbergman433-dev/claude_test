@@ -24,7 +24,6 @@ import com.maxrave.simpmusic.viewModel.ArtistScreenState.Error
 import com.maxrave.simpmusic.viewModel.ArtistScreenState.Loading
 import com.maxrave.simpmusic.viewModel.ArtistScreenState.Success
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -121,7 +120,6 @@ class ArtistViewModel(
         viewModelScope.launch {
             artistRepository.insertArtist(artist)
             artistRepository.updateArtistInLibrary(now(), artist.channelId)
-            delay(100)
             artistRepository.getArtistById(artist.channelId).collect { artistEntity ->
                 if (artistEntity != null) {
                     artist.thumbnails?.let {

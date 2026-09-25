@@ -1,4 +1,4 @@
-name: Build installable APK (FOSS debug)
+name: Build installable APK (FOSS release)
 on:
   workflow_dispatch:
   push:
@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      HAS_SECRET: ${{ secrets.SIGNING_KEY != '' }}
     steps:
       - uses: actions/checkout@v6
 
@@ -22,13 +24,60 @@ jobs:
       - name: Generate aboutLibraries.json
         run: ./gradlew -PisFullBuild=false exportLibraryDefinitions
 
-      # Debug builds are signed with the SDK's debug key automatically and use the ".dev"
-      # application id, so this installs alongside an official SimpMusic instead of replacing it.
-      - name: Build debug APK
-        run: ./gradlew -PisFullBuild=false androidApp:assembleDebug
+      # Release = R8-optimised and without debug overhead, i.e. the build that actually feels
+      # smooth. The ".mod" id suffix lets it sit beside an official SimpMusic.
+      - name: Build release APKs
+        run: ./gradlew -PisFullBuild=false -PreleaseIdSuffix=.mod androidApp:assembleRelease
+
+      # Signing key: the SIGNING_KEY secret (base64 keystore) + KEY_PASSWORD when set. Without
+      # them, a key is generated once and kept in the Actions cache so that every build carries the
+      # SAME signature and installs as an update over the previous one. Caches expire after a week
+      # without builds, so adding the secrets is what makes the key permanent.
+      - name: Restore fallback signing key
+        if: ${{ env.HAS_SECRET != 'true' }}
+        id: keycache
+        uses: actions/cache@v4
+        with:
+          path: sideload.jks
+          key: sideload-signing-key-v1
+
+      - name: Prepare signing key
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$SIGNING_KEY" ]; then
+            echo "$SIGNING_KEY" | base64 -d > signing.jks
+            echo "KS_PASS=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "::warning::SIGNING_KEY secret not set; using the cached fallback key"
+            if [ ! -f sideload.jks ]; then
+              keytool -genkeypair -v -keystore sideload.jks -alias simpmusic -keyalg RSA -keysize 4096 \
+                -validity 36500 -storepass sideload-key -keypass sideload-key \
+                -dname "CN=SimpMusic sideload"
+            fi
+            cp sideload.jks signing.jks
+            echo "KS_PASS=sideload-key" >> "$GITHUB_ENV"
+          fi
+
+      - name: Sign APKs
+        run: |
+          BT=$(ls -d /usr/local/lib/android/sdk/build-tools/* | sort -V | tail -n 1)
+          mkdir -p signed
+          for apk in androidApp/build/outputs/apk/release/*-unsigned.apk; do
+            name=$(basename "$apk" -release-unsigned.apk)
+            name=${name#androidApp-}
+            case "$name" in *arm64-v8a*|*universal*) ;; *) continue ;; esac
+            "$BT/zipalign" -f -p 4 "$apk" aligned.apk
+            "$BT/apksigner" sign --ks signing.jks --ks-key-alias simpmusic \
+              --ks-pass "pass:$KS_PASS" --key-pass "pass:$KS_PASS" \
+              --out "signed/SimpMusic-$name.apk" aligned.apk
+          done
+          rm -f signing.jks aligned.apk
+          ls -la signed
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SimpMusic-apk
-          path: androidApp/build/outputs/apk/debug/*.apk
+          path: signed/*.apk

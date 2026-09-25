@@ -29,7 +29,6 @@ import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -385,8 +384,8 @@ class LibraryViewModel(
         _recentlyAdded.value = LocalResource.Loading()
         viewModelScope.launch {
             songRepository.setInLibrary(videoId, Config.REMOVED_SONG_DATE_TIME)
+            // Both writes above suspend until committed, so no settling delay is needed.
             songRepository.resetTotalPlayTime(videoId)
-            delay(500) // Wait for the database to update
             getRecentlyAdded()
         }
     }

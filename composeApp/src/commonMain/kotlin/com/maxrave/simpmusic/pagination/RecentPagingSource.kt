@@ -3,7 +3,6 @@ package com.maxrave.simpmusic.pagination
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.maxrave.domain.repository.SongRepository
-import kotlinx.coroutines.delay
 
 class RecentPagingSource(
     private val songRepository: SongRepository,
@@ -19,7 +18,6 @@ class RecentPagingSource(
 
         return try {
             val entities = songRepository.getRecentSong(params.loadSize, page * params.loadSize)
-            if (page != 0) delay(500)
             LoadResult.Page(
                 data = entities,
                 prevKey = if (page == 0) null else page - 1,

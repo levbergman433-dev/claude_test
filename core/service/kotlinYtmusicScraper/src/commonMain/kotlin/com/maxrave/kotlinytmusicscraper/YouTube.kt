@@ -91,8 +91,12 @@ import io.ktor.client.engine.http
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLBuilder
 import io.ktor.http.parseQueryString
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -131,6 +135,11 @@ private const val TAG = "YouTubeScraper"
 
 class YouTube {
     private val ytMusic = Ytmusic()
+
+    // Runs the stream extraction for player() alongside its InnerTube request. Deliberately not a
+    // child of the caller: when the player response turns out unplayable the extraction is simply
+    // abandoned, instead of the caller waiting for blocking network work it no longer needs.
+    private val extractionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val tidalTokenMutex = Mutex()
     private var tidalAccessToken: String? = null
@@ -1184,6 +1193,7 @@ class YouTube {
     suspend fun newPipePlayer(
         videoId: String,
         tempRes: PlayerResponse,
+        streams: Deferred<List<Pair<Int, String>>>? = null,
     ): PlayerResponse? {
         val listUrlSig = mutableListOf<String>()
         var decodedSigResponse: PlayerResponse?
@@ -1194,7 +1204,7 @@ class YouTube {
         } else {
             sigResponse = tempRes
         }
-        val streamsList = ytMusic.getNewPipePlayer(videoId)
+        val streamsList = streams?.await() ?: ytMusic.getNewPipePlayer(videoId)
         if (streamsList.isEmpty()) return null
 
         decodedSigResponse =
@@ -1274,7 +1284,11 @@ class YouTube {
             Logger.d(TAG, "YouTube NewPipe URL $it")
         }
         val randomUrl = listUrlSig.randomOrNull() ?: return null
-        if (listUrlSig.isNotEmpty() && !is403Url(randomUrl)) {
+        // Every PipePipe tier HEAD-checks one of the URLs it hands back before returning them
+        // (headCheckRandomStream), so a second HEAD round trip here only delays playback. Only
+        // BravePipe, which is not checked on the way out, still needs it.
+        val alreadyVerified = ExtractSource.of(videoId)?.startsWith("PipePipe") == true
+        if (listUrlSig.isNotEmpty() && (alreadyVerified || !is403Url(randomUrl))) {
             Logger.d(TAG, "YouTube NewPipe Found URL $randomUrl")
             return decodedSigResponse
         } else {
@@ -1304,6 +1318,10 @@ class YouTube {
                     }.joinToString("")
 
             var decodedSigResponse: PlayerResponse? = null
+            // The stream extraction does not depend on the InnerTube player response, so start it
+            // now instead of after that request returns: song start used to pay for both round
+            // trips back to back.
+            val streams = extractionScope.async { ytMusic.getNewPipePlayer(videoId) }
             val tempRes =
                 ytMusic
                     .player(
@@ -1375,7 +1393,7 @@ class YouTube {
                         )
                     }
 
-            val response = newPipePlayer(videoId, tempRes)
+            val response = newPipePlayer(videoId, tempRes, streams)
             if (response != null) {
                 decodedSigResponse = response
                 Logger.d(TAG, "YouTube Player found URL")

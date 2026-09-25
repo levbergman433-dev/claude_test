@@ -85,6 +85,12 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            // Optional id suffix for self-built sideload releases (CI passes
+            // -PreleaseIdSuffix=.mod), so such a build installs beside an official SimpMusic
+            // instead of failing on its different signing key. Unset for official builds.
+            (project.findProperty("releaseIdSuffix") as String?)?.takeIf { it.isNotBlank() }?.let {
+                applicationIdSuffix = it
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

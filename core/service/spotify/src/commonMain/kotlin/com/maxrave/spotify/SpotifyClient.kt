@@ -58,7 +58,8 @@ class SpotifyClient {
             install(HttpCache)
             install(Logging) {
                 logger = Logger.DEFAULT
-                level = LogLevel.ALL
+                // INFO (method, URL, status), not ALL: printing every body slowed each request.
+                level = LogLevel.INFO
             }
             install(CurlLogger) {
                 logger = { Logger.DEFAULT.log(it) }

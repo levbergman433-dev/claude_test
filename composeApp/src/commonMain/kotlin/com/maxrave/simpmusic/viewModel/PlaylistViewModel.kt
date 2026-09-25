@@ -324,10 +324,12 @@ class PlaylistViewModel(
                 val playlistEntity = playlistRepository.getPlaylist(id).firstOrNull()
                 if (playlistBrowse != null) {
                     if (playlistEntity == null) {
+                        // insertAndReplacePlaylist suspends until the row is written, so the read
+                        // below already sees it; the 500 ms wait that used to sit here only delayed
+                        // the header of every newly opened playlist.
                         playlistRepository.insertAndReplacePlaylist(
                             playlistBrowse.toPlaylistEntity(),
                         )
-                        delay(500)
                         playlistRepository.getPlaylist(id).collectLatest { playlist ->
                             _playlistEntity.value = playlist
                             playlistRepository.updatePlaylistInLibrary(

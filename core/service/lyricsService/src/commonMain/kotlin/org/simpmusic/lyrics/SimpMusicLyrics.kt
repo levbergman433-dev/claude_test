@@ -47,8 +47,10 @@ class SimpMusicLyrics {
             expectSuccess = false
             followRedirects = true
             install(HttpCache)
-            install(CurlLogger) {
-                logger = { Logger.d("SimpMusicLyrics", it) }
+            if (Logger.isVerbose) {
+                install(CurlLogger) {
+                    logger = { Logger.d("SimpMusicLyrics", it) }
+                }
             }
             install(HttpSend) {
                 maxSendCount = 100

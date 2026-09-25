@@ -51,11 +51,13 @@ class SimpMusicApplication :
 
     override fun onCreate() {
         super.onCreate()
+        // Before startKoin: the HTTP clients read this when they are built.
+        Logger.isVerbose = BuildConfig.DEBUG
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         configCrashlytics(this, BuildKonfig.sentryDsn)
         configLastfm(BuildKonfig.lastfmApiKey, BuildKonfig.lastfmSecret)
         startKoin {
-            androidLogger(level = Level.DEBUG)
+            androidLogger(level = if (BuildConfig.DEBUG) Level.DEBUG else Level.ERROR)
             androidContext(this@SimpMusicApplication)
             loadAllModules(
                 AppIdentity(

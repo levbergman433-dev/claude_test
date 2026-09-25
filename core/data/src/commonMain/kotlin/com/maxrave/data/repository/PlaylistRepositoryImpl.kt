@@ -94,7 +94,7 @@ internal class PlaylistRepositoryImpl(
     override suspend fun updatePlaylistLiked(
         playlistId: String,
         likeStatus: Int,
-    ) = withContext(Dispatchers.Main) {
+    ) = withContext(Dispatchers.IO) {
         localDataSource.updatePlaylistLiked(
             likeStatus,
             playlistId,
@@ -104,7 +104,7 @@ internal class PlaylistRepositoryImpl(
     override suspend fun updatePlaylistInLibrary(
         inLibrary: LocalDateTime,
         playlistId: String,
-    ) = withContext(Dispatchers.Main) {
+    ) = withContext(Dispatchers.IO) {
         localDataSource.updatePlaylistInLibrary(
             inLibrary,
             playlistId,
@@ -114,7 +114,7 @@ internal class PlaylistRepositoryImpl(
     override suspend fun updatePlaylistDownloadState(
         playlistId: String,
         downloadState: Int,
-    ) = withContext(Dispatchers.Main) {
+    ) = withContext(Dispatchers.IO) {
         localDataSource.updatePlaylistDownloadState(
             downloadState,
             playlistId,

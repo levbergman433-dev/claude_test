@@ -231,6 +231,30 @@ private val mediaServiceModule =
         }
     }
 
+/**
+ * Stream URLs that passed a HEAD check in the last few minutes.
+ *
+ * The resolver below runs at every chunk boundary AND on every seek, and each time it used to send
+ * a HEAD request for the cached URL before ExoPlayer could continue loading, so every seek waited
+ * on an extra network round trip. A URL that answered moments ago is trusted for a short window
+ * instead; googlevideo URLs live for hours, so the window only skips checks that would pass.
+ */
+private object VerifiedStreamUrls {
+    private const val TTL_MS = 5 * 60_000L
+    private const val MAX_ENTRIES = 64
+    private val verifiedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    fun isFresh(url: String): Boolean {
+        val at = verifiedAt[url] ?: return false
+        return System.currentTimeMillis() - at < TTL_MS
+    }
+
+    fun mark(url: String) {
+        if (verifiedAt.size >= MAX_ENTRIES) verifiedAt.clear()
+        verifiedAt[url] = System.currentTimeMillis()
+    }
+}
+
 @UnstableApi
 private fun provideResolvingDataSourceFactory(
     cacheDataSourceFactory: CacheDataSource.Factory,
@@ -303,9 +327,12 @@ private fun provideResolvingDataSourceFactory(
                     if (videoUrl != null && it.expiredTime > now()) {
                         Logger.d("Stream", videoUrl)
                         Logger.w("Stream", "Video from format")
-                        val is403Url = streamRepository.is403Url(videoUrl).firstOrNull() != false
+                        val is403Url =
+                            !VerifiedStreamUrls.isFresh(videoUrl) &&
+                                streamRepository.is403Url(videoUrl).firstOrNull() != false
                         Logger.d("Stream", "is 403 $is403Url")
                         if (!is403Url) {
+                            VerifiedStreamUrls.mark(videoUrl)
                             dataSpecReturn = dataSpec.withUri(videoUrl.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
                             resolved = true
                             return@runBlocking
@@ -320,6 +347,8 @@ private fun provideResolvingDataSourceFactory(
                         isVideo = true,
                     ).lastOrNull()
                     ?.let {
+                        // Freshly extracted, and the extractor already HEAD-checked it.
+                        VerifiedStreamUrls.mark(it)
                         Logger.d("Stream", it)
                         Logger.w("Stream", "Video")
                         dataSpecReturn = dataSpec.withUri(it.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
@@ -331,9 +360,12 @@ private fun provideResolvingDataSourceFactory(
                     if (audioUrl != null && it.expiredTime > now()) {
                         Logger.d("Stream", audioUrl)
                         Logger.w("Stream", "Audio from format")
-                        val is403Url = streamRepository.is403Url(audioUrl).firstOrNull() != false
+                        val is403Url =
+                            !VerifiedStreamUrls.isFresh(audioUrl) &&
+                                streamRepository.is403Url(audioUrl).firstOrNull() != false
                         Logger.d("Stream", "is 403 $is403Url")
                         if (!is403Url) {
+                            VerifiedStreamUrls.mark(audioUrl)
                             dataSpecReturn = dataSpec.withUri(audioUrl.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)
                             resolved = true
                             return@runBlocking
@@ -348,6 +380,8 @@ private fun provideResolvingDataSourceFactory(
                         isVideo = false,
                     ).lastOrNull()
                     ?.let {
+                        // Freshly extracted, and the extractor already HEAD-checked it.
+                        VerifiedStreamUrls.mark(it)
                         Logger.d("Stream", it)
                         Logger.w("Stream", "Audio")
                         dataSpecReturn = dataSpec.withUri(it.toUri()).subrange(dataSpec.uriPositionOffset, chunkLength)

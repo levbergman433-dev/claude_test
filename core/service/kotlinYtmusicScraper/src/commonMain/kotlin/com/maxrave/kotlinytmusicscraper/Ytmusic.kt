@@ -156,16 +156,22 @@ class Ytmusic {
     private fun createClient() =
         HttpClient(getEngine()) {
             expectSuccess = true
-            install(CurlLogger) {
-                logger = { Logger.d(TAG, it) }
+            // Request/response logging only in verbose (debug) builds: LogLevel.ALL copies and
+            // prints every response body, which every browse/next/player call paid for in release.
+            if (Logger.isVerbose) {
+                install(CurlLogger) {
+                    logger = { Logger.d(TAG, it) }
+                }
             }
             install(HttpRedirect) {
                 checkHttpMethod = false
                 allowHttpsDowngrade = true
             }
-            install(Logging) {
-                logger = io.ktor.client.plugins.logging.Logger.DEFAULT
-                level = LogLevel.ALL
+            if (Logger.isVerbose) {
+                install(Logging) {
+                    logger = io.ktor.client.plugins.logging.Logger.DEFAULT
+                    level = LogLevel.ALL
+                }
             }
             install(ContentNegotiation) {
                 protobuf()
