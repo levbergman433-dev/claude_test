@@ -24,6 +24,7 @@ actual class Extractor {
         NewPipe.init(newPipeDownloader)
         BraveNewPipe.init(braveNewPipeDownloader)
         YoutubeApiDecoder.setLocalDecoder(faradayDecoder)
+        faradayDecoder.prewarm()
     }
 
     actual fun logIn(cookie: String?) {

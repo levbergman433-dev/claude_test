@@ -117,6 +117,20 @@ class FaradayCipherEngine(
     }
 
     /**
+     * Resolve the current player and build its solver ahead of time.
+     *
+     * Building the solver means fetching iframe_api, the player table and YouTube's multi-megabyte
+     * player script, then evaluating that script in QuickJS — seconds on a phone. Without this the
+     * first track after every app start paid all of it before a single byte of audio arrived.
+     */
+    suspend fun prewarm() {
+        operationMutex.withLock {
+            val info = playerInfoLocked() ?: return@withLock
+            solverFor(info.playerId)
+        }
+    }
+
+    /**
      * Called when a URL this engine deciphered was rejected by the CDN.
      *
      * That is a different signal from "player hash unknown": a stale table produces a signature

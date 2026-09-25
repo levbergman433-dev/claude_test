@@ -95,6 +95,20 @@ internal class FaradayJsDecoder : YoutubeJavaScriptDecoder {
         return YoutubeApiDecoder.BatchDecodeResult(result.signatures, result.nParameters)
     }
 
+    /**
+     * Build the solver in the background (see [FaradayCipherEngine.prewarm]) so the first track
+     * after launch does not wait for it. Failures are harmless: the first decode simply builds it.
+     */
+    fun prewarm() {
+        Thread(
+            {
+                runCatching { runBlocking { engine.prewarm() } }
+                    .onFailure { Logger.w(TAG, "prewarm failed: ${it.message}") }
+            },
+            "FaradayPrewarm",
+        ).apply { isDaemon = true }.start()
+    }
+
     /** Discard the cached player table and solver after the CDN rejected a URL we deciphered. */
     fun invalidate() = runBlocking { engine.invalidate() }
 
