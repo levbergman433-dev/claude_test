@@ -1,9 +1,12 @@
 package com.maxrave.simpmusic.expect.ui
 
+import android.net.Uri
 import android.view.ViewGroup
+import com.maxrave.common.Config
 import android.webkit.CookieManager
 import android.webkit.JsResult
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -75,6 +78,11 @@ actual fun PlatformWebView(
                                         generation++
                                         return true
                                     }
+
+                                    override fun shouldOverrideUrlLoading(
+                                        view: WebView,
+                                        request: WebResourceRequest,
+                                    ): Boolean = redirectAppLink(view, request.url.toString())
                                 }
                             settings.javaScriptEnabled = true
                             settings.domStorageEnabled = true
@@ -174,6 +182,44 @@ private fun discardDeadWebView(view: WebView) {
     view.tag = DEAD_WEBVIEW_TAG
     (view.parent as? ViewGroup)?.removeView(view)
     view.destroy()
+}
+
+/**
+ * Keeps the login page inside the WebView when a site tries to hand off to an app. Right after
+ * Google sign-in, YouTube Music's mobile site redirects to an `intent://` link for the YouTube
+ * Music app (via the Play Store); a WebView cannot open those and shows ERR_UNKNOWN_URL_SCHEME, so
+ * the login never reaches music.youtube.com, which is where the app saves the session. Such links
+ * are blocked and replaced by the page's own web fallback, or by YouTube Music's home page when the
+ * link is for the YouTube Music app. Returns true when the navigation was taken over.
+ */
+private fun redirectAppLink(
+    view: WebView,
+    url: String,
+): Boolean {
+    val scheme = Uri.parse(url).scheme?.lowercase()
+    if (scheme == "http" || scheme == "https") return false
+    val fallback =
+        if (scheme == "intent") {
+            // intent://...#Intent;...;S.browser_fallback_url=<encoded url>;end
+            url
+                .substringAfter("#Intent;", "")
+                .split(';')
+                .firstOrNull { it.startsWith("S.browser_fallback_url=") }
+                ?.substringAfter('=')
+                ?.let { Uri.decode(it) }
+                ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+        } else {
+            null
+        }
+    val target =
+        when {
+            url.contains("youtube.music") || url.contains("music.youtube.com") -> Config.YOUTUBE_MUSIC_MAIN_URL
+            fallback != null && !fallback.contains("play.google.com") -> fallback
+            else -> null
+        }
+    target?.let { view.loadUrl(it) }
+    // Never let a non-web scheme through: the WebView would only show an error page.
+    return true
 }
 
 /** Frees a WebView when its composable leaves, unless it was already discarded as dead. */
