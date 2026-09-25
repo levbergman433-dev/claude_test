@@ -351,8 +351,7 @@ private fun AppleHomeShelf(
                 onMore = onMore,
             )
         } else {
-            LazyRow {
-                items(contents) { temp ->
+            AppleTileRow(contents) { temp, size ->
                     val id = temp.playlistId ?: temp.browseId
                     val isArtist = temp.videoId.isNullOrEmpty() && id?.startsWith("UC") == true
                     AppleAlbumCard(
@@ -365,6 +364,7 @@ private fun AppleHomeShelf(
                                     ?: temp.description
                             },
                         artwork = temp.thumbnails.lastOrNull()?.url,
+                        size = size,
                         circle = isArtist,
                         onClick = { homeContentClick(temp, navController, homeViewModel) },
                         onLongClick =
@@ -374,7 +374,6 @@ private fun AppleHomeShelf(
                                 null
                             },
                     )
-                }
             }
         }
     }

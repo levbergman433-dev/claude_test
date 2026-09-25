@@ -1,6 +1,11 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,7 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,6 +44,9 @@ import com.maxrave.domain.data.model.home.Content
 import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.home.chart.Chart
 import com.maxrave.simpmusic.ui.component.AppleAlbumCard
+import com.maxrave.simpmusic.ui.component.AppleEdge
+import com.maxrave.simpmusic.ui.component.AppleTileGap
+import com.maxrave.simpmusic.ui.component.AppleTileRow
 import com.maxrave.simpmusic.ui.component.AppleShelfHeader
 import com.maxrave.simpmusic.ui.component.AppleSongGrid
 import com.maxrave.simpmusic.ui.component.homeContentClick
@@ -77,8 +87,15 @@ fun AppleNewTabSections(
     Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
         if (featured.isNotEmpty()) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val cardWidth = maxWidth * 0.88f
-                LazyRow {
+                // One card per screen, with a sliver of the next one past the right edge.
+                val cardWidth = maxWidth - AppleEdge - AppleTileGap - 16.dp
+                val state = rememberLazyListState()
+                LazyRow(
+                    state = state,
+                    contentPadding = PaddingValues(horizontal = AppleEdge),
+                    horizontalArrangement = Arrangement.spacedBy(AppleTileGap),
+                    flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(state, SnapPosition.Start)),
+                ) {
                     items(featured) { item ->
                         AppleFeaturedCard(
                             label = stringResource(Res.string.new_release).uppercase(),
@@ -103,34 +120,32 @@ fun AppleNewTabSections(
         if (newThisWeek.isNotEmpty()) {
             Column {
                 AppleShelfHeader(title = stringResource(Res.string.new_this_week), modifier = Modifier.padding(bottom = 8.dp))
-                LazyRow {
-                    items(newThisWeek) { item ->
-                        AppleAlbumCard(
-                            title = item.title,
-                            subtitle = item.artists?.joinToString(", ") { it.name }?.takeIf { it.isNotBlank() } ?: item.description,
-                            artwork = item.thumbnails.lastOrNull()?.url,
-                            onClick = { homeContentClick(item, navController, homeViewModel) },
-                        )
-                    }
+                AppleTileRow(newThisWeek) { item, size ->
+                    AppleAlbumCard(
+                        title = item.title,
+                        subtitle = item.artists?.joinToString(", ") { it.name }?.takeIf { it.isNotBlank() } ?: item.description,
+                        artwork = item.thumbnails.lastOrNull()?.url,
+                        size = size,
+                        onClick = { homeContentClick(item, navController, homeViewModel) },
+                    )
                 }
             }
         }
         chart?.listChartItem?.filter { it.playlists.isNotEmpty() }?.forEach { chartShelf ->
             Column {
                 AppleShelfHeader(title = chartShelf.title, modifier = Modifier.padding(bottom = 8.dp))
-                LazyRow {
-                    items(chartShelf.playlists) { playlist ->
-                        AppleAlbumCard(
-                            title = playlist.title,
-                            subtitle = playlist.author,
-                            artwork = playlist.thumbnails.lastOrNull()?.url,
-                            onClick = {
-                                navController.navigate(
-                                    PlaylistDestination(playlistId = playlist.id, isYourYouTubePlaylist = false),
-                                )
-                            },
-                        )
-                    }
+                AppleTileRow(chartShelf.playlists) { playlist, size ->
+                    AppleAlbumCard(
+                        title = playlist.title,
+                        subtitle = playlist.author,
+                        artwork = playlist.thumbnails.lastOrNull()?.url,
+                        size = size,
+                        onClick = {
+                            navController.navigate(
+                                PlaylistDestination(playlistId = playlist.id, isYourYouTubePlaylist = false),
+                            )
+                        },
+                    )
                 }
             }
         }
@@ -138,17 +153,15 @@ fun AppleNewTabSections(
         if (artists.isNotEmpty()) {
             Column {
                 AppleShelfHeader(title = stringResource(Res.string.top_artists), modifier = Modifier.padding(bottom = 8.dp))
-                LazyRow {
-                    items(artists) { artist ->
-                        AppleAlbumCard(
-                            title = artist.title,
-                            subtitle = null,
-                            artwork = artist.thumbnails.lastOrNull()?.url,
-                            circle = true,
-                            size = 130.dp,
-                            onClick = { navController.navigate(ArtistDestination(channelId = artist.browseId)) },
-                        )
-                    }
+                AppleTileRow(artists) { artist, size ->
+                    AppleAlbumCard(
+                        title = artist.title,
+                        subtitle = null,
+                        artwork = artist.thumbnails.lastOrNull()?.url,
+                        size = size * 0.8f,
+                        circle = true,
+                        onClick = { navController.navigate(ArtistDestination(channelId = artist.browseId)) },
+                    )
                 }
             }
         }
@@ -172,25 +185,35 @@ private fun AppleFeaturedCard(
     Column(
         modifier =
             Modifier
-                .padding(end = 12.dp)
                 .width(width)
                 .clickable(onClick = onClick),
     ) {
         Text(
             text = label,
-            style = typo().bodySmall.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+            style =
+                typo().bodySmall.copy(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.3.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
             maxLines = 1,
         )
         Text(
             text = data.title,
-            style = typo().titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Normal),
+            style =
+                typo().titleMedium.copy(
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onBackground,
+                ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         if (!subtitle.isNullOrBlank()) {
             Text(
                 text = subtitle,
-                style = typo().bodyMedium.copy(fontSize = 16.sp),
+                style = typo().bodyMedium.copy(fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -201,7 +224,8 @@ private fun AppleFeaturedCard(
                     .padding(top = 10.dp)
                     .fillMaxWidth()
                     .aspectRatio(16f / 10f)
-                    .clip(RoundedCornerShape(10.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
             val request =

@@ -635,7 +635,9 @@ fun HomeScreen(
                                 Column(
                                     modifier =
                                         Modifier
-                                            .padding(horizontal = 15.dp),
+                                            // Apple shelves inset themselves so their rows can
+                                            // scroll to the screen edge.
+                                            .padding(horizontal = if (appleLayout) 0.dp else 15.dp),
                                 ) {
                                     if (index == 0) {
                                         Spacer(

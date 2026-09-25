@@ -2,6 +2,9 @@ package com.maxrave.simpmusic.ui.component
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
 import androidx.compose.foundation.gestures.snapping.SnapPosition
@@ -78,7 +81,9 @@ fun AppleShelfHeader(
     Column(
         modifier =
             modifier
+                .padding(horizontal = AppleEdge - 4.dp)
                 .clip(RoundedCornerShape(8.dp))
+                .padding(horizontal = 4.dp)
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .padding(vertical = 4.dp),
     ) {
@@ -116,6 +121,45 @@ fun AppleShelfHeader(
     }
 }
 
+/** Page edge inset for Apple Music shelves; rows scroll under it to the screen edge. */
+val AppleEdge = 20.dp
+
+/** Gap between tiles in an Apple Music shelf. */
+val AppleTileGap = 12.dp
+
+/**
+ * Apple Music's tile size: two whole tiles and a slice of the third across the screen, with the
+ * slice (~10% of the width) telling the user the row scrolls. Capped so wide windows show more
+ * tiles instead of giant ones.
+ */
+fun appleTileSize(width: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    ((width * 0.9f - AppleEdge - AppleTileGap * 2) / 2).coerceIn(120.dp, 200.dp)
+
+/**
+ * A horizontally scrolling Apple Music shelf row. It spans the full screen width and insets its
+ * content by [AppleEdge], so tiles slide off the screen edge instead of being cut at the page
+ * padding, and it snaps a tile to the leading edge after a fling.
+ */
+@Composable
+fun <T> AppleTileRow(
+    items: List<T>,
+    key: ((T) -> Any)? = null,
+    tile: @Composable (item: T, size: androidx.compose.ui.unit.Dp) -> Unit,
+) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val size = appleTileSize(maxWidth)
+        val state = rememberLazyListState()
+        LazyRow(
+            state = state,
+            contentPadding = PaddingValues(horizontal = AppleEdge),
+            horizontalArrangement = Arrangement.spacedBy(AppleTileGap),
+            flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(state, SnapPosition.Start)),
+        ) {
+            items(items, key = key) { tile(it, size) }
+        }
+    }
+}
+
 private val AppleSongRowHeight = 68.dp
 
 /**
@@ -133,10 +177,12 @@ fun AppleSongGrid(
     val state = rememberLazyGridState()
     BoxWithConstraints(Modifier.fillMaxWidth()) {
     // A column fills most of the width so the next one peeks in, as in Apple Music.
-    val columnWidth = maxWidth * 0.86f
+    val columnWidth = maxWidth * 0.9f - AppleEdge - AppleTileGap
     LazyHorizontalGrid(
         rows = GridCells.Fixed(4),
         state = state,
+        contentPadding = PaddingValues(horizontal = AppleEdge),
+        horizontalArrangement = Arrangement.spacedBy(AppleTileGap),
         flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = state, snapPosition = SnapPosition.Start)),
         modifier = Modifier.height(AppleSongRowHeight * 4),
     ) {
@@ -234,7 +280,7 @@ fun AppleSongRow(
                 modifier =
                     Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = 66.dp, end = 12.dp),
+                        .padding(start = 66.dp, end = 44.dp),
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
             )
@@ -252,15 +298,15 @@ fun AppleAlbumCard(
     title: String,
     subtitle: String?,
     artwork: String?,
+    size: androidx.compose.ui.unit.Dp,
     circle: Boolean = false,
-    size: androidx.compose.ui.unit.Dp = 170.dp,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
 ) {
+    val shape = if (circle) CircleShape else RoundedCornerShape(10.dp)
     Column(
         modifier =
             Modifier
-                .padding(end = 14.dp)
                 .width(size)
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         horizontalAlignment = if (circle) Alignment.CenterHorizontally else Alignment.Start,
@@ -281,19 +327,34 @@ fun AppleAlbumCard(
             modifier =
                 Modifier
                     .size(size)
-                    .clip(if (circle) CircleShape else RoundedCornerShape(8.dp)),
+                    .clip(shape)
+                    // Apple outlines artwork with a hairline so dark covers keep their edge on a
+                    // black page.
+                    .border(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f), shape),
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(7.dp))
         Text(
             text = title,
-            style = typo().bodyLarge.copy(fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground),
+            style =
+                typo().bodyLarge.copy(
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onBackground,
+                ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         if (!subtitle.isNullOrBlank()) {
             Text(
                 text = subtitle,
-                style = typo().bodyMedium.copy(fontSize = 14.sp),
+                style =
+                    typo().bodyMedium.copy(
+                        fontSize = 14.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -315,16 +376,15 @@ fun AppleRecentlyPlayedShelf(
 ) {
     Column {
         AppleShelfHeader(title = title, onClick = onSeeAll, modifier = Modifier.padding(bottom = 8.dp))
-        LazyRow {
-            items(songs, key = { it.videoId }) { song ->
-                AppleAlbumCard(
-                    title = song.title,
-                    subtitle = song.artistName?.joinToString(", "),
-                    artwork = song.thumbnails,
-                    onClick = { onSongClick(song) },
-                    onLongClick = { onSongLongClick(song) },
-                )
-            }
+        AppleTileRow(songs, key = { it.videoId }) { song, size ->
+            AppleAlbumCard(
+                title = song.title,
+                subtitle = song.artistName?.joinToString(", "),
+                artwork = song.thumbnails,
+                size = size,
+                onClick = { onSongClick(song) },
+                onLongClick = { onSongLongClick(song) },
+            )
         }
     }
 }
