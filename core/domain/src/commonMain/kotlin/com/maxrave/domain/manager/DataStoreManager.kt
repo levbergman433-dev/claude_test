@@ -505,6 +505,11 @@ interface DataStoreManager {
 
     suspend fun setAppleLayout(enable: Boolean)
 
+    /** [TRUE] (default) shows the "Mix for you" tab in navigation while logged in to YouTube. */
+    val showMixTab: Flow<String>
+
+    suspend fun setShowMixTab(show: Boolean)
+
     /** [TRUE] (default) shows Apple Music-style large page titles on Home and Library. */
     val largeTitles: Flow<String>
 

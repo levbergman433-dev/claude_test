@@ -879,4 +879,16 @@
     <string name="month_full_oct">October</string>
     <string name="month_full_nov">November</string>
     <string name="month_full_dec">December</string>
+    <string name="settings_category_appearance">Appearance</string>
+    <string name="settings_category_account">YouTube &amp; content</string>
+    <string name="settings_category_playback">Playback &amp; audio</string>
+    <string name="settings_category_lyrics">Lyrics &amp; AI</string>
+    <string name="settings_category_services">Connected services</string>
+    <string name="settings_category_storage">Storage &amp; backup</string>
+    <string name="settings_category_about">About</string>
+    <string name="settings_quality_header">Quality &amp; downloads</string>
+    <string name="settings_performance_header">Speed &amp; battery</string>
+    <string name="settings_lyrics_display_header">Lyrics display</string>
+    <string name="show_mix_tab">Show Mix tab</string>
+    <string name="show_mix_tab_description">Show the Mix for you tab in the navigation bar while logged in to YouTube</string>
 </resources>

@@ -166,7 +166,8 @@ fun App(
     // Mix for you comes from the signed-in YouTube account, so its tab follows the session — the
     // same condition that used to hide the chip inside Library.
     val isYouTubeLoggedIn by viewModel.getYouTubeLoggedIn().collectAsStateWithLifecycle(DataStoreManager.FALSE)
-    val showMixForYouTab = isYouTubeLoggedIn == TRUE
+    val showMixTabSetting by viewModel.getShowMixTab().collectAsStateWithLifecycle(TRUE)
+    val showMixForYouTab = isYouTubeLoggedIn == TRUE && showMixTabSetting == TRUE
 
     val themeMode by viewModel.getThemeMode().collectAsStateWithLifecycle(DataStoreManager.THEME_MODE_DARK)
     val themeColorSource by viewModel.getThemeColorSource().collectAsStateWithLifecycle(DataStoreManager.THEME_COLOR_DEFAULT)

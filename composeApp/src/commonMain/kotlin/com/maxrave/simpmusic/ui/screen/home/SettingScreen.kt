@@ -1,5 +1,27 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
+import com.maxrave.simpmusic.ui.component.AppleLibraryRow
+import com.maxrave.simpmusic.ui.icon.Tune
+import com.maxrave.simpmusic.ui.icon.GraphicEq
+import com.maxrave.simpmusic.ui.icon.Lyrics
+import com.maxrave.simpmusic.ui.icon.Sync
+import com.maxrave.simpmusic.ui.icon.DownloadForOffline
+import com.maxrave.simpmusic.ui.icon.Info
+import org.jetbrains.compose.resources.StringResource
+import androidx.compose.ui.graphics.vector.ImageVector
+import simpmusic.composeapp.generated.resources.settings_category_appearance
+import simpmusic.composeapp.generated.resources.settings_category_account
+import simpmusic.composeapp.generated.resources.settings_category_playback
+import simpmusic.composeapp.generated.resources.settings_category_lyrics
+import simpmusic.composeapp.generated.resources.settings_category_services
+import simpmusic.composeapp.generated.resources.settings_category_storage
+import simpmusic.composeapp.generated.resources.settings_category_about
+import simpmusic.composeapp.generated.resources.settings_quality_header
+import simpmusic.composeapp.generated.resources.settings_performance_header
+import simpmusic.composeapp.generated.resources.settings_lyrics_display_header
+import simpmusic.composeapp.generated.resources.show_mix_tab
+import simpmusic.composeapp.generated.resources.show_mix_tab_description
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -635,7 +657,15 @@ fun SettingScreen(
         viewModel.getThumbCacheSize(platformContext)
     }
 
+    // null = the category list; otherwise the name of the open SettingsCategory. Saved so a
+    // rotation or process restore reopens the same page.
+    var category by rememberSaveable { mutableStateOf<String?>(null) }
+    val showMixTab by sharedViewModel.getShowMixTab().collectAsStateWithLifecycle(DataStoreManager.TRUE)
+    PlatformBackHandler(enabled = category != null) { category = null }
+
     val settingListState = rememberLazyListState()
+    // A new page starts at its top, not at the scroll offset of the previous one.
+    LaunchedEffect(category) { settingListState.scrollToItem(0) }
     // Home's rule: transparent only while pixel-0 is on screen. The frost itself is kept LIGHT
     // (below) so frosting over the glow reads as a veil, not a lid.
     val isAtTop by remember {
@@ -667,13 +697,29 @@ fun SettingScreen(
                 .padding(horizontal = 16.dp)
                 .hazeSource(hazeState),
     ) {
-        item(key = "user_interface") {
+        // Item 0 is the top gap under the floating bar, plus the category list on the landing
+        // page. It stays item 0 on every page so the ambient glow keeps tracking it.
+        item(key = "settings_top") {
             Column {
-                // Was its own item. Folded in so item 0 is taller than the glow — the glow's
-                // translation tracks item 0's offset exactly and parks once it scrolls past, and a
-                // 64dp item 0 would have switched branches while the glow was still half-visible.
                 Spacer(Modifier.height(64.dp))
                 Spacer(Modifier.height(16.dp))
+                if (category == null) {
+                    SettingsCategory.entries.forEachIndexed { index, entry ->
+                        // Two groups, the way iOS Settings separates them: everyday preferences
+                        // first, then housekeeping.
+                        if (entry == SettingsCategory.STORAGE) Spacer(Modifier.height(24.dp))
+                        AppleLibraryRow(
+                            title = stringResource(entry.title),
+                            icon = entry.icon,
+                            showDivider = index != SettingsCategory.entries.lastIndex && entry != SettingsCategory.SERVICES,
+                            onClick = { category = entry.name },
+                        )
+                    }
+                }
+            }
+        }
+        if (category == SettingsCategory.APPEARANCE.name) item(key = "user_interface") {
+            Column {
                 Text(text = stringResource(Res.string.user_interface), style = typo().labelMedium, color = MaterialTheme.colorScheme.onBackground)
                 val themeModeLabels =
                     listOf(
@@ -733,119 +779,6 @@ fun SettingScreen(
                                         val selected = state.selectOne?.getSelected()
                                         nowPlayingStyleLabels.firstOrNull { it.second == selected }?.first?.let {
                                             sharedViewModel.setNowPlayingStyle(it)
-                                        }
-                                    },
-                                dismiss = runBlocking { getString(Res.string.cancel) },
-                            ),
-                        )
-                    },
-                )
-                // Hidden outright below Android 12 rather than offered with one option: the Apple
-                // Music treatment IS the blur, and Modifier.blur is a documented no-op there, so
-                // the choice would be between Classic and a broken-looking Classic.
-                if (isLyricsBlurSupported()) {
-                    val lyricsStyleLabels =
-                        listOf(
-                            DataStoreManager.LYRICS_STYLE_CLASSIC to stringResource(Res.string.lyrics_style_classic),
-                            DataStoreManager.LYRICS_STYLE_APPLE_MUSIC to
-                                stringResource(Res.string.lyrics_style_apple_music) + requiresAndroid12,
-                        )
-                    SettingItem(
-                        title = stringResource(Res.string.lyrics_style),
-                        subtitle = lyricsStyleLabels.firstOrNull { it.first == lyricsStyle }?.second ?: "",
-                        onClick = {
-                            viewModel.setAlertData(
-                                SettingAlertState(
-                                    title = runBlocking { getString(Res.string.lyrics_style) },
-                                    selectOne =
-                                        SettingAlertState.SelectData(
-                                            listSelect = lyricsStyleLabels.map { (it.first == lyricsStyle) to it.second },
-                                        ),
-                                    confirm =
-                                        runBlocking { getString(Res.string.change) } to { state ->
-                                            val selected = state.selectOne?.getSelected()
-                                            lyricsStyleLabels.firstOrNull { it.second == selected }?.first?.let {
-                                                sharedViewModel.setLyricsStyle(it)
-                                            }
-                                        },
-                                    dismiss = runBlocking { getString(Res.string.cancel) },
-                                ),
-                            )
-                        },
-                    )
-                }
-
-                // Independent of BOTH style settings, and not gated on Android 12: this changes
-                // what the words SAY, not how they are drawn, so it applies to every style on
-                // every version. Sits next to them because a user looking for "something about
-                // lyrics" looks in one place.
-                val romanizationLabels =
-                    listOf(
-                        RomanizationLanguage.JAPANESE to stringResource(Res.string.romanization_japanese),
-                        RomanizationLanguage.KOREAN to stringResource(Res.string.romanization_korean),
-                        RomanizationLanguage.CHINESE to stringResource(Res.string.romanization_chinese),
-                        RomanizationLanguage.HINDI to stringResource(Res.string.romanization_hindi),
-                        RomanizationLanguage.PUNJABI to stringResource(Res.string.romanization_punjabi),
-                        RomanizationLanguage.RUSSIAN to stringResource(Res.string.romanization_russian),
-                        RomanizationLanguage.UKRAINIAN to stringResource(Res.string.romanization_ukrainian),
-                        RomanizationLanguage.SERBIAN to stringResource(Res.string.romanization_serbian),
-                        RomanizationLanguage.BULGARIAN to stringResource(Res.string.romanization_bulgarian),
-                        RomanizationLanguage.BELARUSIAN to stringResource(Res.string.romanization_belarusian),
-                        RomanizationLanguage.KYRGYZ to stringResource(Res.string.romanization_kyrgyz),
-                        RomanizationLanguage.MACEDONIAN to stringResource(Res.string.romanization_macedonian),
-                    )
-                val romanizationSelected = RomanizationLanguage.parse(romanizationStored)
-                SettingItem(
-                    title = stringResource(Res.string.lyrics_romanization),
-                    // Two different jobs for one line. Off, the row has to explain what the
-                    // feature IS — nobody guesses "romanization" from the title alone. On, the only
-                    // question worth answering at a glance is which of the twelve are picked, and
-                    // the explanation has served its purpose.
-                    subtitle =
-                        if (romanizationSelected.isEmpty()) {
-                            stringResource(Res.string.lyrics_romanization_description)
-                        } else {
-                            val selectedNames =
-                                romanizationLabels.filter { it.first in romanizationSelected }.joinToString(", ") { it.second }
-                            // Japanese is the one language with a dictionary pack to fetch; while
-                            // that is in flight — or has failed — the row says so, instead of
-                            // listing Japanese as if it were already live.
-                            when {
-                                RomanizationLanguage.JAPANESE !in romanizationSelected -> selectedNames
-                                japaneseDictionaryState == RomanizationDictionaryState.DOWNLOADING ->
-                                    "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_downloading)}"
-                                japaneseDictionaryState == RomanizationDictionaryState.FAILED ->
-                                    "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_failed)}"
-                                else -> selectedNames
-                            }
-                        },
-                    onClick = {
-                        viewModel.setAlertData(
-                            SettingAlertState(
-                                title = runBlocking { getString(Res.string.lyrics_romanization) },
-                                // NO `message` here, deliberately. The dialog picks its body with
-                                // an if/else-if chain that tests `message` FIRST, and that branch
-                                // renders only the text and an optional textField — a multipleSelect
-                                // passed alongside it is never reached, so the dialog came up with
-                                // the description and no languages at all.
-                                multipleSelect =
-                                    SettingAlertState.SelectData(
-                                        listSelect =
-                                            romanizationLabels.map { (language, label) ->
-                                                (language in romanizationSelected) to label
-                                            },
-                                    ),
-                                confirm =
-                                    runBlocking { getString(Res.string.save) } to { state ->
-                                        val chosen = state.multipleSelect?.getListSelected().orEmpty()
-                                        val languages =
-                                            romanizationLabels.filter { it.second in chosen }.map { it.first }.toSet()
-                                        sharedViewModel.setRomanizationLanguages(languages)
-                                        // Japanese needs its dictionary pack on disk. A no-op when
-                                        // it is already there (or bundled, as on Desktop) — and the
-                                        // retry after a FAILED attempt is simply confirming again.
-                                        if (RomanizationLanguage.JAPANESE in languages) {
-                                            viewModel.downloadJapaneseDictionaryIfNeeded()
                                         }
                                     },
                                 dismiss = runBlocking { getString(Res.string.cancel) },
@@ -957,20 +890,14 @@ fun SettingScreen(
                     switch = ((largeTitles == DataStoreManager.TRUE) to { sharedViewModel.setLargeTitles(it) }),
                 )
                 SettingItem(
-                    title = stringResource(Res.string.fast_song_loading),
-                    subtitle = stringResource(Res.string.fast_song_loading_description),
+                    title = stringResource(Res.string.show_mix_tab),
+                    subtitle = stringResource(Res.string.show_mix_tab_description),
                     smallSubtitle = true,
-                    switch = ((fastSongLoading == DataStoreManager.TRUE) to { sharedViewModel.setFastStreamLoading(it) }),
-                )
-                SettingItem(
-                    title = stringResource(Res.string.battery_saver),
-                    subtitle = stringResource(Res.string.battery_saver_description),
-                    smallSubtitle = true,
-                    switch = ((batterySaver == DataStoreManager.TRUE) to { sharedViewModel.setBatterySaver(it) }),
+                    switch = ((showMixTab == DataStoreManager.TRUE) to { sharedViewModel.setShowMixTab(it) }),
                 )
             }
         }
-        item(key = "content") {
+        if (category == SettingsCategory.ACCOUNT.name) item(key = "content") {
             Column {
                 Text(
                     text = stringResource(Res.string.content),
@@ -1046,6 +973,16 @@ fun SettingScreen(
                             ),
                         )
                     },
+                )
+            }
+        }
+        if (category == SettingsCategory.PLAYBACK.name) item(key = "quality") {
+            Column {
+                Text(
+                    text = stringResource(Res.string.settings_quality_header),
+                    style = typo().labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(vertical = 8.dp),
                 )
                 SettingItem(
                     title = stringResource(Res.string.quality),
@@ -1159,6 +1096,10 @@ fun SettingScreen(
                     smallSubtitle = true,
                     switch = (radioAudioOnly to { viewModel.setRadioAudioOnly(it) }),
                 )
+            }
+        }
+        if (category == SettingsCategory.ACCOUNT.name) item(key = "content_more") {
+            Column {
                 SettingItem(
                     title = stringResource(Res.string.sync_follow_to_youtube),
                     subtitle = stringResource(Res.string.sync_follow_to_youtube_description),
@@ -1204,7 +1145,7 @@ fun SettingScreen(
                 )
             }
         }
-        item(key = "proxy") {
+        if (category == SettingsCategory.ACCOUNT.name) item(key = "proxy") {
             Crossfade(usingProxy) { it ->
                 if (it) {
                     Column {
@@ -1368,7 +1309,7 @@ fun SettingScreen(
             }
         }
         if (getPlatform() == Platform.Android) {
-            item(key = "audio") {
+            if (category == SettingsCategory.PLAYBACK.name) item(key = "audio") {
                 Column {
                     Text(
                         text = stringResource(Res.string.audio),
@@ -1389,7 +1330,7 @@ fun SettingScreen(
                 }
             }
         }
-        item(key = "playback") {
+        if (category == SettingsCategory.PLAYBACK.name) item(key = "playback") {
             Column {
                 Text(
                     text = stringResource(Res.string.playback),
@@ -1463,7 +1404,7 @@ fun SettingScreen(
             }
         }
         // Crossfade Settings (all platforms)
-        item(key = "crossfade_settings") {
+        if (category == SettingsCategory.PLAYBACK.name) item(key = "crossfade_settings") {
             Column {
                 SettingItem(
                     title = stringResource(Res.string.crossfade),
@@ -1574,7 +1515,29 @@ fun SettingScreen(
         // Deliberately not part of "storage" further down, which is Android-only: tracking and the
         // rows it leaves behind exist on Desktop just the same. The switch that produces the history
         // and the button that erases it belong together.
-        item(key = "listening_history") {
+        if (category == SettingsCategory.PLAYBACK.name) item(key = "performance") {
+            Column {
+                Text(
+                    text = stringResource(Res.string.settings_performance_header),
+                    style = typo().labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                SettingItem(
+                    title = stringResource(Res.string.fast_song_loading),
+                    subtitle = stringResource(Res.string.fast_song_loading_description),
+                    smallSubtitle = true,
+                    switch = ((fastSongLoading == DataStoreManager.TRUE) to { sharedViewModel.setFastStreamLoading(it) }),
+                )
+                SettingItem(
+                    title = stringResource(Res.string.battery_saver),
+                    subtitle = stringResource(Res.string.battery_saver_description),
+                    smallSubtitle = true,
+                    switch = ((batterySaver == DataStoreManager.TRUE) to { sharedViewModel.setBatterySaver(it) }),
+                )
+            }
+        }
+        if (category == SettingsCategory.STORAGE.name) item(key = "listening_history") {
             Column {
                 Text(
                     text = stringResource(Res.string.listening_history),
@@ -1606,7 +1569,131 @@ fun SettingScreen(
                 )
             }
         }
-        item(key = "lyrics") {
+        if (category == SettingsCategory.LYRICS.name) item(key = "lyrics_display") {
+            Column {
+                Text(
+                    text = stringResource(Res.string.settings_lyrics_display_header),
+                    style = typo().labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                val requiresAndroid12 = " (" + stringResource(Res.string.requires_android_12) + ")"
+                // Hidden outright below Android 12 rather than offered with one option: the Apple
+                // Music treatment IS the blur, and Modifier.blur is a documented no-op there, so
+                // the choice would be between Classic and a broken-looking Classic.
+                if (isLyricsBlurSupported()) {
+                    val lyricsStyleLabels =
+                        listOf(
+                            DataStoreManager.LYRICS_STYLE_CLASSIC to stringResource(Res.string.lyrics_style_classic),
+                            DataStoreManager.LYRICS_STYLE_APPLE_MUSIC to
+                                stringResource(Res.string.lyrics_style_apple_music) + requiresAndroid12,
+                        )
+                    SettingItem(
+                        title = stringResource(Res.string.lyrics_style),
+                        subtitle = lyricsStyleLabels.firstOrNull { it.first == lyricsStyle }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.lyrics_style) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = lyricsStyleLabels.map { (it.first == lyricsStyle) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            lyricsStyleLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setLyricsStyle(it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                }
+
+                // Independent of BOTH style settings, and not gated on Android 12: this changes
+                // what the words SAY, not how they are drawn, so it applies to every style on
+                // every version. Sits next to them because a user looking for "something about
+                // lyrics" looks in one place.
+                val romanizationLabels =
+                    listOf(
+                        RomanizationLanguage.JAPANESE to stringResource(Res.string.romanization_japanese),
+                        RomanizationLanguage.KOREAN to stringResource(Res.string.romanization_korean),
+                        RomanizationLanguage.CHINESE to stringResource(Res.string.romanization_chinese),
+                        RomanizationLanguage.HINDI to stringResource(Res.string.romanization_hindi),
+                        RomanizationLanguage.PUNJABI to stringResource(Res.string.romanization_punjabi),
+                        RomanizationLanguage.RUSSIAN to stringResource(Res.string.romanization_russian),
+                        RomanizationLanguage.UKRAINIAN to stringResource(Res.string.romanization_ukrainian),
+                        RomanizationLanguage.SERBIAN to stringResource(Res.string.romanization_serbian),
+                        RomanizationLanguage.BULGARIAN to stringResource(Res.string.romanization_bulgarian),
+                        RomanizationLanguage.BELARUSIAN to stringResource(Res.string.romanization_belarusian),
+                        RomanizationLanguage.KYRGYZ to stringResource(Res.string.romanization_kyrgyz),
+                        RomanizationLanguage.MACEDONIAN to stringResource(Res.string.romanization_macedonian),
+                    )
+                val romanizationSelected = RomanizationLanguage.parse(romanizationStored)
+                SettingItem(
+                    title = stringResource(Res.string.lyrics_romanization),
+                    // Two different jobs for one line. Off, the row has to explain what the
+                    // feature IS — nobody guesses "romanization" from the title alone. On, the only
+                    // question worth answering at a glance is which of the twelve are picked, and
+                    // the explanation has served its purpose.
+                    subtitle =
+                        if (romanizationSelected.isEmpty()) {
+                            stringResource(Res.string.lyrics_romanization_description)
+                        } else {
+                            val selectedNames =
+                                romanizationLabels.filter { it.first in romanizationSelected }.joinToString(", ") { it.second }
+                            // Japanese is the one language with a dictionary pack to fetch; while
+                            // that is in flight — or has failed — the row says so, instead of
+                            // listing Japanese as if it were already live.
+                            when {
+                                RomanizationLanguage.JAPANESE !in romanizationSelected -> selectedNames
+                                japaneseDictionaryState == RomanizationDictionaryState.DOWNLOADING ->
+                                    "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_downloading)}"
+                                japaneseDictionaryState == RomanizationDictionaryState.FAILED ->
+                                    "$selectedNames — ${stringResource(Res.string.romanization_japanese_dict_failed)}"
+                                else -> selectedNames
+                            }
+                        },
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.lyrics_romanization) },
+                                // NO `message` here, deliberately. The dialog picks its body with
+                                // an if/else-if chain that tests `message` FIRST, and that branch
+                                // renders only the text and an optional textField — a multipleSelect
+                                // passed alongside it is never reached, so the dialog came up with
+                                // the description and no languages at all.
+                                multipleSelect =
+                                    SettingAlertState.SelectData(
+                                        listSelect =
+                                            romanizationLabels.map { (language, label) ->
+                                                (language in romanizationSelected) to label
+                                            },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.save) } to { state ->
+                                        val chosen = state.multipleSelect?.getListSelected().orEmpty()
+                                        val languages =
+                                            romanizationLabels.filter { it.second in chosen }.map { it.first }.toSet()
+                                        sharedViewModel.setRomanizationLanguages(languages)
+                                        // Japanese needs its dictionary pack on disk. A no-op when
+                                        // it is already there (or bundled, as on Desktop) — and the
+                                        // retry after a FAILED attempt is simply confirming again.
+                                        if (RomanizationLanguage.JAPANESE in languages) {
+                                            viewModel.downloadJapaneseDictionaryIfNeeded()
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        if (category == SettingsCategory.LYRICS.name) item(key = "lyrics") {
             Column {
                 Text(
                     text = stringResource(Res.string.lyrics),
@@ -1772,7 +1859,7 @@ fun SettingScreen(
                 )
             }
         }
-        item(key = "AI") {
+        if (category == SettingsCategory.LYRICS.name) item(key = "AI") {
             Column {
                 Text(
                     text = stringResource(Res.string.ai),
@@ -1948,7 +2035,7 @@ fun SettingScreen(
                 )
             }
         }
-        item(key = "spotify") {
+        if (category == SettingsCategory.SERVICES.name) item(key = "spotify") {
             Column {
                 Text(
                     text = stringResource(Res.string.spotify),
@@ -2003,7 +2090,7 @@ fun SettingScreen(
                 )
             }
         }
-        item(key = "discord") {
+        if (category == SettingsCategory.SERVICES.name) item(key = "discord") {
             Column {
                 Text(
                     text = stringResource(Res.string.discord_integration),
@@ -2045,7 +2132,7 @@ fun SettingScreen(
         // Hidden entirely when the build carries no Last.fm credentials — a FOSS build, or a full
         // build whose local.properties has no key.
         if (viewModel.lastfmAvailable) {
-            item(key = "lastfm") {
+            if (category == SettingsCategory.SERVICES.name) item(key = "lastfm") {
                 Column {
                     Text(
                         text = stringResource(Res.string.lastfm_integration),
@@ -2085,7 +2172,7 @@ fun SettingScreen(
                 }
             }
         }
-        item(key = "sponsor_block") {
+        if (category == SettingsCategory.SERVICES.name) item(key = "sponsor_block") {
             Column {
                 Text(
                     text = stringResource(Res.string.sponsorBlock),
@@ -2163,7 +2250,7 @@ fun SettingScreen(
             }
         }
         if (getPlatform() == Platform.Android) {
-            item(key = "storage") {
+            if (category == SettingsCategory.STORAGE.name) item(key = "storage") {
                 Column {
                     Text(
                         text = stringResource(Res.string.storage),
@@ -2474,7 +2561,7 @@ fun SettingScreen(
                 }
             }
         }
-        item(key = "backup") {
+        if (category == SettingsCategory.STORAGE.name) item(key = "backup") {
             Column {
                 Text(
                     text = stringResource(Res.string.backup),
@@ -2641,7 +2728,7 @@ fun SettingScreen(
                 )
             }
         }
-        item(key = "about_us") {
+        if (category == SettingsCategory.ABOUT.name) item(key = "about_us") {
             Column {
                 Text(
                     text = stringResource(Res.string.about_us),
@@ -3329,9 +3416,8 @@ fun SettingScreen(
             title = {
                 Text(
                     text =
-                        stringResource(
-                            Res.string.settings,
-                        ),
+                        SettingsCategory.entries.firstOrNull { it.name == category }?.let { stringResource(it.title) }
+                            ?: stringResource(Res.string.settings),
                     style = typo().titleMedium,
                 )
             },
@@ -3344,7 +3430,8 @@ fun SettingScreen(
                         true,
                         tint = MaterialTheme.colorScheme.onSurface,
                     ) {
-                        navController.navigateUp()
+                        // Inside a category the arrow returns to the list, like iOS Settings.
+                        if (category != null) category = null else navController.navigateUp()
                     }
                 }
             },
@@ -3463,4 +3550,21 @@ private fun ImportProgressDialog(
             }
         },
     )
+}
+
+/**
+ * The pages Settings is split into. The landing page lists them; each page shows only the sections
+ * tagged with it in [SettingScreen]. Order here is the order on the landing page.
+ */
+private enum class SettingsCategory(
+    val title: StringResource,
+    val icon: ImageVector,
+) {
+    APPEARANCE(Res.string.settings_category_appearance, SimpIcons.Tune),
+    ACCOUNT(Res.string.settings_category_account, SimpIcons.PeopleAlt),
+    PLAYBACK(Res.string.settings_category_playback, SimpIcons.GraphicEq),
+    LYRICS(Res.string.settings_category_lyrics, SimpIcons.Lyrics),
+    SERVICES(Res.string.settings_category_services, SimpIcons.Sync),
+    STORAGE(Res.string.settings_category_storage, SimpIcons.DownloadForOffline),
+    ABOUT(Res.string.settings_category_about, SimpIcons.Info),
 }

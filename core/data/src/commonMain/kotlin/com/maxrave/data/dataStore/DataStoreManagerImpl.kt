@@ -1632,6 +1632,19 @@ internal class DataStoreManagerImpl(
         }
     }
 
+    override val showMixTab: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[SHOW_MIX_TAB] ?: TRUE
+        }
+
+    override suspend fun setShowMixTab(show: Boolean) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[SHOW_MIX_TAB] = if (show) TRUE else FALSE
+            }
+        }
+    }
+
     override val largeTitles: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[LARGE_TITLES] ?: TRUE
@@ -1923,6 +1936,7 @@ internal class DataStoreManagerImpl(
         val LARGE_TITLES = stringPreferencesKey("large_titles")
         val FAST_STREAM_LOADING = stringPreferencesKey("fast_stream_loading")
         val APPLE_LAYOUT = stringPreferencesKey("apple_layout")
+        val SHOW_MIX_TAB = stringPreferencesKey("show_mix_tab")
 
         val EXPLICIT_CONTENT_ENABLED = stringPreferencesKey("explicit_content_enabled")
 

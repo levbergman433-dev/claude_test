@@ -1845,6 +1845,14 @@ class SharedViewModel(
         }
     }
 
+    fun getShowMixTab() = dataStoreManager.showMixTab
+
+    fun setShowMixTab(show: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setShowMixTab(show)
+        }
+    }
+
     fun getLargeTitles() = dataStoreManager.largeTitles
 
     fun setLargeTitles(enable: Boolean) {
