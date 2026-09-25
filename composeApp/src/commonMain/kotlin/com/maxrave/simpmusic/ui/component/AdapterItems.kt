@@ -384,7 +384,7 @@ private fun AppleHomeShelf(
  * Where a Home shelf item leads — the same routing [HomeItem] applies per tile type, gathered in
  * one place for the Apple Music shelves (AppleHomeShelf), which use one tile per shelf type.
  */
-private fun homeContentClick(
+internal fun homeContentClick(
     temp: Content,
     navController: NavController,
     homeViewModel: HomeViewModel,

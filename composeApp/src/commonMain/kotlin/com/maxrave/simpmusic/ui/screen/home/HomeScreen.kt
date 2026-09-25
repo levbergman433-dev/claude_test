@@ -647,6 +647,16 @@ fun HomeScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     // Apple Music Home opens with Recently Played; there is no
                                     // "Welcome back" account block.
+                                    if (appleLayout && index == 0) {
+                                        AppleNewTabSections(
+                                            newRelease = newRelease,
+                                            chart = chart,
+                                            navController = navController,
+                                            homeViewModel = viewModel,
+                                            onMore = { recentSheetSong = it.toTrack().toSongEntity() },
+                                        )
+                                        Spacer(Modifier.height(28.dp))
+                                    }
                                     if (appleLayout && index == 0 && recentlyPlayed.isNotEmpty()) {
                                         AppleRecentlyPlayedShelf(
                                             title = stringResource(Res.string.recently_played),
@@ -728,7 +738,8 @@ fun HomeScreen(
                             }
                         }
                         if (homeListState == ListState.PAGINATION_EXHAUST) {
-                            items(newRelease, key = { it.hashCode() }) {
+                            // Apple layout shows new releases and charts at the top instead.
+                            items(if (appleLayout) emptyList() else newRelease, key = { it.hashCode() }) {
                                 AnimatedVisibility(
                                     visible = newRelease.isNotEmpty(),
                                 ) {
@@ -762,55 +773,57 @@ fun HomeScreen(
                                     }
                                 }
                             }
-                            item {
-                                Column(
-                                    Modifier
-                                        .padding(vertical = 10.dp)
-                                        .padding(horizontal = 15.dp),
-                                    verticalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    ChartTitle()
-                                    Spacer(modifier = Modifier.height(5.dp))
-                                    Crossfade(targetState = regionChart) {
-                                        Logger.w("HomeScreen", "regionChart: $it")
-                                        if (it != null) {
-                                            DropdownButton(
-                                                items = CHART_SUPPORTED_COUNTRY.itemsData.toList(),
-                                                defaultSelected =
-                                                    CHART_SUPPORTED_COUNTRY.itemsData.getOrNull(
-                                                        CHART_SUPPORTED_COUNTRY.items.indexOf(it),
+                            if (!appleLayout) {
+                                item {
+                                    Column(
+                                        Modifier
+                                            .padding(vertical = 10.dp)
+                                            .padding(horizontal = 15.dp),
+                                        verticalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        ChartTitle()
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                        Crossfade(targetState = regionChart) {
+                                            Logger.w("HomeScreen", "regionChart: $it")
+                                            if (it != null) {
+                                                DropdownButton(
+                                                    items = CHART_SUPPORTED_COUNTRY.itemsData.toList(),
+                                                    defaultSelected =
+                                                        CHART_SUPPORTED_COUNTRY.itemsData.getOrNull(
+                                                            CHART_SUPPORTED_COUNTRY.items.indexOf(it),
+                                                        )
+                                                            ?: CHART_SUPPORTED_COUNTRY.itemsData[1],
+                                                ) {
+                                                    viewModel.exploreChart(
+                                                        CHART_SUPPORTED_COUNTRY.items[
+                                                            CHART_SUPPORTED_COUNTRY.itemsData.indexOf(
+                                                                it,
+                                                            ),
+                                                        ],
                                                     )
-                                                        ?: CHART_SUPPORTED_COUNTRY.itemsData[1],
-                                            ) {
-                                                viewModel.exploreChart(
-                                                    CHART_SUPPORTED_COUNTRY.items[
-                                                        CHART_SUPPORTED_COUNTRY.itemsData.indexOf(
-                                                            it,
-                                                        ),
-                                                    ],
-                                                )
+                                                }
                                             }
                                         }
-                                    }
-                                    Spacer(modifier = Modifier.height(5.dp))
-                                    Crossfade(
-                                        targetState = chartLoading,
-                                        label = "Chart",
-                                    ) { loading ->
-                                        if (!loading) {
-                                            chart?.let {
-                                                ChartData(
-                                                    chart = it,
-                                                    navController = navController,
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                        Crossfade(
+                                            targetState = chartLoading,
+                                            label = "Chart",
+                                        ) { loading ->
+                                            if (!loading) {
+                                                chart?.let {
+                                                    ChartData(
+                                                        chart = it,
+                                                        navController = navController,
+                                                    )
+                                                }
+                                            } else {
+                                                CenterLoadingBox(
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .height(400.dp),
                                                 )
                                             }
-                                        } else {
-                                            CenterLoadingBox(
-                                                modifier =
-                                                    Modifier
-                                                        .fillMaxWidth()
-                                                        .height(400.dp),
-                                            )
                                         }
                                     }
                                 }
