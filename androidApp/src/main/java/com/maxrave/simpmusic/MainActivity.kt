@@ -81,11 +81,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        mediaPlayerHandler.setUiVisible(true)
         startMusicService()
     }
 
     override fun onStop() {
         super.onStop()
+        // Screen off / app backgrounded: nothing draws the position any more, so let the player
+        // tick coarsely instead of waking the CPU every 100 ms.
+        mediaPlayerHandler.setUiVisible(false)
         if (shouldUnbind) {
             unbindService(serviceConnection)
         }

@@ -1813,6 +1813,30 @@ class SharedViewModel(
 
     fun getEnableLiquidGlass() = dataStoreManager.enableLiquidGlass
 
+    fun getGlassStyle() = dataStoreManager.glassStyle
+
+    fun setGlassStyle(style: String) {
+        viewModelScope.launch {
+            dataStoreManager.setGlassStyle(style)
+        }
+    }
+
+    fun getBatterySaver() = dataStoreManager.batterySaver
+
+    fun setBatterySaver(enable: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setBatterySaver(enable)
+        }
+    }
+
+    fun getLargeTitles() = dataStoreManager.largeTitles
+
+    fun setLargeTitles(enable: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setLargeTitles(enable)
+        }
+    }
+
     fun getLocalTrackingEnabled() = dataStoreManager.localTrackingEnabled
 
     // Drives the Mix for you tab: YouTube hands an anonymous session no mixes at all.

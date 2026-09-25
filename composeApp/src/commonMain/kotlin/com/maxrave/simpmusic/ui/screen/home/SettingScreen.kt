@@ -198,6 +198,8 @@ import simpmusic.composeapp.generated.resources.backup_downloaded
 import simpmusic.composeapp.generated.resources.backup_downloaded_description
 import simpmusic.composeapp.generated.resources.backup_frequency
 import simpmusic.composeapp.generated.resources.balance_media_loudness
+import simpmusic.composeapp.generated.resources.battery_saver
+import simpmusic.composeapp.generated.resources.battery_saver_description
 import simpmusic.composeapp.generated.resources.better_lyrics
 import simpmusic.composeapp.generated.resources.blog_notification_description
 import simpmusic.composeapp.generated.resources.blog_notification_title
@@ -255,6 +257,9 @@ import simpmusic.composeapp.generated.resources.equalizer
 import simpmusic.composeapp.generated.resources.equalizer_description
 import simpmusic.composeapp.generated.resources.free_space
 import simpmusic.composeapp.generated.resources.gemini
+import simpmusic.composeapp.generated.resources.glass_style
+import simpmusic.composeapp.generated.resources.glass_style_apple
+import simpmusic.composeapp.generated.resources.glass_style_classic
 import simpmusic.composeapp.generated.resources.guest
 import simpmusic.composeapp.generated.resources.help_build_lyrics_database
 import simpmusic.composeapp.generated.resources.help_build_lyrics_database_description
@@ -284,6 +289,8 @@ import simpmusic.composeapp.generated.resources.keep_your_youtube_playlist_offli
 import simpmusic.composeapp.generated.resources.kill_service_on_exit
 import simpmusic.composeapp.generated.resources.kill_service_on_exit_description
 import simpmusic.composeapp.generated.resources.language
+import simpmusic.composeapp.generated.resources.large_titles
+import simpmusic.composeapp.generated.resources.large_titles_description
 import simpmusic.composeapp.generated.resources.last_backup
 import simpmusic.composeapp.generated.resources.last_checked_at
 import simpmusic.composeapp.generated.resources.lastfm_integration
@@ -388,6 +395,7 @@ import simpmusic.composeapp.generated.resources.sync_follow_to_youtube
 import simpmusic.composeapp.generated.resources.sync_follow_to_youtube_description
 import simpmusic.composeapp.generated.resources.theme
 import simpmusic.composeapp.generated.resources.theme_color
+import simpmusic.composeapp.generated.resources.theme_color_apple_music
 import simpmusic.composeapp.generated.resources.theme_color_custom
 import simpmusic.composeapp.generated.resources.theme_color_default
 import simpmusic.composeapp.generated.resources.theme_color_wallpaper
@@ -553,6 +561,9 @@ fun SettingScreen(
     val enableLiquidGlass by viewModel.enableLiquidGlass.collectAsStateWithLifecycle()
     val themeMode by sharedViewModel.getThemeMode().collectAsStateWithLifecycle(DataStoreManager.THEME_MODE_DARK)
     val themeColorSource by sharedViewModel.getThemeColorSource().collectAsStateWithLifecycle(DataStoreManager.THEME_COLOR_DEFAULT)
+    val glassStyle by sharedViewModel.getGlassStyle().collectAsStateWithLifecycle(DataStoreManager.GLASS_STYLE_APPLE)
+    val largeTitles by sharedViewModel.getLargeTitles().collectAsStateWithLifecycle(DataStoreManager.TRUE)
+    val batterySaver by sharedViewModel.getBatterySaver().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val customThemeColorHex by sharedViewModel.getCustomThemeColor().collectAsStateWithLifecycle(DataStoreManager.DEFAULT_THEME_COLOR_HEX)
     val nowPlayingStyle by sharedViewModel.getNowPlayingStyle().collectAsStateWithLifecycle(DataStoreManager.NOW_PLAYING_STYLE_SPOTIFY)
     val lyricsStyle by sharedViewModel.getLyricsStyle().collectAsStateWithLifecycle(DataStoreManager.LYRICS_STYLE_CLASSIC)
@@ -843,6 +854,7 @@ fun SettingScreen(
                             add(DataStoreManager.THEME_COLOR_WALLPAPER to stringResource(Res.string.theme_color_wallpaper))
                         }
                         add(DataStoreManager.THEME_COLOR_CUSTOM to stringResource(Res.string.theme_color_custom))
+                        add(DataStoreManager.THEME_COLOR_APPLE_MUSIC to stringResource(Res.string.theme_color_apple_music))
                     }
                 SettingItem(
                     title = stringResource(Res.string.theme_color),
@@ -893,6 +905,51 @@ fun SettingScreen(
                         isEnable = getPlatform() == Platform.Android,
                     )
                 }
+                // Desktop is always glass (see AppTheme's liquidGlassEnabled), so the style applies
+                // there unconditionally; on Android only once glass is switched on.
+                if (enableLiquidGlass || getPlatform() == Platform.Desktop) {
+                    val glassStyleLabels =
+                        listOf(
+                            DataStoreManager.GLASS_STYLE_APPLE to stringResource(Res.string.glass_style_apple),
+                            DataStoreManager.GLASS_STYLE_CLASSIC to stringResource(Res.string.glass_style_classic),
+                        )
+                    SettingItem(
+                        title = stringResource(Res.string.glass_style),
+                        subtitle = glassStyleLabels.firstOrNull { it.first == glassStyle }?.second ?: "",
+                        smallSubtitle = true,
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.glass_style) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = glassStyleLabels.map { (it.first == glassStyle) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            glassStyleLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setGlassStyle(it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                }
+                SettingItem(
+                    title = stringResource(Res.string.large_titles),
+                    subtitle = stringResource(Res.string.large_titles_description),
+                    smallSubtitle = true,
+                    switch = ((largeTitles == DataStoreManager.TRUE) to { sharedViewModel.setLargeTitles(it) }),
+                )
+                SettingItem(
+                    title = stringResource(Res.string.battery_saver),
+                    subtitle = stringResource(Res.string.battery_saver_description),
+                    smallSubtitle = true,
+                    switch = ((batterySaver == DataStoreManager.TRUE) to { sharedViewModel.setBatterySaver(it) }),
+                )
             }
         }
         item(key = "content") {

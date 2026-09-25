@@ -5,11 +5,7 @@ package com.maxrave.simpmusic.ui.screen.player
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.WindowInsets
@@ -55,6 +51,7 @@ import com.maxrave.simpmusic.ui.component.InfoPlayerBottomSheet
 import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.QueueBottomSheet
 import com.maxrave.simpmusic.ui.component.VoteLyricsDialog
+import com.maxrave.simpmusic.ui.component.rememberLoopingPhase
 import com.maxrave.simpmusic.ui.icon.KeyboardArrowDown
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
@@ -422,18 +419,10 @@ fun NowPlayingScreenContent(
     }
 
     // Crossfade: RGB rainbow color cycling when transitioning between tracks
-    val infiniteTransition = rememberInfiniteTransition(label = "crossfadeRainbow")
-    val rainbowHue by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(1000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-        label = "rainbowHue",
-    )
-    val rainbowColor = hsvToColor(rainbowHue, 1f, 1f)
+    // Only cycles while a crossfade is running. As an infinite transition read right here in
+    // composition, it recomposed the entire Now Playing screen on every frame it was open.
+    val rainbowPhase by rememberLoopingPhase(active = timelineState.isCrossfading, periodMillis = 1000)
+    val rainbowColor = hsvToColor(rainbowPhase * 360f, 1f, 1f)
     val sliderTrackColor by animateColorAsState(
         targetValue = if (timelineState.isCrossfading) rainbowColor else Color.White,
         animationSpec = tween(300),

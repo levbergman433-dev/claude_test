@@ -1,15 +1,9 @@
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -82,6 +76,7 @@ import com.maxrave.simpmusic.ui.component.ExplicitBadge
 import com.maxrave.simpmusic.ui.component.heartBurst
 import com.maxrave.simpmusic.ui.component.rememberHeartBurstState
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
+import com.maxrave.simpmusic.ui.component.rememberLoopingPhase
 import com.maxrave.simpmusic.ui.icon.AddCircleOutline
 import com.maxrave.simpmusic.ui.icon.CheckCircle
 import com.maxrave.simpmusic.ui.icon.FastForward
@@ -490,20 +485,10 @@ internal fun AppleMusicTimesRow(
         // measured constant to keep in sync. The cross-fade looks identical — alpha is what
         // fadeIn/fadeOut animated anyway.
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            // Sweep head for the "Crossfading" shimmer, 0..1. Runs UNCONDITIONALLY — put behind the
-            // crossfade check it would restart from zero every time the label appears, which is the
-            // same reason the other two styles declare it outside their own visibility gate.
-            val sweepTransition = rememberInfiniteTransition(label = "appleMusicCrossfadeSweep")
-            val crossfadeSweep by sweepTransition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec =
-                    infiniteRepeatable(
-                        animation = tween(3200, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart,
-                    ),
-                label = "appleMusicSweepHead",
-            )
+            // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
+            // resumes from where it paused, so the sweep never jumps and nothing redraws per frame
+            // while the label is hidden (see rememberLoopingPhase).
+            val crossfadeSweep by rememberLoopingPhase(active = state.timelineState.isCrossfading)
             val codec = state.audioCodecLabel
             val crossfadeLabelAlpha by animateFloatAsState(
                 targetValue = if (state.timelineState.isCrossfading) 1f else 0f,

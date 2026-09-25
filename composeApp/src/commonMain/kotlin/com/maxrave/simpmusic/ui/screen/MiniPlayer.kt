@@ -8,11 +8,6 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -118,7 +113,6 @@ import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.toImageBitmap
 import com.maxrave.simpmusic.extension.formatDuration
 import com.maxrave.simpmusic.extension.getColorFromPalette
-import com.maxrave.simpmusic.extension.toResizedBitmap
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.ExplicitBadge
 import com.maxrave.simpmusic.ui.component.HeartCheckBox
@@ -126,7 +120,9 @@ import com.maxrave.simpmusic.ui.component.PlayPauseButton
 import com.maxrave.simpmusic.ui.component.PlayerControlLayout
 import com.maxrave.simpmusic.ui.component.QueueBottomSheet
 import com.maxrave.simpmusic.ui.component.liquidGlass
+import com.maxrave.simpmusic.ui.component.rememberBackdropLuminance
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
+import com.maxrave.simpmusic.ui.component.rememberLoopingPhase
 import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.PictureInPictureAlt
 import com.maxrave.simpmusic.ui.icon.QueueMusic
@@ -137,13 +133,10 @@ import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.maxrave.simpmusic.viewModel.UIEvent
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -151,7 +144,6 @@ import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.crossfading
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
-import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "MiniPlayer"
 
@@ -169,7 +161,6 @@ fun MiniPlayer(
     val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
 
     val layer = rememberGraphicsLayer()
-    val luminanceAnimation = remember { Animatable(0f) }
 
     // The Desktop capsule is always liquid glass, so it needs the glass code paths whatever the
     // setting says — both the luminance sampling loop that drives the glass and the theme-following
@@ -177,6 +168,7 @@ fun MiniPlayer(
     // 0.12 darken, which is why it looked like a smear rather than glass. The setting still governs
     // the Android card below.
     val useGlassSurface = isLiquidGlassEnabled == DataStoreManager.TRUE || getPlatform() == Platform.Desktop
+    val luminanceAnimation = rememberBackdropLuminance(layer, enabled = useGlassSurface)
 
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor by animateColorAsState(
@@ -193,34 +185,6 @@ fun MiniPlayer(
         label = "MiniPlayerTextColor",
         animationSpec = tween(500),
     )
-
-    LaunchedEffect(layer, useGlassSurface) {
-        val buffer = IntArray(25)
-        while (isActive && useGlassSurface) {
-            try {
-                withContext(Dispatchers.Main) {
-                    val imageBitmap = layer.toImageBitmap()
-                    val thumbnail = imageBitmap.toResizedBitmap(5, 5)
-                    thumbnail.readPixels(buffer)
-                }
-            } catch (e: Exception) {
-                Logger.e(TAG, "Error getting pixels from layer: ${e.message}")
-            }
-            val averageLuminance =
-                (0 until 25).sumOf { index ->
-                    val color = buffer.get(index)
-                    val r = (color shr 16 and 0xFF) / 255f
-                    val g = (color shr 8 and 0xFF) / 255f
-                    val b = (color and 0xFF) / 255f
-                    0.2126 * r + 0.7152 * g + 0.0722 * b
-                } / 25
-            luminanceAnimation.animateTo(
-                averageLuminance.coerceIn(0.3, 0.8).toFloat(),
-                tween(500),
-            )
-            delay(1.seconds)
-        }
-    }
 
     val (songEntity, setSongEntity) =
         remember {
@@ -595,20 +559,10 @@ fun MiniPlayer(
         // Crossfade cue: a label on the artist line, nothing on the bar itself. The Now Playing
         // screen cycles the track through hues for this, which on a 2dp hairline reads as a
         // rendering fault rather than as a transition.
-        // Head of the highlight that travels through the "Crossfading" label, 0..1. Runs
-        // unconditionally: putting it behind the crossfade check would restart the animation from
-        // zero each time the label appears, so the sweep would jump rather than continue.
-        val sweepTransition = rememberInfiniteTransition(label = "miniPlayerCrossfadeSweep")
-        val crossfadeSweep by sweepTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(3200, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-            label = "miniPlayerSweepHead",
-        )
+        // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
+        // resumes from where it paused, so the sweep never jumps and nothing redraws per frame
+        // while the label is hidden (see rememberLoopingPhase).
+        val crossfadeSweep by rememberLoopingPhase(active = timelineState.isCrossfading)
         val progressColor = textColor
 
         var isSliding by rememberSaveable {

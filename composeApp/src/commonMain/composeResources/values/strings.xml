@@ -592,6 +592,14 @@
     <string name="update_channel">Update channel</string>
     <string name="enable_liquid_glass_effect">Enable liquid glass (BETA)</string>
     <string name="enable_liquid_glass_effect_description">Enable iOS's liquid glass effect in some position (Android 13+)</string>
+    <string name="glass_style">Glass style</string>
+    <string name="glass_style_apple">Apple (clear, specular rim)</string>
+    <string name="glass_style_classic">Classic (dark frosted)</string>
+    <string name="large_titles">Large titles</string>
+    <string name="large_titles_description">Apple Music style big page titles on Home and Library</string>
+    <string name="battery_saver">Battery saver</string>
+    <string name="battery_saver_description">Pause decorative animations and let glass re-sample its colours less often. Playback is not affected</string>
+    <string name="theme_color_apple_music">Apple Music red</string>
     <string name="your_library">Your library</string>
     <string name="play_explicit_content">Play explicit content</string>
     <string name="play_explicit_content_description">Enable to play explicit content</string>

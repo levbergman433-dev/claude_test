@@ -67,6 +67,22 @@ val LocalIsDarkTheme = staticCompositionLocalOf { true }
 val LocalLiquidGlassEnabled = staticCompositionLocalOf { true }
 
 /**
+ * Whether glass surfaces draw the Apple (iOS 26 Liquid Glass) look — clearer tint, a thin specular
+ * rim and a touch of edge dispersion — rather than the original darker "Classic" frosted glass.
+ * Provided by [AppTheme] from the Glass style setting.
+ */
+val LocalAppleGlass = staticCompositionLocalOf { true }
+
+/**
+ * True while the Battery saver setting is on: decorative, continuously-running work (animated
+ * backgrounds, how often glass re-samples the content behind it) is reduced or frozen.
+ */
+val LocalBatterySaver = staticCompositionLocalOf { false }
+
+/** True when top-level pages (Home, Library) use Apple Music-style large titles. */
+val LocalLargeTitles = staticCompositionLocalOf { true }
+
+/**
  * The dark scheme to use for immersive screens while the app itself is on the light theme.
  * Provided by [AppTheme], consumed by [ForceDarkContent]; null only outside of [AppTheme].
  */
@@ -115,6 +131,19 @@ private fun ColorScheme.withNeutralLightSurfaces(): ColorScheme =
         inverseOnSurface = Color(0xFFF1F1F1),
     )
 
+/**
+ * Pins the accent roles to Apple Music red. Only the accent moves: surfaces, text and the rest of
+ * the tonal ramp stay seed-derived, so the page keeps Apple's neutral black/white look with red
+ * reserved for what is interactive or selected (tab icons, sliders, primary buttons).
+ */
+private fun ColorScheme.withAppleMusicAccent(): ColorScheme =
+    copy(
+        primary = appleMusicRed,
+        onPrimary = Color.White,
+        inversePrimary = appleMusicRed,
+        surfaceTint = appleMusicRed,
+    )
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun AppTheme(
@@ -122,6 +151,9 @@ fun AppTheme(
     themeColorSource: String = DataStoreManager.THEME_COLOR_DEFAULT,
     customThemeColor: Color? = null,
     liquidGlassEnabled: Boolean = true,
+    glassStyle: String = DataStoreManager.GLASS_STYLE_APPLE,
+    batterySaver: Boolean = false,
+    largeTitles: Boolean = true,
     content:
         @Composable()
         () -> Unit,
@@ -133,11 +165,12 @@ fun AppTheme(
         } else {
             null
         }
+    val isAppleMusicColor = themeColorSource == DataStoreManager.THEME_COLOR_APPLE_MUSIC
     val seedColor =
-        if (themeColorSource == DataStoreManager.THEME_COLOR_CUSTOM) {
-            customThemeColor ?: seed
-        } else {
-            seed
+        when (themeColorSource) {
+            DataStoreManager.THEME_COLOR_CUSTOM -> customThemeColor ?: seed
+            DataStoreManager.THEME_COLOR_APPLE_MUSIC -> appleMusicRed
+            else -> seed
         }
     // Symmetric base: dark pins background/surface to pure black via isAmoled; light pins them to
     // pure white with a neutral-grey ramp (the seed otherwise tints the light neutrals warm/cream).
@@ -148,7 +181,10 @@ fun AppTheme(
                 isDark = isDark,
                 isAmoled = isDark,
                 style = PaletteStyle.TonalSpot,
-                modifyColorScheme = { cs -> if (isDark) cs else cs.withNeutralLightSurfaces() },
+                modifyColorScheme = { cs ->
+                    val base = if (isDark) cs else cs.withNeutralLightSurfaces()
+                    if (isAppleMusicColor) base.withAppleMusicAccent() else base
+                },
             )
     // Immersive screens stay dark even at light theme (see [ForceDarkContent]). Resolve their scheme
     // once here instead of letting every such subtree build a palette of its own.
@@ -161,6 +197,7 @@ fun AppTheme(
                 isDark = true,
                 isAmoled = true,
                 style = PaletteStyle.TonalSpot,
+                modifyColorScheme = { cs -> if (isAppleMusicColor) cs.withAppleMusicAccent() else cs },
             )
         }
     SystemBarAppearanceEffect(isDark)
@@ -174,6 +211,9 @@ fun AppTheme(
                 LocalIsDarkTheme provides isDark,
                 LocalForcedDarkColorScheme provides forcedDarkScheme,
                 LocalLiquidGlassEnabled provides liquidGlassEnabled,
+                LocalAppleGlass provides (glassStyle != DataStoreManager.GLASS_STYLE_CLASSIC),
+                LocalBatterySaver provides batterySaver,
+                LocalLargeTitles provides largeTitles,
                 content = content,
             )
         },

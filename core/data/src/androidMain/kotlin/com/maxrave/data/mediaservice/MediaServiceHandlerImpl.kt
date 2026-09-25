@@ -109,6 +109,11 @@ import kotlin.math.pow
 
 private val TAG = "Media3ServiceHandlerImpl"
 
+// Progress ticker cadence (see MediaServiceHandlerImpl.progressTickMs).
+private const val PROGRESS_TICK_VISIBLE_MS = 100L
+private const val PROGRESS_TICK_SPONSOR_BLOCK_MS = 250L
+private const val PROGRESS_TICK_BACKGROUND_MS = 1_000L
+
 internal class MediaServiceHandlerImpl(
     private val dataStoreManager: DataStoreManager,
     private val songRepository: SongRepository,
@@ -237,6 +242,10 @@ internal class MediaServiceHandlerImpl(
     private var getFormatJob: Job? = null
 
     private var progressJob: Job? = null
+
+    // Written from the Activity's onStart/onStop, read by the progress loop on another dispatcher.
+    @Volatile
+    private var isUiVisible = true
 
     private var bufferedJob: Job? = null
 
@@ -885,9 +894,13 @@ internal class MediaServiceHandlerImpl(
                 val positionPersistIntervalMs = 5_000L
                 var sinceLastPositionSaveMs = 0L
                 while (true) {
-                    delay(100)
+                    // Fine cadence only while the UI is on screen; otherwise the consumers left
+                    // (SponsorBlock, watch-time, Listen Together seek detection, the 5 s persist
+                    // below) are all satisfied by a much coarser tick. See setUiVisible.
+                    val tickMs = progressTickMs()
+                    delay(tickMs)
                     _simpleMediaState.value = SimpleMediaState.Progress(player.currentPosition)
-                    sinceLastPositionSaveMs += 100
+                    sinceLastPositionSaveMs += tickMs
                     if (sinceLastPositionSaveMs >= positionPersistIntervalMs) {
                         sinceLastPositionSaveMs = 0
                         mayBeSaveRecentPosition()
@@ -899,6 +912,19 @@ internal class MediaServiceHandlerImpl(
                 }
             }
     }
+
+    override fun setUiVisible(visible: Boolean) {
+        isUiVisible = visible
+    }
+
+    private fun progressTickMs(): Long =
+        when {
+            isUiVisible -> PROGRESS_TICK_VISIBLE_MS
+            // SponsorBlock compares the position against segment bounds on each tick, so keep it
+            // tight enough that a skip still lands within a quarter second of the segment start.
+            !skipSegments.value.isNullOrEmpty() -> PROGRESS_TICK_SPONSOR_BLOCK_MS
+            else -> PROGRESS_TICK_BACKGROUND_MS
+        }
 
     override fun startBufferedUpdate() {
         // Same reason as startProgressUpdate above: this is reached once per track load and once

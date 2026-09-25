@@ -76,6 +76,7 @@ import com.maxrave.simpmusic.ui.component.LibraryItemType
 import com.maxrave.simpmusic.ui.component.LibraryTilingBox
 import com.maxrave.simpmusic.ui.component.ListenTogetherIconButton
 import com.maxrave.simpmusic.ui.component.RippleIconButton
+import com.maxrave.simpmusic.ui.component.largeTitleStyle
 import com.maxrave.simpmusic.ui.component.selection.SelectedSongsBottomSheet
 import com.maxrave.simpmusic.ui.component.selection.SongSelectionTopAppBar
 import com.maxrave.simpmusic.ui.component.selection.rememberSongSelectionState
@@ -83,6 +84,7 @@ import com.maxrave.simpmusic.ui.icon.Groups
 import com.maxrave.simpmusic.ui.icon.PeopleAlt
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.home.ListenTogetherDestination
+import com.maxrave.simpmusic.ui.theme.LocalLargeTitles
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LibraryViewModel
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
@@ -461,8 +463,9 @@ fun LibraryScreen(
             title = {
                 Text(
                     text = stringResource(Res.string.library),
-                    style = typo().titleMedium,
+                    style = if (LocalLargeTitles.current) largeTitleStyle() else typo().titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
                 )
             },
             colors =

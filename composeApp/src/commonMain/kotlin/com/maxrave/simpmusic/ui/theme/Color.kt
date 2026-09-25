@@ -10,6 +10,13 @@ import androidx.compose.ui.graphics.Color
  */
 val seed = Color(0xFF8ECAE6)
 
+/**
+ * Apple Music's accent red. Used as the seed AND pinned as `primary` by the "Apple Music" theme
+ * colour option: a seed alone is run through the tonal palette and comes out a muted rose, which
+ * is not the colour anyone means by "Apple Music red".
+ */
+val appleMusicRed = Color(0xFFFA2D48)
+
 // ===== Semantic colors (not derivable from the color scheme) =====
 
 /** Liked/favorite state (heart buttons, favorite tiles). */

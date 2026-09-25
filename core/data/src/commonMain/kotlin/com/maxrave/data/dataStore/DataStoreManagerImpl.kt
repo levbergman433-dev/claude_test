@@ -1580,6 +1580,45 @@ internal class DataStoreManagerImpl(
         }
     }
 
+    override val glassStyle: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[GLASS_STYLE] ?: DataStoreManager.GLASS_STYLE_APPLE
+        }
+
+    override suspend fun setGlassStyle(style: String) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[GLASS_STYLE] = style
+            }
+        }
+    }
+
+    override val batterySaver: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[BATTERY_SAVER] ?: FALSE
+        }
+
+    override suspend fun setBatterySaver(enable: Boolean) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[BATTERY_SAVER] = if (enable) TRUE else FALSE
+            }
+        }
+    }
+
+    override val largeTitles: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[LARGE_TITLES] ?: TRUE
+        }
+
+    override suspend fun setLargeTitles(enable: Boolean) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[LARGE_TITLES] = if (enable) TRUE else FALSE
+            }
+        }
+    }
+
     override val explicitContentEnabled: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[EXPLICIT_CONTENT_ENABLED] ?: TRUE
@@ -1853,6 +1892,9 @@ internal class DataStoreManagerImpl(
         val BACKUP_DOWNLOADED = stringPreferencesKey("backup_downloaded")
 
         val LIQUID_GLASS = stringPreferencesKey("liquid_glass")
+        val GLASS_STYLE = stringPreferencesKey("glass_style")
+        val BATTERY_SAVER = stringPreferencesKey("battery_saver")
+        val LARGE_TITLES = stringPreferencesKey("large_titles")
 
         val EXPLICIT_CONTENT_ENABLED = stringPreferencesKey("explicit_content_enabled")
 

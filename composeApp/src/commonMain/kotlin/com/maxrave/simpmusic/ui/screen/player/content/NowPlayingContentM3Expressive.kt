@@ -5,11 +5,7 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -94,6 +90,7 @@ import com.maxrave.simpmusic.ui.component.ExplicitBadge
 import com.maxrave.simpmusic.ui.component.heartBurst
 import com.maxrave.simpmusic.ui.component.rememberHeartBurstState
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
+import com.maxrave.simpmusic.ui.component.rememberLoopingPhase
 import com.maxrave.simpmusic.ui.icon.AddCircleOutline
 import com.maxrave.simpmusic.ui.icon.CheckCircle
 import com.maxrave.simpmusic.ui.icon.Favorite
@@ -523,21 +520,10 @@ private fun NowPlayingM3ExpressiveLayout(
                                             modifier = Modifier.weight(1f),
                                             textAlign = TextAlign.Left,
                                         )
-                                        // Sweep head for the "Crossfading" shimmer, 0..1. Runs
-                                        // unconditionally: behind the crossfade check it would
-                                        // restart from zero each time the label appears (same
-                                        // rationale as the desktop MiniPlayer's crossfadeSweep).
-                                        val sweepTransition = rememberInfiniteTransition(label = "m3eCrossfadeSweep")
-                                        val crossfadeSweep by sweepTransition.animateFloat(
-                                            initialValue = 0f,
-                                            targetValue = 1f,
-                                            animationSpec =
-                                                infiniteRepeatable(
-                                                    animation = tween(3200, easing = LinearEasing),
-                                                    repeatMode = RepeatMode.Restart,
-                                                ),
-                                            label = "m3eSweepHead",
-                                        )
+                                        // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
+                                        // resumes from where it paused, so the sweep never jumps and nothing redraws per frame
+                                        // while the label is hidden (see rememberLoopingPhase).
+                                        val crossfadeSweep by rememberLoopingPhase(active = state.timelineState.isCrossfading)
                                         AnimatedVisibility(
                                             enter = fadeIn(),
                                             exit = fadeOut(),

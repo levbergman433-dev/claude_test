@@ -44,10 +44,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.PI
 import kotlin.math.abs
@@ -202,6 +204,10 @@ internal class CrossfadeExoPlayerAdapter(
     private var cachedIsLoading = false
 
     private var positionUpdateJob: Job? = null
+
+    // Wakes the position loop out of its idle wait the moment playback (re)starts. See
+    // startPositionUpdates: while not playing it waits up to a second instead of polling at 200 ms.
+    private val positionLoopWake = Channel<Unit>(Channel.CONFLATED)
 
     // Active Player.Listener (equivalent to BusListeners in GstreamerPlayerAdapter)
     // Only ONE listener instance, attached to ONE ExoPlayer at a time.
@@ -1389,6 +1395,7 @@ internal class CrossfadeExoPlayerAdapter(
 
         val oldState = internalState
         internalState = newState
+        if (newState == InternalState.PLAYING) positionLoopWake.trySend(Unit)
 
         Logger.d(TAG, "State: $oldState -> $newState (playWhenReady=$internalPlayWhenReady)")
 
@@ -2830,7 +2837,15 @@ internal class CrossfadeExoPlayerAdapter(
                         // Ignore query errors - don't log to avoid spam
                     }
 
-                    delay(200) // Update every 200ms
+                    if (internalState == InternalState.PLAYING) {
+                        delay(200) // Update every 200ms
+                    } else {
+                        // Paused, buffering or idle: the position cannot drift (seekTo writes the
+                        // cache directly), so there is nothing to poll. Waking five times a second
+                        // for the whole time a track sits paused kept the CPU busy for nothing;
+                        // transitionToState(PLAYING) wakes this wait immediately instead.
+                        withTimeoutOrNull(1_000) { positionLoopWake.receive() }
+                    }
                 }
             }
     }

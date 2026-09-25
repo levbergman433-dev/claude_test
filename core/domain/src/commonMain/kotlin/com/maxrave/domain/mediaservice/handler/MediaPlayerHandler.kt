@@ -136,6 +136,17 @@ interface MediaPlayerHandler {
 
     fun startProgressUpdate()
 
+    /**
+     * Tells the handler whether any app UI is currently on screen.
+     *
+     * The progress ticker only needs its fine 100 ms cadence while something draws it (the
+     * scrubber, synced lyrics). With the screen off or the app in the background it can tick far
+     * less often, which keeps the CPU asleep between ticks instead of waking it ten times a
+     * second for the whole listening session. The default is a no-op so hosts that never report
+     * visibility (Desktop) keep the fine cadence.
+     */
+    fun setUiVisible(visible: Boolean) {}
+
     fun stopProgressUpdate()
 
     fun startBufferedUpdate()

@@ -1,12 +1,7 @@
 package com.maxrave.simpmusic.ui.component
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -53,21 +48,17 @@ fun InfiniteBorderAnimationView(
     oneCircleDurationMillis: Int = 3000,
     content: @Composable () -> Unit,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "Infinite Color Animation")
-    val degrees by infiniteTransition.animateFloat(
-        initialValue = 90f,
-        targetValue = 450f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = oneCircleDurationMillis, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-        label = "Infinite Colors",
-    )
     val scaleAnimationValue by animateFloatAsState(
         if (isAnimated) 1f else 0f,
         tween(800),
     )
+    // Spins only while the border is (or is still fading) visible. An infinite transition here kept
+    // every chip redrawing at the display refresh rate even with the border scaled to nothing.
+    val spin by rememberLoopingPhase(
+        active = isAnimated || scaleAnimationValue > 0f,
+        periodMillis = oneCircleDurationMillis,
+    )
+    val degrees = 90f + spin * 360f
     Surface(
         modifier =
             Modifier
@@ -133,17 +124,11 @@ fun LimitedBorderAnimationView(
         }
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "Infinite Color Animation")
-    val degrees by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = oneCircleDurationMillis, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-        label = "Infinite Colors",
+    val spin by rememberLoopingPhase(
+        active = isAnimated && (shouldAnimate || scaleAnimationValue > 0f),
+        periodMillis = oneCircleDurationMillis,
     )
+    val degrees = spin * 360f
     Surface(
         modifier =
             Modifier

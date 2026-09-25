@@ -3,11 +3,6 @@ package com.maxrave.simpmusic.ui.screen.home
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -86,6 +81,7 @@ import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.LiquidGlassIconButton
+import com.maxrave.simpmusic.ui.component.rememberPingPong
 import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.ArrowForwardIos
 import com.maxrave.simpmusic.ui.icon.Check
@@ -522,12 +518,12 @@ private fun ConnectionLine(
 
     // Connecting is the one state the user is waiting on, and a static dot is indistinguishable
     // from a stuck one.
-    val pulse = rememberInfiniteTransition(label = "ltConnecting")
-    val dotAlpha by pulse.animateFloat(
-        initialValue = 1f,
-        targetValue = 0.2f,
-        animationSpec = infiniteRepeatable(tween(650), RepeatMode.Reverse),
-        label = "ltConnectingAlpha",
+    // Pulses only while connecting, which is the only state that reads it.
+    val dotAlpha by rememberPingPong(
+        active = connection is RoomConnection.Connecting,
+        from = 1f,
+        to = 0.2f,
+        durationMillis = 650,
     )
 
     Row(

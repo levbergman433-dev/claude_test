@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -44,7 +43,10 @@ import com.kyant.backdrop.effects.colorControls
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.highlight.HighlightStyle
+import com.kyant.backdrop.shadow.InnerShadow
 import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
+import com.maxrave.simpmusic.ui.theme.LocalAppleGlass
 import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import kotlinx.coroutines.CoroutineScope
@@ -90,16 +92,19 @@ fun Modifier.liquidGlass(
             .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f))
     }
     val isDark = LocalIsDarkTheme.current
-    val layer = rememberGraphicsLayer()
     val interaction = rememberGlassInteraction()
     return this.drawInteractiveGlass(
         isDark = isDark,
         backdrop = backdrop,
-        layer = layer,
+        // No layer: nothing samples this surface's luminance (it is fixed at 0.5 below), so
+        // recording the backdrop a second time into a private layer on every frame was pure GPU
+        // overhead — one extra render pass per glass button per frame.
+        layer = null,
         luminanceAnimation = 0.5f,
         shape = shape,
         interaction = if (interactive) interaction else null,
         highlight = highlight,
+        appleStyle = LocalAppleGlass.current,
     )
 }
 
@@ -140,6 +145,7 @@ fun Modifier.liquidGlass(
         blurScale = blurScale,
         minScrim = minScrim,
         maxScrim = maxScrim,
+        appleStyle = LocalAppleGlass.current,
     )
 }
 
@@ -239,10 +245,24 @@ fun rememberGlassInteraction(): GlassInteraction {
 }
 
 /**
- * Draws the liquid-glass effect with the same look as the legacy
- * `drawBackdropCustomShape`, plus an optional press response driven by
- * [interaction]: the surface scales up a touch, the refraction/blur deepen and a
- * radial glow follows the pointer. Pass `interaction = null` for a static surface.
+ * Rim used by the Apple glass style when the caller did not ask for a specific one: a touch wider
+ * and brighter than Kyant's 0.5dp default, so the specular edge reads on small buttons as well as on
+ * long pills. It keeps [HighlightStyle.Default]'s directional sweep — which lights the top-left and
+ * bottom-right edges and leaves the other two dim, the way Apple's glass catches light.
+ */
+private val AppleGlassHighlight =
+    Highlight(
+        width = 1.dp,
+        style = HighlightStyle.Default(color = Color.White.copy(alpha = 0.65f)),
+    )
+
+/**
+ * Draws the liquid-glass effect, plus an optional press response driven by [interaction]: the
+ * surface scales up a touch, the refraction/blur deepen and a radial glow follows the pointer.
+ * Pass `interaction = null` for a static surface.
+ *
+ * [layer], when given, receives a copy of the backdrop every frame so the caller can sample its
+ * luminance (see [rememberBackdropLuminance]); pass null when nobody reads it.
  *
  * [luminanceAnimation] keeps the brightness/contrast curve of the original
  * wrapper (the bottom navigation bar animates it; static surfaces pass `0.5f`).
@@ -252,11 +272,19 @@ fun rememberGlassInteraction(): GlassInteraction {
  * always drawn with, so every existing caller is unaffected; the Desktop capsule
  * raises both because at the shared settings (7–11dp of blur over a 0.12 scrim floor)
  * the artwork behind it stays legible instead of dissolving the way Apple's does.
+ *
+ * [appleStyle] selects the iOS 26 look over the original ("Classic") one:
+ *  - saturation is boosted once (the classic stack applied `vibrancy()` AND a 1.5 saturation
+ *    colour control, i.e. 2.25×, which is what made artwork behind it look neon);
+ *  - the blur is lighter, so the glass stays clear and the content behind it recognisable;
+ *  - the lens adds chromatic dispersion at the rim — the faint colour fringe of real glass;
+ *  - the tint is roughly half as dense, with a soft specular sheen across the top;
+ *  - pressing lifts the surface with an inner shadow, as Apple's controls do.
  */
 fun Modifier.drawInteractiveGlass(
     isDark: Boolean,
     backdrop: PlatformBackdrop,
-    layer: GraphicsLayer,
+    layer: GraphicsLayer?,
     luminanceAnimation: Float,
     shape: Shape,
     interaction: GlassInteraction?,
@@ -265,6 +293,7 @@ fun Modifier.drawInteractiveGlass(
     blurScale: Float = 1f,
     minScrim: Float = 0.12f,
     maxScrim: Float = 0.5f,
+    appleStyle: Boolean = false,
 ): Modifier =
     this
         .drawBackdrop(
@@ -275,42 +304,81 @@ fun Modifier.drawInteractiveGlass(
             // whole outline. That reads well on an elongated pill, whose long edge catches
             // the sweep, and is nearly invisible on a small circle. Pass Highlight.Plain for
             // a uniform rim all the way round.
-            highlight = { highlight },
+            highlight = {
+                if (appleStyle && highlight == Highlight.Default) AppleGlassHighlight else highlight
+            },
+            innerShadow =
+                if (appleStyle && interaction != null) {
+                    {
+                        val press = interaction.pressProgress
+                        InnerShadow(radius = 8f.dp * press, alpha = press)
+                    }
+                } else {
+                    null
+                },
             effects = {
                 val l = (luminanceAnimation * 2f - 1f).let { sign(it) * it * it }
                 val press = interaction?.pressProgress ?: 0f
+                val baseBlur =
+                    if (l > 0f) {
+                        lerp(8f.dp.toPx(), 16f.dp.toPx(), l)
+                    } else {
+                        lerp(8f.dp.toPx(), 2f.dp.toPx(), -l)
+                    }
                 vibrancy()
-                colorControls(
-                    // Neutral brightness/contrast: the old curve brightened + washed the glass out
-                    // to white on bright backgrounds ("đục trắng"). Darkening is done in onDrawSurface.
-                    brightness = 0.05f,
-                    contrast = 1f,
-                    saturation = 1.5f,
-                )
-                blur(
-                    (
-                        if (l > 0f) {
-                            lerp(8f.dp.toPx(), 16f.dp.toPx(), l)
-                        } else {
-                            lerp(8f.dp.toPx(), 2f.dp.toPx(), -l)
-                        }
-                    ) * blurScale + 2f.dp.toPx() * press,
-                )
+                if (appleStyle) {
+                    blur(baseBlur * blurScale * 0.75f + 2f.dp.toPx() * press)
+                } else {
+                    colorControls(
+                        // Neutral brightness/contrast: the old curve brightened + washed the glass out
+                        // to white on bright backgrounds ("đục trắng"). Darkening is done in onDrawSurface.
+                        brightness = 0.05f,
+                        contrast = 1f,
+                        saturation = 1.5f,
+                    )
+                    blur(baseBlur * blurScale + 2f.dp.toPx() * press)
+                }
                 // refractionHeight stays below the stadium inradius (minDimension / 2) so the
                 // top and bottom refraction never meet at the medial axis — that meeting point on
                 // a wide pill is what produced the dark horizontal seam. depthEffect is off to
                 // match the crisp Kyant demo look and avoid the radial discontinuity at the centre.
-                lens(size.minDimension / 4f + 2f.dp.toPx() * press, size.minDimension / 2f, false)
+                lens(
+                    size.minDimension / 4f + 2f.dp.toPx() * press,
+                    size.minDimension / 2f,
+                    depthEffect = false,
+                    chromaticAberration = appleStyle,
+                )
             },
-            onDrawBackdrop = { drawBackdrop ->
-                drawBackdrop()
-                layer.record { drawBackdrop() }
-            },
+            onDrawBackdrop =
+                if (layer != null) {
+                    { drawBackdrop ->
+                        drawBackdrop()
+                        layer.record { drawBackdrop() }
+                    }
+                } else {
+                    { drawBackdrop -> drawBackdrop() }
+                },
             onDrawSurface = {
                 // Stay "đục đen": darken more as the background brightens so the glass never washes
                 // out to white (shared by the bottom bar capsule, search FAB and detail-screen pills).
-                val darken = lerp(minScrim, maxScrim, ((luminanceAnimation - 0.3f) / 0.5f).coerceIn(0f, 1f))
+                val ramp = ((luminanceAnimation - 0.3f) / 0.5f).coerceIn(0f, 1f)
+                val darken =
+                    if (appleStyle) {
+                        lerp(minScrim * 0.6f, maxScrim * 0.6f, ramp)
+                    } else {
+                        lerp(minScrim, maxScrim, ramp)
+                    }
                 drawRect((if (isDark) Color.Black else Color.White).copy(alpha = darken))
+                if (appleStyle) {
+                    // Specular sheen: light falling on the upper half of the pane.
+                    drawRect(
+                        brush =
+                            Brush.verticalGradient(
+                                0f to Color.White.copy(alpha = if (isDark) 0.07f else 0.12f),
+                                0.55f to Color.Transparent,
+                            ),
+                    )
+                }
                 val press = interaction?.pressProgress ?: 0f
                 if (press > 0f) {
                     drawRect(

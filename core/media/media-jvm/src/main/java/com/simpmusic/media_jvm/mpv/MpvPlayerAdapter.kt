@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.lastOrNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
@@ -175,6 +177,10 @@ class MpvPlayerAdapter(
 
     // Position update job (fallback polling for crossfade detection)
     private var positionUpdateJob: Job? = null
+
+    // Wakes the position loop out of its idle wait the moment playback (re)starts. See
+    // startPositionUpdates: while not playing it waits up to a second instead of polling at 200 ms.
+    private val positionLoopWake = Channel<Unit>(Channel.CONFLATED)
 
     // Precaching system
     private data class PrecachedPlayer(
@@ -1176,6 +1182,7 @@ class MpvPlayerAdapter(
 
         val oldState = internalState
         internalState = newState
+        if (newState == InternalState.PLAYING) positionLoopWake.trySend(Unit)
 
         Logger.d(TAG, "State transition: $oldState -> $newState (playWhenReady=$internalPlayWhenReady)")
 
@@ -2618,7 +2625,13 @@ class MpvPlayerAdapter(
                         // Ignore query errors
                     }
 
-                    delay(200) // Update every 200ms
+                    if (internalState == InternalState.PLAYING) {
+                        delay(200) // Update every 200ms
+                    } else {
+                        // Paused, buffering or idle: nothing moves, so wait for playback to
+                        // start (transitionToState wakes this) rather than polling mpv 5x a second.
+                        withTimeoutOrNull(1_000) { positionLoopWake.receive() }
+                    }
                 }
             }
     }

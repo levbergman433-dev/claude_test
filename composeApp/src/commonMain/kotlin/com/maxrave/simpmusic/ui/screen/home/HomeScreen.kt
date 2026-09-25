@@ -122,6 +122,7 @@ import com.maxrave.simpmusic.ui.component.QuickPicksItem
 import com.maxrave.simpmusic.ui.component.ReviewDialog
 import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.component.ShareSavedLyricsDialog
+import com.maxrave.simpmusic.ui.component.largeTitleStyle
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.icon.Groups
 import com.maxrave.simpmusic.ui.icon.History
@@ -139,6 +140,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
+import com.maxrave.simpmusic.ui.theme.LocalLargeTitles
 import com.maxrave.simpmusic.ui.theme.desktopPanelDark
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.FOOTGUNS_STAR_KEY
@@ -183,6 +185,7 @@ import simpmusic.composeapp.generated.resources.good_afternoon
 import simpmusic.composeapp.generated.resources.good_evening
 import simpmusic.composeapp.generated.resources.good_morning
 import simpmusic.composeapp.generated.resources.good_night
+import simpmusic.composeapp.generated.resources.home
 import simpmusic.composeapp.generated.resources.let_s_pick_a_playlist_for_you
 import simpmusic.composeapp.generated.resources.let_s_start_with_a_radio
 import simpmusic.composeapp.generated.resources.log_in_warning
@@ -897,34 +900,51 @@ fun HomeTopAppBar(navController: NavController) {
                 TopAppBarDefaults.windowInsets.only(WindowInsetsSides.Start),
             ),
         title = {
-            Column {
-                Text(
-                    text = stringResource(Res.string.app_name),
-                    style = typo().titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-                Text(
-                    text =
-                        when (hour) {
-                            in 6..12 -> {
-                                stringResource(Res.string.good_morning)
-                            }
+            val greeting =
+                when (hour) {
+                    in 6..12 -> {
+                        stringResource(Res.string.good_morning)
+                    }
 
-                            in 13..17 -> {
-                                stringResource(Res.string.good_afternoon)
-                            }
+                    in 13..17 -> {
+                        stringResource(Res.string.good_afternoon)
+                    }
 
-                            in 18..23 -> {
-                                stringResource(Res.string.good_evening)
-                            }
+                    in 18..23 -> {
+                        stringResource(Res.string.good_evening)
+                    }
 
-                            else -> {
-                                stringResource(Res.string.good_night)
-                            }
-                        },
-                    style = typo().bodySmall,
-                )
+                    else -> {
+                        stringResource(Res.string.good_night)
+                    }
+                }
+            if (LocalLargeTitles.current) {
+                // Apple Music layout: the greeting as a small caption over a large bold page title.
+                Column {
+                    Text(
+                        text = greeting,
+                        style = typo().bodySmall,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = stringResource(Res.string.home),
+                        style = largeTitleStyle(),
+                        maxLines = 1,
+                    )
+                }
+            } else {
+                Column {
+                    Text(
+                        text = stringResource(Res.string.app_name),
+                        style = typo().titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
+                    Text(
+                        text = greeting,
+                        style = typo().bodySmall,
+                    )
+                }
             }
         },
         actions = {

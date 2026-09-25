@@ -152,6 +152,9 @@ fun App(
 
     val isTranslucentBottomBar by viewModel.getTranslucentBottomBar().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLiquidGlassEnabled by viewModel.getEnableLiquidGlass().collectAsStateWithLifecycle(DataStoreManager.FALSE)
+    val glassStyle by viewModel.getGlassStyle().collectAsStateWithLifecycle(DataStoreManager.GLASS_STYLE_APPLE)
+    val isBatterySaver by viewModel.getBatterySaver().collectAsStateWithLifecycle(DataStoreManager.FALSE)
+    val isLargeTitles by viewModel.getLargeTitles().collectAsStateWithLifecycle(DataStoreManager.TRUE)
     // Analytics only makes sense with local tracking on, so its tab follows that setting.
     val isLocalTrackingEnabled by viewModel.getLocalTrackingEnabled().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val showAnalyticsTab = isLocalTrackingEnabled == TRUE
@@ -435,6 +438,9 @@ fun App(
         // Desktop is unconditionally true — the liquid-glass setting row is Android-only, and the
         // Desktop capsule player is glass by design. Same rule as MiniPlayer's useGlassSurface.
         liquidGlassEnabled = isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop,
+        glassStyle = glassStyle,
+        batterySaver = isBatterySaver == TRUE,
+        largeTitles = isLargeTitles == TRUE,
     ) {
         // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
         // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).

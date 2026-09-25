@@ -4,11 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -49,6 +44,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import com.maxrave.simpmusic.ui.component.rememberPingPong
 import com.maxrave.simpmusic.ui.icon.Search
 import com.maxrave.simpmusic.ui.icon.Close
 import androidx.compose.runtime.CompositionLocalProvider
@@ -158,6 +154,7 @@ import com.maxrave.simpmusic.ui.icon.Shuffle
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.Sort
 import com.maxrave.simpmusic.ui.icon.TipsAndUpdates
+import com.maxrave.simpmusic.ui.theme.LocalBatterySaver
 import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.seed
 import com.maxrave.simpmusic.ui.theme.typo
@@ -236,29 +233,6 @@ fun LocalPlaylistScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val aiPainter = rememberVectorPainter(SimpIcons.TipsAndUpdates)
-    val limit = 1.5f
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val progressAnimated by transition.animateFloat(
-        initialValue = -limit,
-        targetValue = limit,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(5000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "shimmer",
-    )
-    val infiniteTransition = rememberInfiniteTransition(label = "rotation")
-    val angle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(5000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-        label = "rotation",
-    )
 
     val lazyState = rememberLazyListState()
     val firstItemVisible by remember {
@@ -277,6 +251,15 @@ fun LocalPlaylistScreen(
     var showSelectionSheet by rememberSaveable { mutableStateOf(false) }
     var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
     var shouldShowSuggestButton by rememberSaveable { mutableStateOf(false) }
+    // Gradient drift across the AI-suggest icon. Only runs while that icon exists; it used to tick
+    // (alongside a rotation nothing read) for as long as any local playlist was open.
+    val limit = 1.5f
+    val progressAnimated by rememberPingPong(
+        active = shouldShowSuggestButton && !LocalBatterySaver.current,
+        from = -limit,
+        to = limit,
+        durationMillis = 5000,
+    )
 
     val playingTrack by sharedViewModel.nowPlayingState
         .mapLatest {

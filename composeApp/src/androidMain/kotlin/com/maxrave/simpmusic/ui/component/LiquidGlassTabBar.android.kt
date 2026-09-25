@@ -57,6 +57,7 @@ import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.InnerShadow
 import com.kyant.backdrop.shadow.Shadow
 import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
+import com.maxrave.simpmusic.ui.theme.LocalAppleGlass
 import com.maxrave.simpmusic.ui.theme.LocalIsDarkTheme
 import com.maxrave.simpmusic.ui.theme.typo
 import kotlinx.coroutines.CoroutineScope
@@ -129,6 +130,7 @@ fun LiquidGlassTabBar(
     val animationScope = rememberCoroutineScope()
     val barInteraction = rememberGlassInteraction()
     val isDark = LocalIsDarkTheme.current
+    val appleGlass = LocalAppleGlass.current
 
     var currentIndex by remember { mutableIntStateOf(selectedTab.coerceAtLeast(0)) }
     // [0] = a real drag happened (vs a pure tap) — keeps the blob from snapping back
@@ -198,7 +200,7 @@ fun LiquidGlassTabBar(
         // bar and the mini player read as one material (drawInteractiveGlass, no white veil).
         // barInteraction makes the whole capsule respond to a press (scale + touch glow) like iOS;
         // it's observe-only, so tab taps and the blob drag keep working.
-        Box(Modifier.matchParentSize().drawInteractiveGlass(isDark, backdrop, layer, luminance, CapsuleShape, barInteraction))
+        Box(Modifier.matchParentSize().drawInteractiveGlass(isDark, backdrop, layer, luminance, CapsuleShape, barInteraction, appleStyle = appleGlass))
 
         // 2) Frosted blob selection indicator — slides behind the icons.
         Box(
@@ -219,11 +221,14 @@ fun LiquidGlassTabBar(
                         val l = (luminance * 2f - 1f).let { sign(it) * it * it }
                         val progress = dampedDrag.pressProgress
                         vibrancy()
-                        colorControls(
-                            brightness = 0.05f,
-                            contrast = 1f,
-                            saturation = 1.5f,
-                        )
+                        // Apple glass saturates once; Classic stacks a second 1.5x on top of vibrancy().
+                        if (!appleGlass) {
+                            colorControls(
+                                brightness = 0.05f,
+                                contrast = 1f,
+                                saturation = 1.5f,
+                            )
+                        }
                         blur(
                             // Stronger than the bar's blur so the active pill reads as a clearly
                             // frosted surface (the previous amount was too weak / too close to the bar).

@@ -476,6 +476,24 @@ interface DataStoreManager {
 
     suspend fun setEnableLiquidGlass(enable: Boolean)
 
+    /** One of [GLASS_STYLE_APPLE] (default) or [GLASS_STYLE_CLASSIC]. */
+    val glassStyle: Flow<String>
+
+    suspend fun setGlassStyle(style: String)
+
+    /**
+     * [TRUE] trims purely decorative work — ambient animations, how often glass surfaces re-sample
+     * the content behind them — to save battery. Playback is never affected. Default [FALSE].
+     */
+    val batterySaver: Flow<String>
+
+    suspend fun setBatterySaver(enable: Boolean)
+
+    /** [TRUE] (default) shows Apple Music-style large page titles on Home and Library. */
+    val largeTitles: Flow<String>
+
+    suspend fun setLargeTitles(enable: Boolean)
+
     /** One of [THEME_MODE_SYSTEM], [THEME_MODE_DARK], [THEME_MODE_LIGHT]. */
     val themeMode: Flow<String>
 
@@ -600,6 +618,10 @@ interface DataStoreManager {
         const val THEME_COLOR_DEFAULT = "DEFAULT"
         const val THEME_COLOR_WALLPAPER = "WALLPAPER"
         const val THEME_COLOR_CUSTOM = "CUSTOM"
+        const val THEME_COLOR_APPLE_MUSIC = "APPLE_MUSIC"
+
+        const val GLASS_STYLE_APPLE = "APPLE"
+        const val GLASS_STYLE_CLASSIC = "CLASSIC"
 
         const val DEFAULT_THEME_COLOR_HEX = "FF8ECAE6"
 
