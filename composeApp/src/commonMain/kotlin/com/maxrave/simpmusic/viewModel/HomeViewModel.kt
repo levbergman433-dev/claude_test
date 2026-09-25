@@ -1,6 +1,7 @@
 package com.maxrave.simpmusic.viewModel
 
 import androidx.lifecycle.viewModelScope
+import com.maxrave.common.Config
 import com.maxrave.common.SELECTED_LANGUAGE
 import com.maxrave.common.SUPPORTED_LANGUAGE
 import com.maxrave.domain.data.entities.SongEntity
@@ -10,8 +11,12 @@ import com.maxrave.domain.data.model.home.chart.Chart
 import com.maxrave.domain.data.model.mood.Mood
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
+import com.maxrave.domain.mediaservice.handler.PlaylistType
+import com.maxrave.domain.mediaservice.handler.QueueData
 import com.maxrave.domain.repository.HomeRepository
+import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.utils.Resource
+import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.coroutines.Job
@@ -28,11 +33,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.koin.core.component.inject
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.music_video
 import simpmusic.composeapp.generated.resources.new_release
 import simpmusic.composeapp.generated.resources.song
 import simpmusic.composeapp.generated.resources.view_count
+
+private const val RECENTLY_PLAYED_COUNT = 12
 
 class HomeViewModel(
     private val dataStoreManager: DataStoreManager,
@@ -41,6 +49,35 @@ class HomeViewModel(
     private val _homeItemList: MutableStateFlow<List<HomeItem>> =
         MutableStateFlow(arrayListOf())
     val homeItemList: StateFlow<List<HomeItem>> = _homeItemList
+
+    private val songRepository: SongRepository by inject()
+
+    // "Recently Played" shelf of the Apple Music Home layout, read from local history.
+    private val _recentlyPlayed = MutableStateFlow<List<SongEntity>>(emptyList())
+    val recentlyPlayed: StateFlow<List<SongEntity>> = _recentlyPlayed
+
+    fun loadRecentlyPlayed() {
+        viewModelScope.launch {
+            _recentlyPlayed.value =
+                runCatching { songRepository.getRecentSong(RECENTLY_PLAYED_COUNT, 0) }.getOrDefault(emptyList())
+        }
+    }
+
+    /** Play [song] the way a song tile on Home does: as the seed of its radio. */
+    fun playSongRadio(song: SongEntity) {
+        val track = song.toTrack()
+        setQueueData(
+            QueueData.Data(
+                listTracks = arrayListOf(track),
+                firstPlayedTrack = track,
+                playlistId = "RDAMVM${song.videoId}",
+                playlistName = song.title,
+                playlistType = PlaylistType.RADIO,
+                continuation = null,
+            ),
+        )
+        loadMediaItem(track, Config.SONG_CLICK)
+    }
 
     private var _homeListState = MutableStateFlow<ListState>(ListState.IDLE)
     val homeListState: StateFlow<ListState> = _homeListState

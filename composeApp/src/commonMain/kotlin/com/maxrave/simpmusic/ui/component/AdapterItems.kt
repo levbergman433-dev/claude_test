@@ -102,6 +102,7 @@ import simpmusic.composeapp.generated.resources.app_name
 import simpmusic.composeapp.generated.resources.description
 import simpmusic.composeapp.generated.resources.playlist
 import simpmusic.composeapp.generated.resources.subscribers
+import simpmusic.composeapp.generated.resources.top_picks_for_you
 import simpmusic.composeapp.generated.resources.wrapped_recap_subtitle
 import simpmusic.composeapp.generated.resources.you
 
@@ -132,8 +133,10 @@ fun HomeItem(
     Column {
         if (LocalAppleLayout.current) {
             AppleShelfHeader(
-                title = data.title,
-                caption = data.subtitle,
+                // The carousel is Apple's "Top Picks for You"; YouTube's own shelf name stays as
+                // the caption so nothing is lost.
+                title = if (hero) stringResource(Res.string.top_picks_for_you) else data.title,
+                caption = if (hero) data.title else data.subtitle,
                 onClick =
                     channelId?.let { id ->
                         { navController.navigate(ArtistDestination(channelId = id)) }

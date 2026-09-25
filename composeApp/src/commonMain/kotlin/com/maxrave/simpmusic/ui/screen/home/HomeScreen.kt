@@ -88,6 +88,7 @@ import com.kmpalette.loader.rememberNetworkLoader
 import com.kmpalette.rememberDominantColorState
 import com.maxrave.common.CHART_SUPPORTED_COUNTRY
 import com.maxrave.common.Config
+import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.home.chart.Chart
@@ -104,6 +105,7 @@ import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
+import com.maxrave.simpmusic.ui.component.AppleRecentlyPlayedShelf
 import com.maxrave.simpmusic.ui.component.AppleShelfHeader
 import com.maxrave.simpmusic.ui.component.BlogPromoDialog
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
@@ -193,6 +195,7 @@ import simpmusic.composeapp.generated.resources.let_s_start_with_a_radio
 import simpmusic.composeapp.generated.resources.log_in_warning
 import simpmusic.composeapp.generated.resources.party
 import simpmusic.composeapp.generated.resources.quick_picks
+import simpmusic.composeapp.generated.resources.recently_played
 import simpmusic.composeapp.generated.resources.relax
 import simpmusic.composeapp.generated.resources.romance
 import simpmusic.composeapp.generated.resources.sad
@@ -238,6 +241,19 @@ fun HomeScreen(
     val accountInfo by viewModel.accountInfo.collectAsStateWithLifecycle()
     val homeData by viewModel.homeItemList.collectAsStateWithLifecycle()
     val appleLayout = LocalAppleLayout.current
+    val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
+    var recentSheetSong by remember { mutableStateOf<SongEntity?>(null) }
+    // Refresh whenever Home is (re)entered, so a song just played shows up at the front.
+    LaunchedEffect(appleLayout) {
+        if (appleLayout) viewModel.loadRecentlyPlayed()
+    }
+    recentSheetSong?.let { song ->
+        NowPlayingBottomSheet(
+            onDismiss = { recentSheetSong = null },
+            song = song,
+            navController = navController,
+        )
+    }
     val newRelease by viewModel.newRelease.collectAsStateWithLifecycle()
     val chart by viewModel.chart.collectAsStateWithLifecycle()
     val moodMomentAndGenre by viewModel.exploreMoodItem.collectAsStateWithLifecycle()
@@ -579,11 +595,19 @@ fun HomeScreen(
                     val quickPicksTitle = stringResource(Res.string.quick_picks)
                     val heroIndex =
                         if (appleLayout) homeData.indexOfFirst { it.title != quickPicksTitle } else -1
+                    // Apple Music order: Top Picks first, then (below it) Recently Played, then
+                    // everything else in YouTube's order.
+                    val displayData =
+                        if (heroIndex > 0) {
+                            listOf(homeData[heroIndex]) + homeData.filterIndexed { i, _ -> i != heroIndex }
+                        } else {
+                            homeData
+                        }
                     LazyColumn(
                         state = scrollState,
                         verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 20.dp),
                     ) {
-                        itemsIndexed(homeData, key = { _, item ->
+                        itemsIndexed(displayData, key = { _, item ->
                             item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
                         }) { index, item ->
                             Box {
@@ -676,7 +700,17 @@ fun HomeScreen(
                                         HomeItem(
                                             navController = navController,
                                             data = item,
-                                            hero = index == heroIndex,
+                                            hero = appleLayout && heroIndex >= 0 && index == 0,
+                                        )
+                                    }
+                                    if (appleLayout && index == 0 && recentlyPlayed.isNotEmpty()) {
+                                        Spacer(Modifier.height(28.dp))
+                                        AppleRecentlyPlayedShelf(
+                                            title = stringResource(Res.string.recently_played),
+                                            songs = recentlyPlayed,
+                                            onSongClick = { viewModel.playSongRadio(it) },
+                                            onSongLongClick = { recentSheetSong = it },
+                                            onSeeAll = { navController.navigate(RecentlySongsDestination) },
                                         )
                                     }
                                 }
@@ -965,8 +999,11 @@ fun HomeTopAppBar(navController: NavController) {
             RippleIconButton(imageVector = SimpIcons.Notifications, tint = MaterialTheme.colorScheme.onBackground) {
                 navController.navigate(NotificationDestination)
             }
-            RippleIconButton(imageVector = SimpIcons.History, tint = MaterialTheme.colorScheme.onBackground) {
-                navController.navigate(RecentlySongsDestination)
+            // Apple layout: history is the "Recently Played" shelf's chevron instead.
+            if (!LocalAppleLayout.current) {
+                RippleIconButton(imageVector = SimpIcons.History, tint = MaterialTheme.colorScheme.onBackground) {
+                    navController.navigate(RecentlySongsDestination)
+                }
             }
             // Fourth button, immediately before Settings — the position the design canvas fixes.
             ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
