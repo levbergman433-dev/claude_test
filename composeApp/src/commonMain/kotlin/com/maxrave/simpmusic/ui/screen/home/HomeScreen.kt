@@ -47,6 +47,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -76,6 +78,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -107,6 +110,7 @@ import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.AppleRecentlyPlayedShelf
 import com.maxrave.simpmusic.ui.component.AppleShelfHeader
+import com.maxrave.simpmusic.ui.component.AppleSongGrid
 import com.maxrave.simpmusic.ui.component.BlogPromoDialog
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.Chip
@@ -129,6 +133,7 @@ import com.maxrave.simpmusic.ui.component.largeTitleStyle
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.icon.Groups
 import com.maxrave.simpmusic.ui.icon.History
+import com.maxrave.simpmusic.ui.icon.MoreVert
 import com.maxrave.simpmusic.ui.icon.Notifications
 import com.maxrave.simpmusic.ui.icon.Settings
 import com.maxrave.simpmusic.ui.icon.SimpIcons
@@ -192,13 +197,17 @@ import simpmusic.composeapp.generated.resources.good_night
 import simpmusic.composeapp.generated.resources.home
 import simpmusic.composeapp.generated.resources.let_s_pick_a_playlist_for_you
 import simpmusic.composeapp.generated.resources.let_s_start_with_a_radio
+import simpmusic.composeapp.generated.resources.listen_together
 import simpmusic.composeapp.generated.resources.log_in_warning
+import simpmusic.composeapp.generated.resources.notification
 import simpmusic.composeapp.generated.resources.party
 import simpmusic.composeapp.generated.resources.quick_picks
+import simpmusic.composeapp.generated.resources.recently
 import simpmusic.composeapp.generated.resources.recently_played
 import simpmusic.composeapp.generated.resources.relax
 import simpmusic.composeapp.generated.resources.romance
 import simpmusic.composeapp.generated.resources.sad
+import simpmusic.composeapp.generated.resources.settings
 import simpmusic.composeapp.generated.resources.sleep
 import simpmusic.composeapp.generated.resources.top_artists
 import simpmusic.composeapp.generated.resources.warning
@@ -590,24 +599,11 @@ fun HomeScreen(
                         )
                         return@Crossfade
                     }
-                    // Apple Music layout: the first regular shelf (not Quick picks) becomes the
-                    // large-card "Top Picks" carousel.
-                    val quickPicksTitle = stringResource(Res.string.quick_picks)
-                    val heroIndex =
-                        if (appleLayout) homeData.indexOfFirst { it.title != quickPicksTitle } else -1
-                    // Apple Music order: Top Picks first, then (below it) Recently Played, then
-                    // everything else in YouTube's order.
-                    val displayData =
-                        if (heroIndex > 0) {
-                            listOf(homeData[heroIndex]) + homeData.filterIndexed { i, _ -> i != heroIndex }
-                        } else {
-                            homeData
-                        }
                     LazyColumn(
                         state = scrollState,
                         verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 20.dp),
                     ) {
-                        itemsIndexed(displayData, key = { _, item ->
+                        itemsIndexed(homeData, key = { _, item ->
                             item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
                         }) { index, item ->
                             Box {
@@ -649,7 +645,19 @@ fun HomeScreen(
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    if (index == 0 && accountInfo != null && accountShow) {
+                                    // Apple Music Home opens with Recently Played; there is no
+                                    // "Welcome back" account block.
+                                    if (appleLayout && index == 0 && recentlyPlayed.isNotEmpty()) {
+                                        AppleRecentlyPlayedShelf(
+                                            title = stringResource(Res.string.recently_played),
+                                            songs = recentlyPlayed,
+                                            onSongClick = { viewModel.playSongRadio(it) },
+                                            onSongLongClick = { recentSheetSong = it },
+                                            onSeeAll = { navController.navigate(RecentlySongsDestination) },
+                                        )
+                                        Spacer(Modifier.height(28.dp))
+                                    }
+                                    if (!appleLayout && index == 0 && accountInfo != null && accountShow) {
                                         AccountLayout(
                                             accountName = accountInfo?.first ?: "",
                                             url = accountInfo?.second ?: "",
@@ -700,17 +708,6 @@ fun HomeScreen(
                                         HomeItem(
                                             navController = navController,
                                             data = item,
-                                            hero = appleLayout && heroIndex >= 0 && index == 0,
-                                        )
-                                    }
-                                    if (appleLayout && index == 0 && recentlyPlayed.isNotEmpty()) {
-                                        Spacer(Modifier.height(28.dp))
-                                        AppleRecentlyPlayedShelf(
-                                            title = stringResource(Res.string.recently_played),
-                                            songs = recentlyPlayed,
-                                            onSongClick = { viewModel.playSongRadio(it) },
-                                            onSongLongClick = { recentSheetSong = it },
-                                            onSeeAll = { navController.navigate(RecentlySongsDestination) },
                                         )
                                     }
                                 }
@@ -966,8 +963,15 @@ fun HomeTopAppBar(navController: NavController) {
                         stringResource(Res.string.good_night)
                     }
                 }
-            if (LocalLargeTitles.current) {
-                // Apple Music layout: the greeting as a small caption over a large bold page title.
+            if (LocalAppleLayout.current) {
+                // Apple Music: just the page name, no greeting.
+                Text(
+                    text = stringResource(Res.string.home),
+                    style = largeTitleStyle().copy(fontWeight = FontWeight.SemiBold, fontFamily = null),
+                    maxLines = 1,
+                )
+            } else if (LocalLargeTitles.current) {
+                // Large titles: the greeting as a small caption over a large bold page title.
                 Column {
                     Text(
                         text = greeting,
@@ -996,19 +1000,57 @@ fun HomeTopAppBar(navController: NavController) {
             }
         },
         actions = {
-            RippleIconButton(imageVector = SimpIcons.Notifications, tint = MaterialTheme.colorScheme.onBackground) {
-                navController.navigate(NotificationDestination)
-            }
-            // Apple layout: history is the "Recently Played" shelf's chevron instead.
-            if (!LocalAppleLayout.current) {
+            if (LocalAppleLayout.current) {
+                // Apple Music keeps a single accent-coloured ⋮ in the corner; everything the icon
+                // row used to hold lives in its menu.
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    RippleIconButton(imageVector = SimpIcons.MoreVert, tint = MaterialTheme.colorScheme.primary) {
+                        menuOpen = true
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.notification)) },
+                            onClick = {
+                                menuOpen = false
+                                navController.navigate(NotificationDestination)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.recently)) },
+                            onClick = {
+                                menuOpen = false
+                                navController.navigate(RecentlySongsDestination)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.listen_together)) },
+                            onClick = {
+                                menuOpen = false
+                                navController.navigate(ListenTogetherDestination)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(Res.string.settings)) },
+                            onClick = {
+                                menuOpen = false
+                                navController.navigate(SettingsDestination)
+                            },
+                        )
+                    }
+                }
+            } else {
+                RippleIconButton(imageVector = SimpIcons.Notifications, tint = MaterialTheme.colorScheme.onBackground) {
+                    navController.navigate(NotificationDestination)
+                }
                 RippleIconButton(imageVector = SimpIcons.History, tint = MaterialTheme.colorScheme.onBackground) {
                     navController.navigate(RecentlySongsDestination)
                 }
-            }
-            // Fourth button, immediately before Settings — the position the design canvas fixes.
-            ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
-            RippleIconButton(imageVector = SimpIcons.Settings, tint = MaterialTheme.colorScheme.onBackground) {
-                navController.navigate(SettingsDestination)
+                // Fourth button, immediately before Settings — the position the design canvas fixes.
+                ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
+                RippleIconButton(imageVector = SimpIcons.Settings, tint = MaterialTheme.colorScheme.onBackground) {
+                    navController.navigate(SettingsDestination)
+                }
             }
         },
         colors =
@@ -1102,8 +1144,7 @@ fun QuickPicks(
         if (LocalAppleLayout.current) {
             AppleShelfHeader(
                 title = stringResource(Res.string.quick_picks),
-                caption = stringResource(Res.string.let_s_start_with_a_radio),
-                modifier = Modifier.padding(bottom = 6.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
             )
         } else {
             Text(
@@ -1120,6 +1161,30 @@ fun QuickPicks(
                         .fillMaxWidth()
                         .padding(vertical = 5.dp),
             )
+        }
+        if (LocalAppleLayout.current) {
+            AppleSongGrid(
+                items = homeItem.contents.filterNotNull(),
+                onClick = {
+                    val firstQueue: Track = it.toTrack()
+                    viewModel.setQueueData(
+                        QueueData.Data(
+                            listTracks = arrayListOf(firstQueue),
+                            firstPlayedTrack = firstQueue,
+                            playlistId = "RDAMVM${it.videoId}",
+                            playlistName = "\"${it.title}\" Radio",
+                            playlistType = PlaylistType.RADIO,
+                            continuation = null,
+                        ),
+                    )
+                    viewModel.loadMediaItem(firstQueue, type = Config.SONG_CLICK)
+                },
+                onMore = {
+                    track = it.toTrack()
+                    bottomSheetShow = true
+                },
+            )
+            return@Column
         }
         LazyHorizontalGrid(
             rows = GridCells.Fixed(4),

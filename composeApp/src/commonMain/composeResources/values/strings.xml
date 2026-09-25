@@ -596,7 +596,6 @@
     <string name="glass_style_apple">Apple (clear, specular rim)</string>
     <string name="glass_style_classic">Classic (dark frosted)</string>
     <string name="recently_played">Recently Played</string>
-    <string name="top_picks_for_you">Top Picks for You</string>
     <string name="apple_layout">Apple Music layout</string>
     <string name="apple_layout_description">Home and Library arranged like Apple Music: a Top Picks carousel, shelf headers, and a category list in Library. Off restores the classic layout</string>
     <string name="large_titles">Large titles</string>

@@ -102,7 +102,6 @@ import simpmusic.composeapp.generated.resources.app_name
 import simpmusic.composeapp.generated.resources.description
 import simpmusic.composeapp.generated.resources.playlist
 import simpmusic.composeapp.generated.resources.subscribers
-import simpmusic.composeapp.generated.resources.top_picks_for_you
 import simpmusic.composeapp.generated.resources.wrapped_recap_subtitle
 import simpmusic.composeapp.generated.resources.you
 
@@ -111,8 +110,6 @@ fun HomeItem(
     homeViewModel: HomeViewModel = koinViewModel(),
     navController: NavController,
     data: HomeItem,
-    // Apple Music layout: render this shelf as the large-card "Top Picks" carousel.
-    hero: Boolean = false,
 ) {
     var bottomSheetShow by remember { mutableStateOf(false) }
 
@@ -129,81 +126,80 @@ fun HomeItem(
         )
     }
 
+    if (LocalAppleLayout.current) {
+        AppleHomeShelf(
+            data = data,
+            navController = navController,
+            homeViewModel = homeViewModel,
+            onMore = {
+                track = it.toTrack()
+                bottomSheetShow = true
+            },
+        )
+        return
+    }
+
     val channelId = data.channelId
     Column {
-        if (LocalAppleLayout.current) {
-            AppleShelfHeader(
-                // The carousel is Apple's "Top Picks for You"; YouTube's own shelf name stays as
-                // the caption so nothing is lost.
-                title = if (hero) stringResource(Res.string.top_picks_for_you) else data.title,
-                caption = if (hero) data.title else data.subtitle,
-                onClick =
-                    channelId?.let { id ->
-                        { navController.navigate(ArtistDestination(channelId = id)) }
-                    },
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
-        } else {
-            Row(
-                modifier =
-                    if (channelId != null) {
-                        Modifier
-                            .focusable(true)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                navController.navigate(
-                                    ArtistDestination(
-                                        channelId = channelId,
-                                    ),
-                                )
-                            }
-                    } else {
-                        Modifier
-                    },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                AnimatedVisibility(
-                    visible = (data.thumbnail?.lastOrNull() != null),
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                ) {
-                    AsyncImage(
-                        model =
-                            ImageRequest
-                                .Builder(LocalPlatformContext.current)
-                                .data(data.thumbnail?.lastOrNull()?.url)
-                                .diskCachePolicy(CachePolicy.ENABLED)
-                                .diskCacheKey(data.thumbnail?.lastOrNull()?.url)
-                                .crossfade(550)
-                                .build(),
-                        contentDescription = "",
-                        placeholder = rememberHolderPainter(),
-                        error = rememberHolderPainter(),
-                        modifier =
-                            Modifier
-                                .size(36.dp)
-                                .clip(
-                                    CircleShape,
-                                ),
-                    )
-                }
-                Column(
+        Row(
+            modifier =
+                if (channelId != null) {
                     Modifier
-                        .padding(start = 10.dp),
-                ) {
-                    AnimatedVisibility(visible = (data.subtitle != null && data.subtitle != "")) {
-                        Text(
-                            text = data.subtitle ?: "",
-                            style = typo().bodySmall,
-                        )
-                    }
+                        .focusable(true)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            navController.navigate(
+                                ArtistDestination(
+                                    channelId = channelId,
+                                ),
+                            )
+                        }
+                } else {
+                    Modifier
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AnimatedVisibility(
+                visible = (data.thumbnail?.lastOrNull() != null),
+                modifier = Modifier.align(Alignment.CenterVertically),
+            ) {
+                AsyncImage(
+                    model =
+                        ImageRequest
+                            .Builder(LocalPlatformContext.current)
+                            .data(data.thumbnail?.lastOrNull()?.url)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .diskCacheKey(data.thumbnail?.lastOrNull()?.url)
+                            .crossfade(550)
+                            .build(),
+                    contentDescription = "",
+                    placeholder = rememberHolderPainter(),
+                    error = rememberHolderPainter(),
+                    modifier =
+                        Modifier
+                            .size(36.dp)
+                            .clip(
+                                CircleShape,
+                            ),
+                )
+            }
+            Column(
+                Modifier
+                    .padding(start = 10.dp),
+            ) {
+                AnimatedVisibility(visible = (data.subtitle != null && data.subtitle != "")) {
                     Text(
-                        text = data.title,
-                        style = typo().headlineMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        modifier = Modifier.fillMaxWidth(),
+                        text = data.subtitle ?: "",
+                        style = typo().bodySmall,
                     )
                 }
+                Text(
+                    text = data.title,
+                    style = typo().headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
         LazyRow(
@@ -211,21 +207,7 @@ fun HomeItem(
             flingBehavior = snapperFlingBehavior,
         ) {
             items(data.contents) { temp ->
-                if (temp != null && hero) {
-                    AppleHeroCard(
-                        data = temp,
-                        onClick = { homeContentClick(temp, navController, homeViewModel) },
-                        onLongClick =
-                            if (!temp.videoId.isNullOrEmpty()) {
-                                {
-                                    track = temp.toTrack()
-                                    bottomSheetShow = true
-                                }
-                            } else {
-                                null
-                            },
-                    )
-                } else if (temp != null) {
+                if (temp != null) {
                     val browseId = temp.browseId
                     val playlistId = temp.playlistId
                     if ((playlistId != null && temp.videoId == null) || (playlistId != null && temp.videoId == "")) {
@@ -339,8 +321,68 @@ fun HomeItem(
 }
 
 /**
+ * A YouTube Music Home shelf drawn the way Apple Music draws its shelves: a bold header (with a
+ * chevron when it opens an artist), then either the four-row song list when the shelf holds only
+ * songs, or square album / round artist tiles for everything else.
+ */
+@Composable
+private fun AppleHomeShelf(
+    data: HomeItem,
+    navController: NavController,
+    homeViewModel: HomeViewModel,
+    onMore: (Content) -> Unit,
+) {
+    val contents = data.contents.filterNotNull()
+    val channelId = data.channelId
+    Column {
+        AppleShelfHeader(
+            title = data.title,
+            onClick =
+                channelId?.let { id ->
+                    { navController.navigate(ArtistDestination(channelId = id)) }
+                },
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        val onlySongs = contents.isNotEmpty() && contents.all { !it.videoId.isNullOrEmpty() }
+        if (onlySongs) {
+            AppleSongGrid(
+                items = contents,
+                onClick = { homeContentClick(it, navController, homeViewModel) },
+                onMore = onMore,
+            )
+        } else {
+            LazyRow {
+                items(contents) { temp ->
+                    val id = temp.playlistId ?: temp.browseId
+                    val isArtist = temp.videoId.isNullOrEmpty() && id?.startsWith("UC") == true
+                    AppleAlbumCard(
+                        title = temp.title,
+                        subtitle =
+                            if (isArtist) {
+                                null
+                            } else {
+                                temp.artists?.joinToString(", ") { it.name }?.takeIf { it.isNotBlank() }
+                                    ?: temp.description
+                            },
+                        artwork = temp.thumbnails.lastOrNull()?.url,
+                        circle = isArtist,
+                        onClick = { homeContentClick(temp, navController, homeViewModel) },
+                        onLongClick =
+                            if (!temp.videoId.isNullOrEmpty()) {
+                                { onMore(temp) }
+                            } else {
+                                null
+                            },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
  * Where a Home shelf item leads — the same routing [HomeItem] applies per tile type, gathered in
- * one place for the Apple Music hero cards, which use a single card for every type.
+ * one place for the Apple Music shelves (AppleHomeShelf), which use one tile per shelf type.
  */
 private fun homeContentClick(
     temp: Content,

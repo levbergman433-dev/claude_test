@@ -1,15 +1,17 @@
 package com.maxrave.simpmusic.ui.component
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,18 +19,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +50,7 @@ import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.data.model.home.Content
 import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.ArrowForwardIos
+import com.maxrave.simpmusic.ui.icon.MoreVert
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.theme.typo
 
@@ -56,7 +63,11 @@ import com.maxrave.simpmusic.ui.theme.typo
  *    Added", instead of a chip row and coloured tiles.
  */
 
-/** Apple Music shelf header: optional small caption, then a bold title and — when tappable — a chevron. */
+/**
+ * Apple Music shelf header: a bold title with the chevron sitting right after it (not pushed to
+ * the edge), shown only when the shelf actually opens somewhere. [caption] is kept for callers
+ * that need a second line, but Apple's own shelves have none.
+ */
 @Composable
 fun AppleShelfHeader(
     title: String,
@@ -84,7 +95,7 @@ fun AppleShelfHeader(
                 text = title,
                 style =
                     typo().titleLarge.copy(
-                        fontSize = 21.sp,
+                        fontSize = 23.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground,
                     ),
@@ -97,52 +108,76 @@ fun AppleShelfHeader(
                 Icon(
                     imageVector = SimpIcons.ArrowForwardIos,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
     }
 }
 
+private val AppleSongRowHeight = 68.dp
+
 /**
- * A "Top Picks for You" card as Apple Music draws it: a tall portrait card whose artwork fills the
- * whole card, with the title and subtitle set in white on the artwork itself over a dark fade at
- * the bottom, and a short caption above the card. Sized to show about one and a half cards on a
- * phone so the row reads as swipeable.
+ * Apple Music's song shelf ("Best New Songs"): songs laid out as a list, four rows per column,
+ * columns paged horizontally with the next one peeking in at the edge. Each row is a small
+ * rounded cover, title, artist and a ⋮ button, separated by hairlines inset past the cover.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun AppleHeroCard(
-    data: Content,
-    onClick: () -> Unit,
-    onLongClick: (() -> Unit)? = null,
-    width: androidx.compose.ui.unit.Dp = 230.dp,
+fun AppleSongGrid(
+    items: List<Content>,
+    onClick: (Content) -> Unit,
+    onMore: (Content) -> Unit,
 ) {
-    val artists = data.artists?.joinToString(", ") { it.name }?.takeIf { it.isNotBlank() }
-    val caption = data.description?.takeIf { it.isNotBlank() && it != artists }
-    val subtitle = artists ?: data.album?.name
-    val artwork = data.thumbnails.lastOrNull()?.url
-    Column(
+    val state = rememberLazyGridState()
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+    // A column fills most of the width so the next one peeks in, as in Apple Music.
+    val columnWidth = maxWidth * 0.86f
+    LazyHorizontalGrid(
+        rows = GridCells.Fixed(4),
+        state = state,
+        flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = state, snapPosition = SnapPosition.Start)),
+        modifier = Modifier.height(AppleSongRowHeight * 4),
+    ) {
+        itemsIndexed(items, key = { index, item -> "${item.videoId}-$index" }) { index, item ->
+            AppleSongRow(
+                title = item.title,
+                subtitle = item.artists?.joinToString(", ") { it.name }.orEmpty(),
+                artwork = item.thumbnails.lastOrNull()?.url,
+                isExplicit = item.isExplicit == true,
+                showDivider = index % 4 != 3 && index != items.lastIndex,
+                width = columnWidth,
+                onClick = { onClick(item) },
+                onMore = { onMore(item) },
+            )
+        }
+    }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun AppleSongRow(
+    title: String,
+    subtitle: String,
+    artwork: String?,
+    isExplicit: Boolean,
+    showDivider: Boolean,
+    width: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit,
+    onMore: () -> Unit,
+) {
+    Box(
         modifier =
             Modifier
-                .padding(end = 12.dp)
-                .width(width),
+                .width(width)
+                .height(AppleSongRowHeight)
+                .combinedClickable(onClick = onClick, onLongClick = onMore),
     ) {
-        Text(
-            text = caption ?: "",
-            style = typo().bodySmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(3f / 4f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        Row(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
                 model =
@@ -157,52 +192,119 @@ fun AppleHeroCard(
                 placeholder = rememberHolderPainter(),
                 error = rememberHolderPainter(),
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.matchParentSize(),
-            )
-            Box(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.5f)
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                1f to Color.Black.copy(alpha = 0.78f),
-                            ),
-                        ),
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(6.dp)),
             )
-            Column(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(14.dp),
-            ) {
-                Text(
-                    text = data.title,
-                    style = typo().titleSmall.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (!subtitle.isNullOrBlank()) {
-                    Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        style = typo().bodyLarge.copy(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (isExplicit) {
+                        Spacer(Modifier.width(4.dp))
+                        ExplicitBadge(modifier = Modifier.size(16.dp))
+                    }
+                }
+                if (subtitle.isNotBlank()) {
                     Text(
                         text = subtitle,
-                        style = typo().bodySmall.copy(color = Color.White.copy(alpha = 0.8f)),
-                        maxLines = 2,
+                        style = typo().bodyMedium.copy(fontSize = 14.sp),
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
+            IconButton(onClick = onMore) {
+                Icon(
+                    imageVector = SimpIcons.MoreVert,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+        }
+        if (showDivider) {
+            HorizontalDivider(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 66.dp, end = 12.dp),
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            )
         }
     }
 }
 
 /**
- * Apple Music's "Recently Played" shelf, filled from the local play history: square artwork with
- * the title and artist beneath, and a chevron header that opens the full history.
+ * Apple Music's album/playlist tile ("New This Week"): a large square cover with a subtle rounded
+ * corner, the title and a secondary line beneath it. Artists are drawn with a circular photo.
  */
 @OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun AppleAlbumCard(
+    title: String,
+    subtitle: String?,
+    artwork: String?,
+    circle: Boolean = false,
+    size: androidx.compose.ui.unit.Dp = 170.dp,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
+) {
+    Column(
+        modifier =
+            Modifier
+                .padding(end = 14.dp)
+                .width(size)
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        horizontalAlignment = if (circle) Alignment.CenterHorizontally else Alignment.Start,
+    ) {
+        AsyncImage(
+            model =
+                ImageRequest
+                    .Builder(LocalPlatformContext.current)
+                    .data(artwork)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .diskCacheKey(artwork)
+                    .crossfade(300)
+                    .build(),
+            contentDescription = null,
+            placeholder = rememberHolderPainter(),
+            error = rememberHolderPainter(),
+            contentScale = ContentScale.Crop,
+            modifier =
+                Modifier
+                    .size(size)
+                    .clip(if (circle) CircleShape else RoundedCornerShape(8.dp)),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = title,
+            style = typo().bodyLarge.copy(fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style = typo().bodyMedium.copy(fontSize = 14.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
+ * Apple Music's "Recently Played" shelf, filled from the local play history: the same square
+ * tiles as an album shelf, and a chevron header that opens the full history.
+ */
 @Composable
 fun AppleRecentlyPlayedShelf(
     title: String,
@@ -212,53 +314,16 @@ fun AppleRecentlyPlayedShelf(
     onSeeAll: () -> Unit,
 ) {
     Column {
-        AppleShelfHeader(title = title, onClick = onSeeAll, modifier = Modifier.padding(bottom = 6.dp))
+        AppleShelfHeader(title = title, onClick = onSeeAll, modifier = Modifier.padding(bottom = 8.dp))
         LazyRow {
             items(songs, key = { it.videoId }) { song ->
-                Column(
-                    modifier =
-                        Modifier
-                            .padding(end = 12.dp)
-                            .width(150.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .combinedClickable(
-                                onClick = { onSongClick(song) },
-                                onLongClick = { onSongLongClick(song) },
-                            ),
-                ) {
-                    AsyncImage(
-                        model =
-                            ImageRequest
-                                .Builder(LocalPlatformContext.current)
-                                .data(song.thumbnails)
-                                .diskCachePolicy(CachePolicy.ENABLED)
-                                .diskCacheKey(song.thumbnails)
-                                .crossfade(300)
-                                .build(),
-                        contentDescription = null,
-                        placeholder = rememberHolderPainter(),
-                        error = rememberHolderPainter(),
-                        contentScale = ContentScale.Crop,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(8.dp)),
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = song.title,
-                        style = typo().titleSmall.copy(color = MaterialTheme.colorScheme.onSurface),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text = song.artistName?.joinToString(", ").orEmpty(),
-                        style = typo().bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                AppleAlbumCard(
+                    title = song.title,
+                    subtitle = song.artistName?.joinToString(", "),
+                    artwork = song.thumbnails,
+                    onClick = { onSongClick(song) },
+                    onLongClick = { onSongLongClick(song) },
+                )
             }
         }
     }
