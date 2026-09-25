@@ -84,6 +84,10 @@ import com.maxrave.simpmusic.ui.navigation.destination.library.MixForYouDestinat
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.login.DiscordLoginDestination
+import com.maxrave.simpmusic.ui.navigation.destination.login.LastfmLoginDestination
+import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
+import com.maxrave.simpmusic.ui.navigation.destination.login.SpotifyLoginDestination
 import com.maxrave.simpmusic.ui.navigation.destination.player.FullscreenDestination
 import com.maxrave.simpmusic.ui.navigation.graph.AppNavigationGraph
 import com.maxrave.simpmusic.ui.screen.MiniPlayer
@@ -392,6 +396,17 @@ fun App(
             it.hasRoute(FullscreenDestination::class) || it.hasRoute(WrappedDestination::class)
         } == true
     }
+    // Login pages are WebViews. A WebView must not be recorded into the offscreen layers the
+    // glass (layerBackdrop) and blur (hazeSource) effects draw from: on Vulkan HWUI (Samsung and
+    // other recent phones) drawing a WebView into an offscreen layer with a render effect aborts
+    // the process, which Android reports as "WebView caused <app> to crash".
+    val isWebViewScreen =
+        navBackStackEntry?.destination?.hierarchy?.any {
+            it.hasRoute(LoginDestination::class) ||
+                it.hasRoute(SpotifyLoginDestination::class) ||
+                it.hasRoute(DiscordLoginDestination::class) ||
+                it.hasRoute(LastfmLoginDestination::class)
+        } == true
     LaunchedEffect(showAnalyticsTab) {
         // Turning tracking off removes the Analytics tab, so leaving the user standing on it would
         // strand them on a screen no tab points at anymore.
@@ -521,7 +536,7 @@ fun App(
                     Modifier
                         .fillMaxSize()
                         .then(
-                            if (isLiquidGlassEnabled == TRUE && !isTablet) {
+                            if (isLiquidGlassEnabled == TRUE && !isTablet && !isWebViewScreen) {
                                 Modifier.layerBackdrop(backdrop)
                             } else {
                                 Modifier
@@ -570,13 +585,14 @@ fun App(
                                         // the capsule see-through.
                                         if ((isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop) &&
                                             isTablet &&
-                                            !isInFullscreen
+                                            !isInFullscreen &&
+                                            !isWebViewScreen
                                         ) {
                                             Modifier.layerBackdrop(backdrop)
                                         } else {
                                             Modifier
                                         },
-                                    ).hazeSource(hazeState),
+                                    ).then(if (isWebViewScreen) Modifier else Modifier.hazeSource(hazeState)),
                             ) {
                                 AppNavigationGraph(
                                     innerPadding = innerPadding,

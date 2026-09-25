@@ -41,11 +41,7 @@ import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LogInViewModel
 import com.maxrave.simpmusic.viewModel.SettingsViewModel
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
-import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
@@ -65,7 +61,6 @@ fun LoginScreen(
     hideBottomNavigation: () -> Unit,
     showBottomNavigation: () -> Unit,
 ) {
-    val hazeState = rememberHazeState()
     val coroutineScope = rememberCoroutineScope()
     var devLoginSheet by rememberSaveable {
         mutableStateOf(false)
@@ -100,7 +95,9 @@ fun LoginScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)) {
+    // No hazeSource here: recording the page into a blur layer also records the WebView, and a
+    // WebView drawn into an offscreen layer with a render effect can abort the app (Vulkan HWUI).
+    Box(modifier = Modifier.fillMaxSize()) {
         Column {
             Spacer(
                 Modifier
@@ -159,14 +156,11 @@ fun LoginScreen(
             }
         }
 
-        // Top App Bar with haze effect
+        // Top App Bar
         TopAppBar(
             modifier =
                 Modifier
-                    .align(Alignment.TopCenter)
-                    .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin()) {
-                        blurEnabled = true
-                    },
+                    .align(Alignment.TopCenter),
             title = {
                 Text(
                     text = stringResource(Res.string.log_in),

@@ -43,11 +43,7 @@ import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LogInViewModel
 import com.maxrave.simpmusic.viewModel.SettingsViewModel
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
-import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -65,7 +61,6 @@ fun SpotifyLoginScreen(
     hideBottomNavigation: () -> Unit,
     showBottomNavigation: () -> Unit,
 ) {
-    val hazeState = rememberHazeState()
     val spotifyStatus by viewModel.spotifyStatus.collectAsStateWithLifecycle()
 
     val fullSpotifyCookies by viewModel.fullSpotifyCookies.collectAsStateWithLifecycle()
@@ -102,7 +97,9 @@ fun SpotifyLoginScreen(
     val state = rememberWebViewState()
     val cookieManager = createWebViewCookieManager()
 
-    Box(modifier = Modifier.fillMaxSize().hazeSource(state = hazeState)) {
+    // No hazeSource here: recording the page into a blur layer also records the WebView, and a
+    // WebView drawn into an offscreen layer with a render effect can abort the app (Vulkan HWUI).
+    Box(modifier = Modifier.fillMaxSize()) {
         Column {
             Spacer(
                 Modifier
@@ -189,14 +186,11 @@ fun SpotifyLoginScreen(
             }
         }
 
-        // Top App Bar with haze effect
+        // Top App Bar
         TopAppBar(
             modifier =
                 Modifier
-                    .align(Alignment.TopCenter)
-                    .hazeEffect(state = hazeState, style = HazeMaterials.ultraThin()) {
-                        blurEnabled = true
-                    },
+                    .align(Alignment.TopCenter),
             title = {
                 Text(
                     text = stringResource(Res.string.log_in_to_spotify),
