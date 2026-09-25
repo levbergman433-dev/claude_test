@@ -155,6 +155,7 @@ fun App(
     val glassStyle by viewModel.getGlassStyle().collectAsStateWithLifecycle(DataStoreManager.GLASS_STYLE_APPLE)
     val isBatterySaver by viewModel.getBatterySaver().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLargeTitles by viewModel.getLargeTitles().collectAsStateWithLifecycle(DataStoreManager.TRUE)
+    val isAppleLayout by viewModel.getAppleLayout().collectAsStateWithLifecycle(DataStoreManager.TRUE)
     // Analytics only makes sense with local tracking on, so its tab follows that setting.
     val isLocalTrackingEnabled by viewModel.getLocalTrackingEnabled().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val showAnalyticsTab = isLocalTrackingEnabled == TRUE
@@ -441,6 +442,7 @@ fun App(
         glassStyle = glassStyle,
         batterySaver = isBatterySaver == TRUE,
         largeTitles = isLargeTitles == TRUE,
+        appleLayout = isAppleLayout == TRUE,
     ) {
         // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
         // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).

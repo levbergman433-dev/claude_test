@@ -497,6 +497,14 @@ interface DataStoreManager {
 
     suspend fun setFastStreamLoading(enable: Boolean)
 
+    /**
+     * [TRUE] (default) lays out Home and Library the way Apple Music does (hero carousel, shelf
+     * headers with chevrons, a category list for Library); [FALSE] keeps the original layouts.
+     */
+    val appleLayout: Flow<String>
+
+    suspend fun setAppleLayout(enable: Boolean)
+
     /** [TRUE] (default) shows Apple Music-style large page titles on Home and Library. */
     val largeTitles: Flow<String>
 

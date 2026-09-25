@@ -214,6 +214,7 @@ class PlaylistViewModel(
                                             ),
                                     )
                                 _tracks.value = data.first.tracks
+                                prefetchStreams(data.first.tracks.map { it.videoId })
                                 _continuation.value = data.second
                                 if (data.second.isNullOrEmpty()) _tracksListState.value = ListState.PAGINATION_EXHAUST
                                 playlistRepository.insertRadioPlaylist(data.first.toPlaylistEntity())
@@ -254,6 +255,7 @@ class PlaylistViewModel(
                                             ),
                                     )
                                 _tracks.value = data.first.tracks
+                                prefetchStreams(data.first.tracks.map { it.videoId })
                                 _continuation.value = data.second
                                 if (data.second.isNullOrEmpty()) _tracksListState.value = ListState.PAGINATION_EXHAUST
                                 getPlaylistEntity(id = data.first.id, playlistBrowse = data.first)

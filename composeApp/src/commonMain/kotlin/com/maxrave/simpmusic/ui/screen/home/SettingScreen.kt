@@ -181,6 +181,8 @@ import simpmusic.composeapp.generated.resources.ai_api_key
 import simpmusic.composeapp.generated.resources.ai_provider
 import simpmusic.composeapp.generated.resources.anonymous
 import simpmusic.composeapp.generated.resources.app_name
+import simpmusic.composeapp.generated.resources.apple_layout
+import simpmusic.composeapp.generated.resources.apple_layout_description
 import simpmusic.composeapp.generated.resources.audio
 import simpmusic.composeapp.generated.resources.audio_delay
 import simpmusic.composeapp.generated.resources.audio_delay_description
@@ -565,6 +567,7 @@ fun SettingScreen(
     val themeColorSource by sharedViewModel.getThemeColorSource().collectAsStateWithLifecycle(DataStoreManager.THEME_COLOR_DEFAULT)
     val glassStyle by sharedViewModel.getGlassStyle().collectAsStateWithLifecycle(DataStoreManager.GLASS_STYLE_APPLE)
     val largeTitles by sharedViewModel.getLargeTitles().collectAsStateWithLifecycle(DataStoreManager.TRUE)
+    val appleLayout by sharedViewModel.getAppleLayout().collectAsStateWithLifecycle(DataStoreManager.TRUE)
     val batterySaver by sharedViewModel.getBatterySaver().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val fastSongLoading by sharedViewModel.getFastStreamLoading().collectAsStateWithLifecycle(DataStoreManager.TRUE)
     val customThemeColorHex by sharedViewModel.getCustomThemeColor().collectAsStateWithLifecycle(DataStoreManager.DEFAULT_THEME_COLOR_HEX)
@@ -941,6 +944,12 @@ fun SettingScreen(
                         },
                     )
                 }
+                SettingItem(
+                    title = stringResource(Res.string.apple_layout),
+                    subtitle = stringResource(Res.string.apple_layout_description),
+                    smallSubtitle = true,
+                    switch = ((appleLayout == DataStoreManager.TRUE) to { sharedViewModel.setAppleLayout(it) }),
+                )
                 SettingItem(
                     title = stringResource(Res.string.large_titles),
                     subtitle = stringResource(Res.string.large_titles_description),

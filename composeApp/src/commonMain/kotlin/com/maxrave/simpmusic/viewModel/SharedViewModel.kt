@@ -1837,6 +1837,14 @@ class SharedViewModel(
         }
     }
 
+    fun getAppleLayout() = dataStoreManager.appleLayout
+
+    fun setAppleLayout(enable: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setAppleLayout(enable)
+        }
+    }
+
     fun getLargeTitles() = dataStoreManager.largeTitles
 
     fun setLargeTitles(enable: Boolean) {

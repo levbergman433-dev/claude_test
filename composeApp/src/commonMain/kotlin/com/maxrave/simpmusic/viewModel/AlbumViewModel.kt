@@ -72,6 +72,7 @@ class AlbumViewModel(
                                     loadState = LocalPlaylistState.PlaylistLoadState.Success,
                                 )
                             }
+                            prefetchStreams(data.tracks.map { it.videoId })
                             val localAlbum = albumRepository.getAlbum(browseId).lastOrNull()
                             if (localAlbum != null) {
                                 _uiState.update {

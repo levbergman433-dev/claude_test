@@ -104,6 +104,7 @@ import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
+import com.maxrave.simpmusic.ui.component.AppleShelfHeader
 import com.maxrave.simpmusic.ui.component.BlogPromoDialog
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.Chip
@@ -140,6 +141,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
+import com.maxrave.simpmusic.ui.theme.LocalAppleLayout
 import com.maxrave.simpmusic.ui.theme.LocalLargeTitles
 import com.maxrave.simpmusic.ui.theme.desktopPanelDark
 import com.maxrave.simpmusic.ui.theme.typo
@@ -235,6 +237,7 @@ fun HomeScreen(
     val isScrollingUp by scrollState.isScrollingUp()
     val accountInfo by viewModel.accountInfo.collectAsStateWithLifecycle()
     val homeData by viewModel.homeItemList.collectAsStateWithLifecycle()
+    val appleLayout = LocalAppleLayout.current
     val newRelease by viewModel.newRelease.collectAsStateWithLifecycle()
     val chart by viewModel.chart.collectAsStateWithLifecycle()
     val moodMomentAndGenre by viewModel.exploreMoodItem.collectAsStateWithLifecycle()
@@ -571,15 +574,21 @@ fun HomeScreen(
                         )
                         return@Crossfade
                     }
+                    // Apple Music layout: the first regular shelf (not Quick picks) becomes the
+                    // large-card "Top Picks" carousel.
+                    val quickPicksTitle = stringResource(Res.string.quick_picks)
+                    val heroIndex =
+                        if (appleLayout) homeData.indexOfFirst { it.title != quickPicksTitle } else -1
                     LazyColumn(
                         state = scrollState,
-                        verticalArrangement = Arrangement.spacedBy(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 20.dp),
                     ) {
                         itemsIndexed(homeData, key = { _, item ->
                             item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
                         }) { index, item ->
                             Box {
-                                if (index == 0) {
+                                // Apple Music Home has a plain page, no artwork-tinted wash.
+                                if (index == 0 && !appleLayout) {
                                     Box(
                                         modifier =
                                             Modifier
@@ -667,6 +676,7 @@ fun HomeScreen(
                                         HomeItem(
                                             navController = navController,
                                             data = item,
+                                            hero = index == heroIndex,
                                         )
                                     }
                                 }
@@ -837,46 +847,50 @@ fun HomeScreen(
                                 ),
                     )
                 }
-                Row(
-                    modifier =
-                        Modifier
-                            .horizontalScroll(chipRowState)
-                            .padding(vertical = 8.dp, horizontal = 15.dp)
-                            .background(Color.Transparent),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    listOfHomeChip.forEach { id ->
-                        val isSelected =
-                            when (params) {
-                                HOME_PARAMS_RELAX -> id == Res.string.relax
-                                HOME_PARAMS_SLEEP -> id == Res.string.sleep
-                                HOME_PARAMS_ENERGIZE -> id == Res.string.energize
-                                HOME_PARAMS_SAD -> id == Res.string.sad
-                                HOME_PARAMS_ROMANCE -> id == Res.string.romance
-                                HOME_PARAMS_FEEL_GOOD -> id == Res.string.feel_good
-                                HOME_PARAMS_WORKOUT -> id == Res.string.workout
-                                HOME_PARAMS_PARTY -> id == Res.string.party
-                                HOME_PARAMS_COMMUTE -> id == Res.string.commute
-                                HOME_PARAMS_FOCUS -> id == Res.string.focus
-                                else -> id == Res.string.all
-                            }
-                        Chip(
-                            isAnimated = loading,
-                            isSelected = isSelected,
-                            text = stringResource(id),
-                        ) {
-                            when (id) {
-                                Res.string.all -> viewModel.setParams(null)
-                                Res.string.relax -> viewModel.setParams(HOME_PARAMS_RELAX)
-                                Res.string.sleep -> viewModel.setParams(HOME_PARAMS_SLEEP)
-                                Res.string.energize -> viewModel.setParams(HOME_PARAMS_ENERGIZE)
-                                Res.string.sad -> viewModel.setParams(HOME_PARAMS_SAD)
-                                Res.string.romance -> viewModel.setParams(HOME_PARAMS_ROMANCE)
-                                Res.string.feel_good -> viewModel.setParams(HOME_PARAMS_FEEL_GOOD)
-                                Res.string.workout -> viewModel.setParams(HOME_PARAMS_WORKOUT)
-                                Res.string.party -> viewModel.setParams(HOME_PARAMS_PARTY)
-                                Res.string.commute -> viewModel.setParams(HOME_PARAMS_COMMUTE)
-                                Res.string.focus -> viewModel.setParams(HOME_PARAMS_FOCUS)
+                // Apple Music Home has no mood chips; the moods stay reachable further down
+                // (Moods & moments shelf).
+                if (!appleLayout) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .horizontalScroll(chipRowState)
+                                .padding(vertical = 8.dp, horizontal = 15.dp)
+                                .background(Color.Transparent),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        listOfHomeChip.forEach { id ->
+                            val isSelected =
+                                when (params) {
+                                    HOME_PARAMS_RELAX -> id == Res.string.relax
+                                    HOME_PARAMS_SLEEP -> id == Res.string.sleep
+                                    HOME_PARAMS_ENERGIZE -> id == Res.string.energize
+                                    HOME_PARAMS_SAD -> id == Res.string.sad
+                                    HOME_PARAMS_ROMANCE -> id == Res.string.romance
+                                    HOME_PARAMS_FEEL_GOOD -> id == Res.string.feel_good
+                                    HOME_PARAMS_WORKOUT -> id == Res.string.workout
+                                    HOME_PARAMS_PARTY -> id == Res.string.party
+                                    HOME_PARAMS_COMMUTE -> id == Res.string.commute
+                                    HOME_PARAMS_FOCUS -> id == Res.string.focus
+                                    else -> id == Res.string.all
+                                }
+                            Chip(
+                                isAnimated = loading,
+                                isSelected = isSelected,
+                                text = stringResource(id),
+                            ) {
+                                when (id) {
+                                    Res.string.all -> viewModel.setParams(null)
+                                    Res.string.relax -> viewModel.setParams(HOME_PARAMS_RELAX)
+                                    Res.string.sleep -> viewModel.setParams(HOME_PARAMS_SLEEP)
+                                    Res.string.energize -> viewModel.setParams(HOME_PARAMS_ENERGIZE)
+                                    Res.string.sad -> viewModel.setParams(HOME_PARAMS_SAD)
+                                    Res.string.romance -> viewModel.setParams(HOME_PARAMS_ROMANCE)
+                                    Res.string.feel_good -> viewModel.setParams(HOME_PARAMS_FEEL_GOOD)
+                                    Res.string.workout -> viewModel.setParams(HOME_PARAMS_WORKOUT)
+                                    Res.string.party -> viewModel.setParams(HOME_PARAMS_PARTY)
+                                    Res.string.commute -> viewModel.setParams(HOME_PARAMS_COMMUTE)
+                                    Res.string.focus -> viewModel.setParams(HOME_PARAMS_FOCUS)
+                                }
                             }
                         }
                     }
@@ -1048,20 +1062,28 @@ fun QuickPicks(
                 }
             },
     ) {
-        Text(
-            text = stringResource(Res.string.let_s_start_with_a_radio),
-            style = typo().bodySmall,
-        )
-        Text(
-            text = stringResource(Res.string.quick_picks),
-            style = typo().headlineMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 5.dp),
-        )
+        if (LocalAppleLayout.current) {
+            AppleShelfHeader(
+                title = stringResource(Res.string.quick_picks),
+                caption = stringResource(Res.string.let_s_start_with_a_radio),
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        } else {
+            Text(
+                text = stringResource(Res.string.let_s_start_with_a_radio),
+                style = typo().bodySmall,
+            )
+            Text(
+                text = stringResource(Res.string.quick_picks),
+                style = typo().headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp),
+            )
+        }
         LazyHorizontalGrid(
             rows = GridCells.Fixed(4),
             modifier = Modifier.height(256.dp),

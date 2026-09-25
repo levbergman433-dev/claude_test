@@ -595,10 +595,12 @@
     <string name="glass_style">Glass style</string>
     <string name="glass_style_apple">Apple (clear, specular rim)</string>
     <string name="glass_style_classic">Classic (dark frosted)</string>
+    <string name="apple_layout">Apple Music layout</string>
+    <string name="apple_layout_description">Home and Library arranged like Apple Music: a Top Picks carousel, shelf headers, and a category list in Library. Off restores the classic layout</string>
     <string name="large_titles">Large titles</string>
     <string name="large_titles_description">Apple Music style big page titles on Home and Library</string>
     <string name="fast_song_loading">Fast song loading</string>
-    <string name="fast_song_loading_description">Try one lightweight YouTube request first when starting a new song. Turn off if songs fail to play. Not used for High quality (YouTube Premium)</string>
+    <string name="fast_song_loading_description">Try one lightweight YouTube request first when starting a new song. Turn off if songs fail to play. High quality keeps the full request so Premium 256 kbps is never lost; it still benefits from preloading</string>
     <string name="battery_saver">Battery saver</string>
     <string name="battery_saver_description">Pause decorative animations and let glass re-sample its colours less often. Playback is not affected</string>
     <string name="theme_color_apple_music">Apple Music red</string>

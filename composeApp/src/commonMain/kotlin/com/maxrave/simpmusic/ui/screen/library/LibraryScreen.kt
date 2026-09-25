@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -67,6 +68,8 @@ import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.extension.copy
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
+import com.maxrave.simpmusic.ui.component.AppleBackRow
+import com.maxrave.simpmusic.ui.component.AppleLibraryRow
 import com.maxrave.simpmusic.ui.component.Chip
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.GridLibraryPlaylist
@@ -80,10 +83,22 @@ import com.maxrave.simpmusic.ui.component.largeTitleStyle
 import com.maxrave.simpmusic.ui.component.selection.SelectedSongsBottomSheet
 import com.maxrave.simpmusic.ui.component.selection.SongSelectionTopAppBar
 import com.maxrave.simpmusic.ui.component.selection.rememberSongSelectionState
+import com.maxrave.simpmusic.ui.icon.AutoGraph
+import com.maxrave.simpmusic.ui.icon.Download
+import com.maxrave.simpmusic.ui.icon.DownloadForOffline
+import com.maxrave.simpmusic.ui.icon.Favorite
 import com.maxrave.simpmusic.ui.icon.Groups
+import com.maxrave.simpmusic.ui.icon.Insights
+import com.maxrave.simpmusic.ui.icon.LibraryMusic
 import com.maxrave.simpmusic.ui.icon.PeopleAlt
+import com.maxrave.simpmusic.ui.icon.QueueMusic
+import com.maxrave.simpmusic.ui.icon.RssFeed
 import com.maxrave.simpmusic.ui.icon.SimpIcons
+import com.maxrave.simpmusic.ui.icon.Star
+import com.maxrave.simpmusic.ui.icon.TrendingUp
 import com.maxrave.simpmusic.ui.navigation.destination.home.ListenTogetherDestination
+import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPlaylistDestination
+import com.maxrave.simpmusic.ui.theme.LocalAppleLayout
 import com.maxrave.simpmusic.ui.theme.LocalLargeTitles
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LibraryViewModel
@@ -102,11 +117,15 @@ import org.koin.compose.viewmodel.koinViewModel
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.chart
 import simpmusic.composeapp.generated.resources.create
+import simpmusic.composeapp.generated.resources.downloaded
 import simpmusic.composeapp.generated.resources.downloaded_playlists
+import simpmusic.composeapp.generated.resources.favorite
 import simpmusic.composeapp.generated.resources.favorite_playlists
 import simpmusic.composeapp.generated.resources.favorite_podcasts
+import simpmusic.composeapp.generated.resources.followed
 import simpmusic.composeapp.generated.resources.library
 import simpmusic.composeapp.generated.resources.mix_for_you
+import simpmusic.composeapp.generated.resources.most_played
 import simpmusic.composeapp.generated.resources.no_YouTube_playlists
 import simpmusic.composeapp.generated.resources.no_charts_found
 import simpmusic.composeapp.generated.resources.no_favorite_playlists
@@ -243,7 +262,16 @@ fun LibraryScreen(
                     state = state,
                 ) {
                     item {
-                        LibraryTilingBox(navController)
+                        if (LocalAppleLayout.current) {
+                            AppleLibraryCategories(
+                                navController = navController,
+                                showYouTube = loggedIn,
+                                showWrapped = localTrackingEnabled,
+                                onOpenCategory = { viewModel.setCurrentScreen(it) },
+                            )
+                        } else {
+                            LibraryTilingBox(navController)
+                        }
                     }
 
                     if (!listCanvasSong.data.isNullOrEmpty()) {
@@ -523,45 +551,55 @@ fun LibraryScreen(
                 contentColor = MaterialTheme.colorScheme.onBackground,
             )
         }
-        Row(
-            modifier =
-                Modifier
-                    .horizontalScroll(chipRowState)
-                    .padding(horizontal = 15.dp)
-                    .padding(bottom = 8.dp)
-                    .background(Color.Transparent),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            LibraryChipType.entries.forEach { type ->
-                // Mix for you left this row for a tab of its own.
-                if (type == LibraryChipType.YOUTUBE_MIX_FOR_YOU) {
-                    return@forEach
+        if (LocalAppleLayout.current) {
+            // Apple Music Library: categories are rows on the landing page, so a sub-page shows a
+            // way back instead of the chip row.
+            if (currentFilter != LibraryChipType.YOUR_LIBRARY) {
+                AppleBackRow(label = stringResource(Res.string.library)) {
+                    viewModel.setCurrentScreen(LibraryChipType.YOUR_LIBRARY)
                 }
-                if (type == LibraryChipType.YOUTUBE_MUSIC_PLAYLIST && !loggedIn) {
-                    return@forEach
-                }
-                // Nothing to recap without the plays — gated exactly as the YouTube chip above
-                // is gated on being logged in.
-                if (type == LibraryChipType.WRAPPED && !localTrackingEnabled) {
-                    return@forEach
-                }
-                Chip(
-                    isAnimated = false,
-                    isSelected = type == currentFilter,
-                    text =
-                        when (type) {
-                            LibraryChipType.YOUR_LIBRARY -> stringResource(Res.string.your_library)
-                            LibraryChipType.YOUTUBE_MUSIC_PLAYLIST -> stringResource(Res.string.your_youtube_playlists)
-                            LibraryChipType.YOUTUBE_MIX_FOR_YOU -> stringResource(Res.string.mix_for_you)
-                            LibraryChipType.LOCAL_PLAYLIST -> stringResource(Res.string.your_playlists)
-                            LibraryChipType.FAVORITE_PLAYLIST -> stringResource(Res.string.favorite_playlists)
-                            LibraryChipType.DOWNLOADED_PLAYLIST -> stringResource(Res.string.downloaded_playlists)
-                            LibraryChipType.FAVORITE_PODCAST -> stringResource(Res.string.favorite_podcasts)
-                            LibraryChipType.CHART -> stringResource(Res.string.simpmusic_charts)
-                            LibraryChipType.WRAPPED -> stringResource(Res.string.wrapped)
-                        },
-                ) {
-                    viewModel.setCurrentScreen(type)
+            }
+        } else {
+            Row(
+                modifier =
+                    Modifier
+                        .horizontalScroll(chipRowState)
+                        .padding(horizontal = 15.dp)
+                        .padding(bottom = 8.dp)
+                        .background(Color.Transparent),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                LibraryChipType.entries.forEach { type ->
+                    // Mix for you left this row for a tab of its own.
+                    if (type == LibraryChipType.YOUTUBE_MIX_FOR_YOU) {
+                        return@forEach
+                    }
+                    if (type == LibraryChipType.YOUTUBE_MUSIC_PLAYLIST && !loggedIn) {
+                        return@forEach
+                    }
+                    // Nothing to recap without the plays — gated exactly as the YouTube chip above
+                    // is gated on being logged in.
+                    if (type == LibraryChipType.WRAPPED && !localTrackingEnabled) {
+                        return@forEach
+                    }
+                    Chip(
+                        isAnimated = false,
+                        isSelected = type == currentFilter,
+                        text =
+                            when (type) {
+                                LibraryChipType.YOUR_LIBRARY -> stringResource(Res.string.your_library)
+                                LibraryChipType.YOUTUBE_MUSIC_PLAYLIST -> stringResource(Res.string.your_youtube_playlists)
+                                LibraryChipType.YOUTUBE_MIX_FOR_YOU -> stringResource(Res.string.mix_for_you)
+                                LibraryChipType.LOCAL_PLAYLIST -> stringResource(Res.string.your_playlists)
+                                LibraryChipType.FAVORITE_PLAYLIST -> stringResource(Res.string.favorite_playlists)
+                                LibraryChipType.DOWNLOADED_PLAYLIST -> stringResource(Res.string.downloaded_playlists)
+                                LibraryChipType.FAVORITE_PODCAST -> stringResource(Res.string.favorite_podcasts)
+                                LibraryChipType.CHART -> stringResource(Res.string.simpmusic_charts)
+                                LibraryChipType.WRAPPED -> stringResource(Res.string.wrapped)
+                            },
+                    ) {
+                        viewModel.setCurrentScreen(type)
+                    }
                 }
             }
         }
@@ -606,3 +644,52 @@ fun LibraryScreen(
         }
     }
 }
+
+/**
+ * Apple Music-style Library landing list: the four smart playlists that used to be coloured
+ * tiles, followed by the collections that used to be chips. Rows open exactly what the tiles and
+ * chips opened.
+ */
+@Composable
+private fun AppleLibraryCategories(
+    navController: NavController,
+    showYouTube: Boolean,
+    showWrapped: Boolean,
+    onOpenCategory: (LibraryChipType) -> Unit,
+) {
+    fun openDynamic(type: LibraryDynamicPlaylistType) {
+        navController.navigate(LibraryDynamicPlaylistDestination(type = type.toStringParams()))
+    }
+    val rows = mutableListOf<Triple<String, ImageVector, () -> Unit>>()
+    rows += Triple(stringResource(Res.string.favorite), SimpIcons.Favorite, { openDynamic(LibraryDynamicPlaylistType.Favorite) })
+    rows += Triple(stringResource(Res.string.followed), SimpIcons.PeopleAlt, { openDynamic(LibraryDynamicPlaylistType.Followed) })
+    rows += Triple(stringResource(Res.string.most_played), SimpIcons.TrendingUp, { openDynamic(LibraryDynamicPlaylistType.MostPlayed) })
+    rows += Triple(stringResource(Res.string.downloaded), SimpIcons.DownloadForOffline, { openDynamic(LibraryDynamicPlaylistType.Downloaded) })
+    rows += Triple(stringResource(Res.string.your_playlists), SimpIcons.QueueMusic, { onOpenCategory(LibraryChipType.LOCAL_PLAYLIST) })
+    if (showYouTube) {
+        rows +=
+            Triple(
+                stringResource(Res.string.your_youtube_playlists),
+                SimpIcons.LibraryMusic,
+                { onOpenCategory(LibraryChipType.YOUTUBE_MUSIC_PLAYLIST) },
+            )
+    }
+    rows += Triple(stringResource(Res.string.favorite_playlists), SimpIcons.Star, { onOpenCategory(LibraryChipType.FAVORITE_PLAYLIST) })
+    rows += Triple(stringResource(Res.string.downloaded_playlists), SimpIcons.Download, { onOpenCategory(LibraryChipType.DOWNLOADED_PLAYLIST) })
+    rows += Triple(stringResource(Res.string.favorite_podcasts), SimpIcons.RssFeed, { onOpenCategory(LibraryChipType.FAVORITE_PODCAST) })
+    rows += Triple(stringResource(Res.string.simpmusic_charts), SimpIcons.AutoGraph, { onOpenCategory(LibraryChipType.CHART) })
+    if (showWrapped) {
+        rows += Triple(stringResource(Res.string.wrapped), SimpIcons.Insights, { onOpenCategory(LibraryChipType.WRAPPED) })
+    }
+    Column(Modifier.padding(bottom = 16.dp)) {
+        rows.forEachIndexed { index, (title, icon, onClick) ->
+            AppleLibraryRow(
+                title = title,
+                icon = icon,
+                showDivider = index != rows.lastIndex,
+                onClick = onClick,
+            )
+        }
+    }
+}
+

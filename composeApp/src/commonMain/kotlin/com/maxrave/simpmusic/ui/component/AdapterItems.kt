@@ -89,6 +89,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
+import com.maxrave.simpmusic.ui.theme.LocalAppleLayout
 import com.maxrave.simpmusic.ui.theme.LocalForceDarkText
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.HomeViewModel
@@ -109,6 +110,8 @@ fun HomeItem(
     homeViewModel: HomeViewModel = koinViewModel(),
     navController: NavController,
     data: HomeItem,
+    // Apple Music layout: render this shelf as the large-card "Top Picks" carousel.
+    hero: Boolean = false,
 ) {
     var bottomSheetShow by remember { mutableStateOf(false) }
 
@@ -127,65 +130,77 @@ fun HomeItem(
 
     val channelId = data.channelId
     Column {
-        Row(
-            modifier =
-                if (channelId != null) {
-                    Modifier
-                        .focusable(true)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable {
-                            navController.navigate(
-                                ArtistDestination(
-                                    channelId = channelId,
-                                ),
-                            )
-                        }
-                } else {
-                    Modifier
-                },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AnimatedVisibility(
-                visible = (data.thumbnail?.lastOrNull() != null),
-                modifier = Modifier.align(Alignment.CenterVertically),
-            ) {
-                AsyncImage(
-                    model =
-                        ImageRequest
-                            .Builder(LocalPlatformContext.current)
-                            .data(data.thumbnail?.lastOrNull()?.url)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .diskCacheKey(data.thumbnail?.lastOrNull()?.url)
-                            .crossfade(550)
-                            .build(),
-                    contentDescription = "",
-                    placeholder = rememberHolderPainter(),
-                    error = rememberHolderPainter(),
-                    modifier =
+        if (LocalAppleLayout.current) {
+            AppleShelfHeader(
+                title = data.title,
+                caption = data.subtitle,
+                onClick =
+                    channelId?.let { id ->
+                        { navController.navigate(ArtistDestination(channelId = id)) }
+                    },
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        } else {
+            Row(
+                modifier =
+                    if (channelId != null) {
                         Modifier
-                            .size(36.dp)
-                            .clip(
-                                CircleShape,
-                            ),
-                )
-            }
-            Column(
-                Modifier
-                    .padding(start = 10.dp),
+                            .focusable(true)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                navController.navigate(
+                                    ArtistDestination(
+                                        channelId = channelId,
+                                    ),
+                                )
+                            }
+                    } else {
+                        Modifier
+                    },
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                AnimatedVisibility(visible = (data.subtitle != null && data.subtitle != "")) {
-                    Text(
-                        text = data.subtitle ?: "",
-                        style = typo().bodySmall,
+                AnimatedVisibility(
+                    visible = (data.thumbnail?.lastOrNull() != null),
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                ) {
+                    AsyncImage(
+                        model =
+                            ImageRequest
+                                .Builder(LocalPlatformContext.current)
+                                .data(data.thumbnail?.lastOrNull()?.url)
+                                .diskCachePolicy(CachePolicy.ENABLED)
+                                .diskCacheKey(data.thumbnail?.lastOrNull()?.url)
+                                .crossfade(550)
+                                .build(),
+                        contentDescription = "",
+                        placeholder = rememberHolderPainter(),
+                        error = rememberHolderPainter(),
+                        modifier =
+                            Modifier
+                                .size(36.dp)
+                                .clip(
+                                    CircleShape,
+                                ),
                     )
                 }
-                Text(
-                    text = data.title,
-                    style = typo().headlineMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Column(
+                    Modifier
+                        .padding(start = 10.dp),
+                ) {
+                    AnimatedVisibility(visible = (data.subtitle != null && data.subtitle != "")) {
+                        Text(
+                            text = data.subtitle ?: "",
+                            style = typo().bodySmall,
+                        )
+                    }
+                    Text(
+                        text = data.title,
+                        style = typo().headlineMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
         LazyRow(
@@ -193,7 +208,21 @@ fun HomeItem(
             flingBehavior = snapperFlingBehavior,
         ) {
             items(data.contents) { temp ->
-                if (temp != null) {
+                if (temp != null && hero) {
+                    AppleHeroCard(
+                        data = temp,
+                        onClick = { homeContentClick(temp, navController, homeViewModel) },
+                        onLongClick =
+                            if (!temp.videoId.isNullOrEmpty()) {
+                                {
+                                    track = temp.toTrack()
+                                    bottomSheetShow = true
+                                }
+                            } else {
+                                null
+                            },
+                    )
+                } else if (temp != null) {
                     val browseId = temp.browseId
                     val playlistId = temp.playlistId
                     if ((playlistId != null && temp.videoId == null) || (playlistId != null && temp.videoId == "")) {
@@ -302,6 +331,49 @@ fun HomeItem(
                         .padding(horizontal = 16.dp),
                 scrollState = lazyListState,
             )
+        }
+    }
+}
+
+/**
+ * Where a Home shelf item leads — the same routing [HomeItem] applies per tile type, gathered in
+ * one place for the Apple Music hero cards, which use a single card for every type.
+ */
+private fun homeContentClick(
+    temp: Content,
+    navController: NavController,
+    homeViewModel: HomeViewModel,
+) {
+    val browseId = temp.browseId
+    val playlistId = temp.playlistId
+    when {
+        playlistId != null && temp.videoId.isNullOrEmpty() -> {
+            if (playlistId.startsWith("UC")) {
+                navController.navigate(ArtistDestination(channelId = playlistId))
+            } else {
+                navController.navigate(PlaylistDestination(playlistId = playlistId))
+            }
+        }
+        browseId != null && temp.videoId.isNullOrEmpty() -> {
+            when {
+                browseId.startsWith("UC") -> navController.navigate(ArtistDestination(channelId = browseId))
+                browseId.startsWith("MPSP") -> navController.navigate(PodcastDestination(podcastId = browseId))
+                else -> navController.navigate(AlbumDestination(browseId = browseId))
+            }
+        }
+        else -> {
+            val firstQueue: Track = temp.toTrack()
+            homeViewModel.setQueueData(
+                QueueData.Data(
+                    listTracks = arrayListOf(firstQueue),
+                    firstPlayedTrack = firstQueue,
+                    playlistId = "RDAMVM${temp.videoId}",
+                    playlistName = temp.title,
+                    playlistType = PlaylistType.RADIO,
+                    continuation = null,
+                ),
+            )
+            homeViewModel.loadMediaItem(firstQueue, Config.SONG_CLICK)
         }
     }
 }

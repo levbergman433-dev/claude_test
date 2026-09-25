@@ -1201,6 +1201,13 @@ class YouTube {
     var fastStreamPath: Boolean = true
 
     /**
+     * Set per request: the chosen quality is one of the Premium-only 256 kbps formats. Those only
+     * come back from the logged-in extraction, so such a request always takes it.
+     */
+    @Volatile
+    var wantsPremiumAudio: Boolean = false
+
+    /**
      * Stream URLs for [videoId], fastest source first.
      *
      * The direct path is one anonymous InnerTube request with plain URLs. The full extraction
@@ -1211,7 +1218,9 @@ class YouTube {
      * case is the old behaviour plus nothing.
      */
     private suspend fun resolveStreams(videoId: String): List<Pair<Int, String>> {
-        if (!fastStreamPath) return ytMusic.getNewPipePlayer(videoId)
+        // The anonymous direct client never receives the Premium 256 kbps formats, so a High
+        // choice always goes to the logged-in extraction and keeps its quality.
+        if (!fastStreamPath || wantsPremiumAudio) return ytMusic.getNewPipePlayer(videoId)
         val direct = extractionScope.async { directStreams(videoId) }
         val early = withTimeoutOrNull(DIRECT_HEAD_START_MS) { direct.await() }
         if (early != null) {

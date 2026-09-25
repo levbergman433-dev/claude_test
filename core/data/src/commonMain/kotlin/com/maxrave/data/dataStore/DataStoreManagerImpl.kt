@@ -1619,6 +1619,19 @@ internal class DataStoreManagerImpl(
         }
     }
 
+    override val appleLayout: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[APPLE_LAYOUT] ?: TRUE
+        }
+
+    override suspend fun setAppleLayout(enable: Boolean) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[APPLE_LAYOUT] = if (enable) TRUE else FALSE
+            }
+        }
+    }
+
     override val largeTitles: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[LARGE_TITLES] ?: TRUE
@@ -1909,6 +1922,7 @@ internal class DataStoreManagerImpl(
         val BATTERY_SAVER = stringPreferencesKey("battery_saver")
         val LARGE_TITLES = stringPreferencesKey("large_titles")
         val FAST_STREAM_LOADING = stringPreferencesKey("fast_stream_loading")
+        val APPLE_LAYOUT = stringPreferencesKey("apple_layout")
 
         val EXPLICIT_CONTENT_ENABLED = stringPreferencesKey("explicit_content_enabled")
 

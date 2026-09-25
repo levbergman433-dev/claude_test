@@ -82,6 +82,9 @@ val LocalBatterySaver = staticCompositionLocalOf { false }
 /** True when top-level pages (Home, Library) use Apple Music-style large titles. */
 val LocalLargeTitles = staticCompositionLocalOf { true }
 
+/** True when Home and Library use the Apple Music page structure (see AppleMusicLayout.kt). */
+val LocalAppleLayout = staticCompositionLocalOf { true }
+
 /**
  * The dark scheme to use for immersive screens while the app itself is on the light theme.
  * Provided by [AppTheme], consumed by [ForceDarkContent]; null only outside of [AppTheme].
@@ -154,6 +157,7 @@ fun AppTheme(
     glassStyle: String = DataStoreManager.GLASS_STYLE_APPLE,
     batterySaver: Boolean = false,
     largeTitles: Boolean = true,
+    appleLayout: Boolean = true,
     content:
         @Composable()
         () -> Unit,
@@ -214,6 +218,7 @@ fun AppTheme(
                 LocalAppleGlass provides (glassStyle != DataStoreManager.GLASS_STYLE_CLASSIC),
                 LocalBatterySaver provides batterySaver,
                 LocalLargeTitles provides largeTitles,
+                LocalAppleLayout provides appleLayout,
                 content = content,
             )
         },
