@@ -1829,6 +1829,14 @@ class SharedViewModel(
         }
     }
 
+    fun getFastStreamLoading() = dataStoreManager.fastStreamLoading
+
+    fun setFastStreamLoading(enable: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.setFastStreamLoading(enable)
+        }
+    }
+
     fun getLargeTitles() = dataStoreManager.largeTitles
 
     fun setLargeTitles(enable: Boolean) {

@@ -255,6 +255,8 @@ import simpmusic.composeapp.generated.resources.enable_sponsor_block
 import simpmusic.composeapp.generated.resources.enable_spotify_lyrics
 import simpmusic.composeapp.generated.resources.equalizer
 import simpmusic.composeapp.generated.resources.equalizer_description
+import simpmusic.composeapp.generated.resources.fast_song_loading
+import simpmusic.composeapp.generated.resources.fast_song_loading_description
 import simpmusic.composeapp.generated.resources.free_space
 import simpmusic.composeapp.generated.resources.gemini
 import simpmusic.composeapp.generated.resources.glass_style
@@ -564,6 +566,7 @@ fun SettingScreen(
     val glassStyle by sharedViewModel.getGlassStyle().collectAsStateWithLifecycle(DataStoreManager.GLASS_STYLE_APPLE)
     val largeTitles by sharedViewModel.getLargeTitles().collectAsStateWithLifecycle(DataStoreManager.TRUE)
     val batterySaver by sharedViewModel.getBatterySaver().collectAsStateWithLifecycle(DataStoreManager.FALSE)
+    val fastSongLoading by sharedViewModel.getFastStreamLoading().collectAsStateWithLifecycle(DataStoreManager.TRUE)
     val customThemeColorHex by sharedViewModel.getCustomThemeColor().collectAsStateWithLifecycle(DataStoreManager.DEFAULT_THEME_COLOR_HEX)
     val nowPlayingStyle by sharedViewModel.getNowPlayingStyle().collectAsStateWithLifecycle(DataStoreManager.NOW_PLAYING_STYLE_SPOTIFY)
     val lyricsStyle by sharedViewModel.getLyricsStyle().collectAsStateWithLifecycle(DataStoreManager.LYRICS_STYLE_CLASSIC)
@@ -943,6 +946,12 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.large_titles_description),
                     smallSubtitle = true,
                     switch = ((largeTitles == DataStoreManager.TRUE) to { sharedViewModel.setLargeTitles(it) }),
+                )
+                SettingItem(
+                    title = stringResource(Res.string.fast_song_loading),
+                    subtitle = stringResource(Res.string.fast_song_loading_description),
+                    smallSubtitle = true,
+                    switch = ((fastSongLoading == DataStoreManager.TRUE) to { sharedViewModel.setFastStreamLoading(it) }),
                 )
                 SettingItem(
                     title = stringResource(Res.string.battery_saver),

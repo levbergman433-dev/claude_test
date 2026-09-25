@@ -489,6 +489,14 @@ interface DataStoreManager {
 
     suspend fun setBatterySaver(enable: Boolean)
 
+    /**
+     * [TRUE] (default) tries a single lightweight YouTube request for a new song's stream before
+     * the full extraction. Skipped automatically for Premium-only (High) quality.
+     */
+    val fastStreamLoading: Flow<String>
+
+    suspend fun setFastStreamLoading(enable: Boolean)
+
     /** [TRUE] (default) shows Apple Music-style large page titles on Home and Library. */
     val largeTitles: Flow<String>
 

@@ -6,6 +6,7 @@ import com.maxrave.kotlinytmusicscraper.models.Context
 import com.maxrave.kotlinytmusicscraper.models.SongItem
 import com.maxrave.kotlinytmusicscraper.models.WatchEndpoint
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient
+import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.ANDROID_VR
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.IOS
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.TVHTML5
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.WEB_REMIX
@@ -256,6 +257,29 @@ class Ytmusic {
         }
 
     fun getNewPipePlayer(videoId: String): List<Pair<Int, String>> = extractor.newPipePlayer(videoId)
+
+    /**
+     * Player request as the [ANDROID_VR] client, sent to the plain InnerTube host without cookies
+     * or YouTube Music headers — that client is anonymous by design. See [YouTube.player].
+     */
+    suspend fun directPlayer(videoId: String) =
+        httpClient.post("https://youtubei.googleapis.com/youtubei/v1/player") {
+            contentType(ContentType.Application.Json)
+            headers {
+                append("X-YouTube-Client-Name", "${ANDROID_VR.xClientName}")
+                append("X-YouTube-Client-Version", ANDROID_VR.clientVersion)
+            }
+            userAgent(ANDROID_VR.userAgent)
+            parameter("prettyPrint", false)
+            setBody(
+                PlayerBody(
+                    context = ANDROID_VR.toContext(locale, visitorData),
+                    videoId = videoId,
+                    playlistId = null,
+                    cpn = null,
+                ),
+            )
+        }
 
     fun mergeAudioVideoDownload(filePath: String): DownloadProgress = extractor.mergeAudioVideoDownload(filePath)
 

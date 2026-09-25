@@ -118,6 +118,12 @@ internal class StreamRepositoryImpl(
                 } else {
                     ITAG.MUXED_360P
                 }
+            // The anonymous fast path never receives the Premium-only 256 kbps formats, so a High
+            // quality choice keeps the full (logged-in) extraction.
+            youTube.fastStreamPath =
+                dataStoreManager.fastStreamLoading.first() == DataStoreManager.TRUE &&
+                itag != ITAG.AUDIO_OPUS_HIGH &&
+                itag != ITAG.AUDIO_AAC_HIGH
             youTube
                 .player(videoId, noLogIn = muxed)
                 .onSuccess { data ->

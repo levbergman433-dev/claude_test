@@ -103,8 +103,10 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.toLocalDateTime
@@ -1190,6 +1192,62 @@ class YouTube {
         }
     }
 
+    /**
+     * Use the single-request [directStreams] path before falling back to the full extraction.
+     * Set per request by the stream repository: off when the user disabled it, and off whenever
+     * the chosen quality is Premium-only, because the anonymous client never receives it.
+     */
+    @Volatile
+    var fastStreamPath: Boolean = true
+
+    /**
+     * Stream URLs for [videoId], fastest source first.
+     *
+     * The direct path is one anonymous InnerTube request with plain URLs. The full extraction
+     * (PipePipe, then BravePipe) is several requests plus cipher solving, and is what a new song
+     * used to wait for every time. The direct path gets a short head start; if it answers with
+     * verified URLs inside it, the full extraction is never started. If it is slow, both run and
+     * the first usable answer wins; if it fails, the full extraction runs as before. So the worst
+     * case is the old behaviour plus nothing.
+     */
+    private suspend fun resolveStreams(videoId: String): List<Pair<Int, String>> {
+        if (!fastStreamPath) return ytMusic.getNewPipePlayer(videoId)
+        val direct = extractionScope.async { directStreams(videoId) }
+        val early = withTimeoutOrNull(DIRECT_HEAD_START_MS) { direct.await() }
+        if (early != null) {
+            return early.ifEmpty { ytMusic.getNewPipePlayer(videoId) }
+        }
+        val full = extractionScope.async { ytMusic.getNewPipePlayer(videoId) }
+        return select<List<Pair<Int, String>>> {
+            direct.onAwait { if (it.isNotEmpty()) it else full.await() }
+            full.onAwait { if (it.isNotEmpty()) it else direct.await() }
+        }
+    }
+
+    /**
+     * One [YouTubeClient.ANDROID_VR] player request. Returns its plain URLs only when they cover
+     * both audio and video (same bar as the full extraction) and one of them answers a HEAD
+     * request; otherwise an empty list, which sends the caller to the full extraction.
+     */
+    private suspend fun directStreams(videoId: String): List<Pair<Int, String>> =
+        runCatching {
+            val response = ytMusic.directPlayer(videoId).body<PlayerResponse>()
+            if (response.playabilityStatus.status != "OK") return@runCatching emptyList<Pair<Int, String>>()
+            val streamingData = response.streamingData ?: return@runCatching emptyList<Pair<Int, String>>()
+            val streams =
+                (streamingData.adaptiveFormats + streamingData.formats.orEmpty())
+                    .mapNotNull { format -> format.url?.let { format.itag to it } }
+            val itags = streams.mapTo(HashSet()) { it.first }
+            if (ITAG.AUDIO.none { it in itags } || ITAG.VIDEO.none { it in itags }) return@runCatching emptyList<Pair<Int, String>>()
+            val probe = streams.first { it.first in ITAG.AUDIO }.second
+            if (is403Url(probe)) return@runCatching emptyList<Pair<Int, String>>()
+            ExtractSource.record(videoId, "$DIRECT_SOURCE_PREFIX ANDROID_VR")
+            Logger.d(TAG, "extract source=direct ANDROID_VR itags=${itags.sorted()} for $videoId")
+            streams
+        }.onFailure {
+            Logger.w(TAG, "direct stream path failed for $videoId: ${it.message}")
+        }.getOrDefault(emptyList<Pair<Int, String>>())
+
     suspend fun newPipePlayer(
         videoId: String,
         tempRes: PlayerResponse,
@@ -1287,7 +1345,8 @@ class YouTube {
         // Every PipePipe tier HEAD-checks one of the URLs it hands back before returning them
         // (headCheckRandomStream), so a second HEAD round trip here only delays playback. Only
         // BravePipe, which is not checked on the way out, still needs it.
-        val alreadyVerified = ExtractSource.of(videoId)?.startsWith("PipePipe") == true
+        val alreadyVerified =
+            ExtractSource.of(videoId)?.let { it.startsWith("PipePipe") || it.startsWith(DIRECT_SOURCE_PREFIX) } == true
         if (listUrlSig.isNotEmpty() && (alreadyVerified || !is403Url(randomUrl))) {
             Logger.d(TAG, "YouTube NewPipe Found URL $randomUrl")
             return decodedSigResponse
@@ -1321,7 +1380,7 @@ class YouTube {
             // The stream extraction does not depend on the InnerTube player response, so start it
             // now instead of after that request returns: song start used to pay for both round
             // trips back to back.
-            val streams = extractionScope.async { ytMusic.getNewPipePlayer(videoId) }
+            val streams = extractionScope.async { resolveStreams(videoId) }
             val tempRes =
                 ytMusic
                     .player(
@@ -2144,6 +2203,9 @@ class YouTube {
 
     companion object {
         const val MAX_GET_QUEUE_SIZE = 1000
+
+        private const val DIRECT_SOURCE_PREFIX = "Direct ·"
+        private const val DIRECT_HEAD_START_MS = 1_500L
 
         private const val VISITOR_DATA_PREFIX = "Cgt"
 

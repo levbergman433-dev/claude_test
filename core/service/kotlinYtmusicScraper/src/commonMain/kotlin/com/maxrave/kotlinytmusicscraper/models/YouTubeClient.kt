@@ -125,6 +125,27 @@ data class YouTubeClient(
                 xClientName = 5,
             )
 
+        /**
+         * The Oculus/Quest YouTube app. Its player responses carry plain stream URLs — no
+         * signature cipher and no `n` challenge — so a single request yields playable links, with
+         * no player script to download or run. Used only as the fast path for song start; it is
+         * never sent the user's cookies, which is also why it cannot see Premium-only formats.
+         */
+        val ANDROID_VR =
+            YouTubeClient(
+                clientName = "ANDROID_VR",
+                clientVersion = "1.65.10",
+                deviceMake = "Oculus",
+                deviceModel = "Quest 3",
+                userAgent =
+                    "com.google.android.apps.youtube.vr.oculus/1.65.10 " +
+                        "(Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
+                api_key = "AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w",
+                osName = "Android",
+                osVersion = "12L",
+                xClientName = 28,
+            )
+
         val MWEB =
             YouTubeClient(
                 clientName = "MWEB",

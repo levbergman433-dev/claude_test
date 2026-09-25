@@ -1606,6 +1606,19 @@ internal class DataStoreManagerImpl(
         }
     }
 
+    override val fastStreamLoading: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[FAST_STREAM_LOADING] ?: TRUE
+        }
+
+    override suspend fun setFastStreamLoading(enable: Boolean) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[FAST_STREAM_LOADING] = if (enable) TRUE else FALSE
+            }
+        }
+    }
+
     override val largeTitles: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[LARGE_TITLES] ?: TRUE
@@ -1895,6 +1908,7 @@ internal class DataStoreManagerImpl(
         val GLASS_STYLE = stringPreferencesKey("glass_style")
         val BATTERY_SAVER = stringPreferencesKey("battery_saver")
         val LARGE_TITLES = stringPreferencesKey("large_titles")
+        val FAST_STREAM_LOADING = stringPreferencesKey("fast_stream_loading")
 
         val EXPLICIT_CONTENT_ENABLED = stringPreferencesKey("explicit_content_enabled")
 
