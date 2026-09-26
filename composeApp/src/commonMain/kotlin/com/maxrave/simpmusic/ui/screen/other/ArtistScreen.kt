@@ -237,11 +237,14 @@ fun ArtistScreen(
             is ArtistScreenState.Success -> {
                 // ---- Apple Music style (mobile portrait only) ----
                 Box(Modifier.fillMaxSize()) {
+                    // The pinned glass back button refracts whatever scrolls under it.
+                    val pinnedBackdrop = rememberBackdrop(mutedPaletteBg)
                     LazyColumn(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .background(mutedPaletteBg)
+                                .layerBackdrop(pinnedBackdrop)
                                 .hazeSource(hazeState),
                         state = lazyState,
                     ) {
@@ -255,7 +258,6 @@ fun ArtistScreen(
                                 // Edge-to-edge artwork (canvas plays on top of it when available).
                                 // Glass back button MUST be a sibling of the backdrop source
                                 // (not a child) to avoid render feedback loop / RuntimeShader crash.
-                                val artworkBackdrop = rememberBackdrop(Color.Black)
                                 // Haze state for the bottom progressive-blur fade (source = media layer).
                                 val headerHaze = rememberHazeState(blurEnabled = true)
                                 // Portrait fills a SQUARE frame, so the URL is clamped to a square
@@ -284,7 +286,7 @@ fun ArtistScreen(
                                             ),
                                 ) {
                                     // Inner Box — backdrop SOURCE (artwork + canvas + overlays, NO glass)
-                                    Box(modifier = Modifier.fillMaxSize().clipToBounds().layerBackdrop(artworkBackdrop)) {
+                                    Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
                                         // Media layer (artwork + canvas) — Haze SOURCE for the bottom blur.
                                         Box(modifier = Modifier.fillMaxSize().hazeSource(headerHaze)) {
                                             AsyncImage(
@@ -433,23 +435,6 @@ fun ArtistScreen(
                                             }
                                         }
                                     }
-                                    // Back button — liquid glass, sibling of the backdrop source.
-                                    LiquidGlassIconButton(
-                                        backdrop = artworkBackdrop,
-                                        imageVector = SimpIcons.ArrowBackIosNew,
-                                        shape = RoundedCornerShape(24.dp),
-                                        // Matching the other three headers: the pill-style directional rim, thickened
-                                        // from the 0.5.dp default so it stays visible around a 48dp circle.
-                                        highlight = Highlight(width = 1.dp),
-                                        modifier =
-                                            Modifier
-                                                .align(Alignment.TopStart)
-                                                .padding(12.dp)
-                                                .windowInsetsPadding(WindowInsets.statusBars)
-                                                .size(48.dp),
-                                    ) {
-                                        navController.navigateUp()
-                                    }
                                 }
 
                                 // Apple Music-style action row: [Radio][Shuffle pill][Follow] centered.
@@ -559,52 +544,25 @@ fun ArtistScreen(
                         }
                     }
 
-                    // Haze top bar appears once the header scrolls away.
-                    AnimatedVisibility(
-                        visible = shouldHideTopBar && !selectionState.isActive,
-                        enter = fadeIn() + slideInVertically(),
-                        exit = fadeOut() + slideOutVertically(),
+                    if (!selectionState.isActive) {
+                    // Back button — liquid glass, pinned over the page so it stays on screen while scrolling.
+                    // A sibling of the backdrop source (the list), never a child.
+                    LiquidGlassIconButton(
+                        backdrop = pinnedBackdrop,
+                        imageVector = SimpIcons.ArrowBackIosNew,
+                        shape = RoundedCornerShape(24.dp),
+                        // Matching the other three headers: the pill-style directional rim, thickened
+                        // from the 0.5.dp default so it stays visible around a 48dp circle.
+                        highlight = Highlight(width = 1.dp),
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopStart)
+                                .padding(12.dp)
+                                .windowInsetsPadding(WindowInsets.statusBars)
+                                .size(48.dp),
                     ) {
-                        TopAppBar(
-                            title = {
-                                Text(
-                                    text = state.data.title ?: "",
-                                    style = typo().titleMedium,
-                                    maxLines = 1,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .wrapContentHeight(align = Alignment.CenterVertically)
-                                            .basicMarquee(
-                                                iterations = Int.MAX_VALUE,
-                                                animationMode = MarqueeAnimationMode.Immediately,
-                                            ).focusable(),
-                                )
-                            },
-                            navigationIcon = {
-                                Box(Modifier.padding(horizontal = 5.dp)) {
-                                    IconButton(onClick = { navController.navigateUp() }) {
-                                        Icon(
-                                            imageVector = SimpIcons.ArrowBackIosNew,
-                                            contentDescription = "Back",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(20.dp),
-                                        )
-                                    }
-                                }
-                            },
-                            colors =
-                                TopAppBarDefaults.topAppBarColors(
-                                    containerColor = Color.Transparent,
-                                ),
-                            modifier =
-                                Modifier.hazeEffect(hazeState) {
-                                    blurEnabled = true
-                                    blurRadius = 24.dp
-                                    backgroundColor = mutedPaletteBg
-                                    tints = listOf(HazeTint(mutedPaletteBg.copy(alpha = 0.55f)))
-                                },
-                        )
+                        navController.navigateUp()
+                    }
                     }
                 }
 
