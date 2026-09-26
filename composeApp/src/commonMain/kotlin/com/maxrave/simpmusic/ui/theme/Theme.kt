@@ -14,7 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import com.materialkolor.PaletteStyle
 import com.materialkolor.rememberDynamicColorScheme
 import com.maxrave.domain.manager.DataStoreManager
@@ -163,6 +165,7 @@ fun AppTheme(
         () -> Unit,
 ) {
     val isDark = isDarkTheme(themeMode)
+    val surfaceTheme = surfaceThemeFor(themeMode)
     val wallpaperScheme =
         if (themeColorSource == DataStoreManager.THEME_COLOR_WALLPAPER) {
             platformDynamicColorScheme(isDark)
@@ -178,7 +181,7 @@ fun AppTheme(
         }
     // Symmetric base: dark pins background/surface to pure black via isAmoled; light pins them to
     // pure white with a neutral-grey ramp (the seed otherwise tints the light neutrals warm/cream).
-    val colorScheme =
+    val seededScheme =
         wallpaperScheme
             ?: rememberDynamicColorScheme(
                 seedColor = seedColor,
@@ -190,6 +193,12 @@ fun AppTheme(
                     if (isAppleMusicColor) base.withAppleMusicAccent() else base
                 },
             )
+    // Applied after, not inside modifyColorScheme: materialkolor only rebuilds when the seed or
+    // dark/light changes, so switching Dark -> Midnight (both dark) would otherwise do nothing.
+    val colorScheme =
+        remember(seededScheme, surfaceTheme, isDark) {
+            if (surfaceTheme != null) seededScheme.withSurfaceTheme(surfaceTheme, isDark) else seededScheme
+        }
     // Immersive screens stay dark even at light theme (see [ForceDarkContent]). Resolve their scheme
     // once here instead of letting every such subtree build a palette of its own.
     val forcedDarkScheme =
@@ -302,7 +311,58 @@ fun ForceDarkContent(content: @Composable () -> Unit) {
 @Composable
 fun isDarkTheme(themeMode: String): Boolean =
     when (themeMode) {
-        DataStoreManager.THEME_MODE_LIGHT -> false
+        DataStoreManager.THEME_MODE_LIGHT, DataStoreManager.THEME_MODE_SEPIA -> false
         DataStoreManager.THEME_MODE_SYSTEM -> isSystemInDarkTheme()
         else -> true
     }
+
+/**
+ * The page colour of a colour theme; null for plain Dark / Light / System, which keep their own
+ * pure-black and neutral-grey surfaces.
+ */
+private fun surfaceThemeFor(themeMode: String): Color? =
+    when (themeMode) {
+        // Apple's dark mode: the elevated grey of iOS rather than OLED black.
+        DataStoreManager.THEME_MODE_GRAPHITE -> Color(0xFF1C1C1E)
+        DataStoreManager.THEME_MODE_MIDNIGHT -> Color(0xFF0B1224)
+        DataStoreManager.THEME_MODE_FOREST -> Color(0xFF0D1712)
+        DataStoreManager.THEME_MODE_PLUM -> Color(0xFF170F1F)
+        DataStoreManager.THEME_MODE_MOCHA -> Color(0xFF1B1511)
+        DataStoreManager.THEME_MODE_SEPIA -> Color(0xFFF4ECDD)
+        else -> null
+    }
+
+/**
+ * Rebuilds every surface role from one page colour. Containers step away from the page towards
+ * white (dark themes) or black (light themes), so cards, sheets and bars keep the same relative
+ * lift as on the default themes, but all carry the theme's hue. Accent roles stay seed-derived.
+ */
+private fun ColorScheme.withSurfaceTheme(
+    page: Color,
+    dark: Boolean,
+): ColorScheme {
+    val toward = if (dark) Color.White else Color.Black
+    fun step(fraction: Float) = lerp(page, toward, fraction)
+    val onPage = if (dark) Color(0xFFF2F2F2) else Color(0xFF1F1A14)
+    val onVariant = if (dark) lerp(onPage, page, 0.30f) else lerp(onPage, page, 0.25f)
+    return copy(
+        background = page,
+        onBackground = onPage,
+        surface = page,
+        onSurface = onPage,
+        surfaceVariant = step(0.14f),
+        onSurfaceVariant = onVariant,
+        surfaceTint = primary,
+        surfaceBright = step(0.16f),
+        surfaceDim = if (dark) page else step(0.10f),
+        surfaceContainerLowest = if (dark) lerp(page, Color.Black, 0.35f) else lerp(page, Color.White, 0.6f),
+        surfaceContainerLow = step(0.03f),
+        surfaceContainer = step(0.06f),
+        surfaceContainerHigh = step(0.09f),
+        surfaceContainerHighest = step(0.12f),
+        outline = step(0.40f),
+        outlineVariant = step(0.20f),
+        inverseSurface = onPage,
+        inverseOnSurface = page,
+    )
+}

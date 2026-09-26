@@ -1045,6 +1045,9 @@ class SharedViewModel(
     val updateResponse: StateFlow<UpdateData?> = _updateResponse
 
     fun checkForUpdate() {
+        // Disabled: this build is modified. Updating to an upstream SimpMusic release would replace
+        // it and remove every feature added here, so nothing ever checks for or offers one.
+        if (UPSTREAM_UPDATES_DISABLED) return
         viewModelScope.launch {
             _isCheckingUpdate.value = true
             val updateChannel = dataStoreManager.updateChannel.first()
@@ -1928,7 +1931,7 @@ class SharedViewModel(
         _reloadDestination.value = null
     }
 
-    fun shouldCheckForUpdate(): Boolean = runBlocking { dataStoreManager.autoCheckForUpdates.first() == TRUE }
+    fun shouldCheckForUpdate(): Boolean = !UPSTREAM_UPDATES_DISABLED && runBlocking { dataStoreManager.autoCheckForUpdates.first() == TRUE }
 
     private var _downloadFileProgress = MutableStateFlow<DownloadProgress>(DownloadProgress.INIT)
     val downloadFileProgress: StateFlow<DownloadProgress> get() = _downloadFileProgress
@@ -2230,3 +2233,6 @@ sealed class VoteState {
  * of a track onwards.
  */
 private fun String.isCanvasVideoUrl(): Boolean = contains(".mp4") || contains(".m3u8")
+
+/** See [SharedViewModel.checkForUpdate]. */
+private const val UPSTREAM_UPDATES_DISABLED = true

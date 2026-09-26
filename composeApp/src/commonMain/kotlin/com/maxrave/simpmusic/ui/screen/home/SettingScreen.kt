@@ -1,5 +1,16 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.theme_mode_graphite
+import simpmusic.composeapp.generated.resources.theme_mode_midnight
+import simpmusic.composeapp.generated.resources.theme_mode_forest
+import simpmusic.composeapp.generated.resources.theme_mode_plum
+import simpmusic.composeapp.generated.resources.theme_mode_mocha
+import simpmusic.composeapp.generated.resources.theme_mode_sepia
+import simpmusic.composeapp.generated.resources.settings_credits_header
+import simpmusic.composeapp.generated.resources.credits_simpmusic_title
+import simpmusic.composeapp.generated.resources.credits_simpmusic_subtitle
+import simpmusic.composeapp.generated.resources.credits_maiker_title
+import simpmusic.composeapp.generated.resources.credits_maiker_subtitle
 import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
 import com.maxrave.simpmusic.ui.component.AppleLibraryRow
 import com.maxrave.simpmusic.ui.icon.Tune
@@ -726,6 +737,12 @@ fun SettingScreen(
                         DataStoreManager.THEME_MODE_SYSTEM to stringResource(Res.string.theme_mode_system),
                         DataStoreManager.THEME_MODE_DARK to stringResource(Res.string.theme_mode_dark),
                         DataStoreManager.THEME_MODE_LIGHT to stringResource(Res.string.theme_mode_light),
+                        DataStoreManager.THEME_MODE_GRAPHITE to stringResource(Res.string.theme_mode_graphite),
+                        DataStoreManager.THEME_MODE_MIDNIGHT to stringResource(Res.string.theme_mode_midnight),
+                        DataStoreManager.THEME_MODE_FOREST to stringResource(Res.string.theme_mode_forest),
+                        DataStoreManager.THEME_MODE_PLUM to stringResource(Res.string.theme_mode_plum),
+                        DataStoreManager.THEME_MODE_MOCHA to stringResource(Res.string.theme_mode_mocha),
+                        DataStoreManager.THEME_MODE_SEPIA to stringResource(Res.string.theme_mode_sepia),
                     )
                 SettingItem(
                     title = stringResource(Res.string.theme),
@@ -2728,102 +2745,23 @@ fun SettingScreen(
                 )
             }
         }
+        // Credits only, and nothing here is clickable: this build is not the upstream app, so it
+        // must not offer upstream's update checker, links or donations.
         if (category == SettingsCategory.ABOUT.name) item(key = "about_us") {
             Column {
                 Text(
-                    text = stringResource(Res.string.about_us),
+                    text = stringResource(Res.string.settings_credits_header),
                     style = typo().labelMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
                 SettingItem(
-                    title = stringResource(Res.string.version),
-                    subtitle = stringResource(Res.string.version_format, VersionManager.getVersionName()),
-                    onClick = {
-                        navController.navigate(CreditDestination)
-                    },
+                    title = stringResource(Res.string.credits_simpmusic_title),
+                    subtitle = stringResource(Res.string.credits_simpmusic_subtitle),
                 )
                 SettingItem(
-                    title = stringResource(Res.string.auto_check_for_update),
-                    subtitle = stringResource(Res.string.auto_check_for_update_description),
-                    switch = (autoCheckUpdate to { viewModel.setAutoCheckUpdate(it) }),
-                )
-                SettingItem(
-                    title = stringResource(Res.string.update_channel),
-                    subtitle =
-                        if (updateChannel == DataStoreManager.FDROID) {
-                            "F-Droid"
-                        } else {
-                            "SimpMusic GitHub Release"
-                        },
-                    onClick = {
-                        viewModel.setAlertData(
-                            SettingAlertState(
-                                title = runBlocking { getString(Res.string.update_channel) },
-                                selectOne =
-                                    SettingAlertState.SelectData(
-                                        listSelect =
-                                            listOf(
-                                                (updateChannel == DataStoreManager.FDROID) to "F-Droid",
-                                                (updateChannel == DataStoreManager.GITHUB) to "SimpMusic GitHub Release",
-                                            ),
-                                    ),
-                                confirm =
-                                    runBlocking { getString(Res.string.change) } to { state ->
-                                        viewModel.setUpdateChannel(
-                                            when (state.selectOne?.getSelected()) {
-                                                "F-Droid" -> DataStoreManager.FDROID
-                                                "SimpMusic GitHub Release" -> DataStoreManager.GITHUB
-                                                else -> DataStoreManager.GITHUB
-                                            },
-                                        )
-                                    },
-                                dismiss = runBlocking { getString(Res.string.cancel) },
-                            ),
-                        )
-                    },
-                )
-                SettingItem(
-                    title = stringResource(Res.string.check_for_update),
-                    subtitle = checkForUpdateSubtitle,
-                    onClick = {
-                        sharedViewModel.checkForUpdate()
-                    },
-                )
-                SettingItem(
-                    title = stringResource(Res.string.author),
-                    subtitle = stringResource(Res.string.maxrave_dev),
-                    onClick = {
-                        uriHandler.openUri("https://github.com/maxrave-dev")
-                    },
-                )
-                SettingItem(
-                    title = stringResource(Res.string.developer_blog),
-                    subtitle = stringResource(Res.string.developer_blog_tagline),
-                    onClick = {
-                        uriHandler.openUri("https://maxrave.dev")
-                    },
-                )
-                if (getPlatform() == Platform.Android) {
-                    SettingItem(
-                        title = stringResource(Res.string.blog_notification_title),
-                        subtitle = stringResource(Res.string.blog_notification_description),
-                        switch = (blogNotificationEnabled to { viewModel.setBlogNotificationEnabled(it) }),
-                    )
-                }
-                SettingItem(
-                    title = stringResource(Res.string.buy_me_a_coffee),
-                    subtitle = stringResource(Res.string.donation),
-                    onClick = {
-                        uriHandler.openUri("https://github.com/sponsors/maxrave-dev")
-                    },
-                )
-                SettingItem(
-                    title = stringResource(Res.string.third_party_libraries),
-                    subtitle = stringResource(Res.string.description_and_licenses),
-                    onClick = {
-                        showThirdPartyLibraries = true
-                    },
+                    title = stringResource(Res.string.credits_maiker_title),
+                    subtitle = stringResource(Res.string.credits_maiker_subtitle),
                 )
             }
         }

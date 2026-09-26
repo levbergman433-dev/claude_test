@@ -891,4 +891,15 @@
     <string name="settings_lyrics_display_header">Lyrics display</string>
     <string name="show_mix_tab">Show Mix tab</string>
     <string name="show_mix_tab_description">Show the Mix for you tab in the navigation bar while logged in to YouTube</string>
+    <string name="settings_credits_header">Credits</string>
+    <string name="credits_simpmusic_title">Based on SimpMusic</string>
+    <string name="credits_simpmusic_subtitle">Created by maxrave-dev and the SimpMusic contributors, licensed under GPL-3.0</string>
+    <string name="credits_maiker_title">Modified by maiker</string>
+    <string name="credits_maiker_subtitle">Apple Music-style design, liquid glass and speed improvements</string>
+    <string name="theme_mode_graphite">Graphite (dark grey)</string>
+    <string name="theme_mode_midnight">Midnight (dark blue)</string>
+    <string name="theme_mode_forest">Forest (dark green)</string>
+    <string name="theme_mode_plum">Plum (dark purple)</string>
+    <string name="theme_mode_mocha">Mocha (dark brown)</string>
+    <string name="theme_mode_sepia">Sepia (warm light)</string>
 </resources>

@@ -252,6 +252,14 @@ class HomeViewModel(
                         is Resource.Success -> {
                             _continuation.value = home.data?.first
                             _homeItemList.value = home.data?.second ?: listOf()
+                            // Quick picks is the first all-songs shelf; its top two are the most
+                            // likely first taps on Home, so their streams get resolved now.
+                            home.data
+                                ?.second
+                                ?.firstOrNull { shelf -> shelf.contents.any { !it?.videoId.isNullOrEmpty() } }
+                                ?.contents
+                                ?.mapNotNull { it?.videoId }
+                                ?.let { prefetchStreams(it) }
                         }
 
                         else -> {
@@ -276,6 +284,11 @@ class HomeViewModel(
                     when (newRelease) {
                         is Resource.Success -> {
                             _newRelease.value = newRelease.data ?: arrayListOf()
+                            // The top of "Best New Songs" (the new-release shelf made of songs).
+                            newRelease.data
+                                ?.flatMap { it.contents }
+                                ?.firstNotNullOfOrNull { it?.videoId?.takeIf { id -> id.isNotEmpty() } }
+                                ?.let { prefetchStreams(listOf(it)) }
                         }
 
                         else -> {

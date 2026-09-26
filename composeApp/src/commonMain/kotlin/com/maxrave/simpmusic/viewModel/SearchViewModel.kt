@@ -315,6 +315,8 @@ class SearchViewModel(
                     temp.addAll(podcast)
                 }
 
+                // The top song results are what a search is usually for.
+                prefetchStreams(song.map { it.videoId })
                 _searchScreenState.update { state ->
                     state.copy(
                         searchType = SearchType.ALL,

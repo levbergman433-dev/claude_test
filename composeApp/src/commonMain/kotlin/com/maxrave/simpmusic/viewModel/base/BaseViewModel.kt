@@ -48,6 +48,8 @@ abstract class BaseViewModel :
         if (ids.isEmpty()) return
         viewModelScope.launch(Dispatchers.IO) {
             if (prefetchDataStoreManager.fastStreamLoading.first() != DataStoreManager.TRUE) return@launch
+            // Battery saver means "spend nothing on songs that may never play".
+            if (prefetchDataStoreManager.batterySaver.first() == DataStoreManager.TRUE) return@launch
             for (id in ids) {
                 val cached = prefetchStreamRepository.getNewFormat(id).firstOrNull()
                 if (cached?.audioUrl != null && cached.expiredTime > now()) continue

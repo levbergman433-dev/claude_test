@@ -210,7 +210,9 @@ class MainActivity : AppCompatActivity() {
         )
         lifecycleScope.launch {
             dataStoreManager.blogNotificationEnabled.collect { enabled ->
-                if (enabled == DataStoreManager.TRUE) {
+                // Upstream's developer-blog notifications are off in this build (the setting is no
+                // longer shown), and any worker scheduled by an earlier install is cancelled.
+                if (false && enabled == DataStoreManager.TRUE) {
                     val rssRequest =
                         PeriodicWorkRequestBuilder<RssFeedNotifyWork>(
                             24L,

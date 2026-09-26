@@ -636,6 +636,14 @@ interface DataStoreManager {
         const val THEME_MODE_DARK = "DARK"
         const val THEME_MODE_LIGHT = "LIGHT"
 
+        // Colour themes: a dark or light mode with its own background and surface tint.
+        const val THEME_MODE_GRAPHITE = "GRAPHITE"
+        const val THEME_MODE_MIDNIGHT = "MIDNIGHT"
+        const val THEME_MODE_FOREST = "FOREST"
+        const val THEME_MODE_PLUM = "PLUM"
+        const val THEME_MODE_MOCHA = "MOCHA"
+        const val THEME_MODE_SEPIA = "SEPIA"
+
         const val THEME_COLOR_DEFAULT = "DEFAULT"
         const val THEME_COLOR_WALLPAPER = "WALLPAPER"
         const val THEME_COLOR_CUSTOM = "CUSTOM"
