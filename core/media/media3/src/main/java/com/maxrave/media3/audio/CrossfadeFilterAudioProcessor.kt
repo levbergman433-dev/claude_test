@@ -128,10 +128,12 @@ class CrossfadeFilterAudioProcessor : BaseAudioProcessor() {
             dst.limit(size)
             return
         }
+        // Bulk copy: this pass-through runs on every buffer of playback whenever crossfade is
+        // idle (almost always), so a per-byte loop here cost ~200k calls a second for nothing.
         val pos = src.position()
-        for (i in 0 until size) {
-            dst.put(src.get(pos + i))
-        }
+        val slice = src.duplicate()
+        slice.limit(pos + size)
+        dst.put(slice)
         src.position(pos + size)
     }
 

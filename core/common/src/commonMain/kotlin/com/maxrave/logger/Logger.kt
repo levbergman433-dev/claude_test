@@ -15,7 +15,7 @@ object Logger {
     var isVerbose: Boolean = true
         set(value) {
             field = value
-            logger.setMinSeverity(if (value) Severity.Verbose else Severity.Warn)
+            logger.setMinSeverity(if (value) Severity.Verbose else Severity.Error)
         }
 
     // Tags suppressed at all log levels. Add a tag here to silence its logs globally.
@@ -51,7 +51,10 @@ object Logger {
         tag: String,
         message: String,
     ) {
-        if (isMuted(tag)) return
+        // Warnings follow the verbose switch too: most of the ~400 call sites are debug traces
+        // (several per track, one per loaded stream chunk), and in a release build nobody reads
+        // logcat, so formatting and writing them only cost CPU and battery. Errors still log.
+        if (!isVerbose || isMuted(tag)) return
         logger.w(tag = tag, message = { message })
     }
 
