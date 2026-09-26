@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.picked_for_you
 import com.maxrave.simpmusic.ui.component.AppleSongRowData
 import com.maxrave.simpmusic.ui.component.AppleSongListGrid
 import com.maxrave.simpmusic.ui.component.accentTint
@@ -642,13 +643,12 @@ fun HomeScreen(
                     // first few of the user's own YouTube shelves; the discovery block (new releases,
                     // charts, top artists) follows them rather than sitting on top.
                     val quickPicksTitle = stringResource(Res.string.quick_picks)
-                    val orderedHome =
-                        remember(homeData, appleLayout, quickPicksTitle) {
-                            if (appleLayout) homeData.sortedBy { it.title != quickPicksTitle } else homeData
-                        }
+                    // YouTube's order is kept as-is: its Quick picks often arrives with a LATER page of
+                    // the feed, and moving it to the top then made the top of Home change mid-scroll.
+                    val orderedHome = homeData
                     val discoverAfterIndex = minOf(APPLE_DISCOVER_AFTER, orderedHome.lastIndex)
-                    // Not every account gets a Quick picks shelf from YouTube; those get the app's
-                    // own (songs related to what was played last) at the very top instead.
+                    // Unless YouTube's Quick picks is the first shelf, Home opens with the app's own
+                    // "Picked for you" (songs related to what was played last), which is always there.
                     val youtubeHasQuickPicks = orderedHome.firstOrNull()?.title == quickPicksTitle
                     LazyColumn(
                         state = scrollState,
@@ -703,7 +703,7 @@ fun HomeScreen(
                                     if (appleLayout && index == 0 && !youtubeHasQuickPicks) {
                                         if (appQuickPicks.isNotEmpty()) {
                                             AppleShelfHeader(
-                                                title = quickPicksTitle,
+                                                title = stringResource(Res.string.picked_for_you),
                                                 modifier = Modifier.padding(bottom = 8.dp),
                                             )
                                             AppleSongListGrid(
