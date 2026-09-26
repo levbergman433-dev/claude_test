@@ -380,11 +380,14 @@ fun PlaylistScreen(
                     rememberHazeState(
                         blurEnabled = true,
                     )
+                // The pinned glass buttons refract whatever scrolls under them: artwork, then list.
+                val pinnedBackdrop = rememberBackdrop(mutedPaletteBg)
                 LazyColumn(
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .background(mutedPaletteBg)
+                            .then(if (isPortrait) Modifier.layerBackdrop(pinnedBackdrop) else Modifier)
                             .hazeSource(hazeState),
                     state = lazyState,
                 ) {
@@ -409,7 +412,6 @@ fun PlaylistScreen(
                                             // Apple Music-style: edge-to-edge artwork + liquid glass buttons.
                                             // Glass buttons MUST be siblings of the backdrop source (not children)
                                             // to avoid render feedback loop / RuntimeShader crash.
-                                            val artworkBackdrop = rememberBackdrop(Color.Black)
                                             Box(
                                                 modifier =
                                                     Modifier
@@ -417,7 +419,7 @@ fun PlaylistScreen(
                                                         .height((screenInfo.hDP / 2).dp),
                                             ) {
                                                 // Inner Box — backdrop SOURCE (artwork + overlays only, NO glass)
-                                                Box(modifier = Modifier.fillMaxSize().layerBackdrop(artworkBackdrop)) {
+                                                Box(modifier = Modifier.fillMaxSize()) {
                                                     AsyncImage(
                                                         model =
                                                             ImageRequest
@@ -507,65 +509,6 @@ fun PlaylistScreen(
                                                             color = Color(0xC4FFFFFF),
                                                             textAlign = TextAlign.Center,
                                                         )
-                                                    }
-                                                }
-                                                // Back + Heart + Search button overlays on artwork top — liquid glass
-                                                Row(
-                                                    modifier =
-                                                        Modifier
-                                                            .align(Alignment.TopCenter)
-                                                            .fillMaxWidth()
-                                                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                                                            .windowInsetsPadding(WindowInsets.statusBars),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    LiquidGlassIconButton(
-                                                        backdrop = artworkBackdrop,
-                                                        imageVector = SimpIcons.ArrowBackIosNew,
-                                                        modifier =
-                                                            Modifier
-                                                                .size(48.dp),
-                                                    ) {
-                                                        navController.navigateUp()
-                                                    }
-                                                    Spacer(Modifier.weight(1f))
-                                                    Row(
-                                                        modifier =
-                                                            Modifier
-                                                                .height(48.dp)
-                                                                .liquidGlass(artworkBackdrop, RoundedCornerShape(24.dp)),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                    ) {
-                                                        if (!data.isRadio) {
-                                                            Box(
-                                                                modifier = Modifier.size(48.dp),
-                                                                contentAlignment = Alignment.Center,
-                                                            ) {
-                                                                HeartCheckBox(
-                                                                    size = 28,
-                                                                    checked = liked,
-                                                                    onStateChange = {
-                                                                        viewModel.onUIEvent(PlaylistUIEvent.Favorite)
-                                                                    },
-                                                                )
-                                                            }
-                                                        }
-                                                        IconButton(
-                                                            onClick = {
-                                                                showSearchBar = !showSearchBar
-                                                            },
-                                                        ) {
-                                                            Icon(SimpIcons.Search, null, tint = Color.White)
-                                                        }
-                                                        IconButton(
-                                                            onClick = onPlaylistMoreClick,
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = SimpIcons.MoreVert,
-                                                                contentDescription = "More",
-                                                                tint = Color.White,
-                                                            )
-                                                        }
                                                     }
                                                 }
                                             }
@@ -1360,8 +1303,72 @@ fun PlaylistScreen(
                         onAddToQueue = if (data.isRadio) null else addToQueue,
                     )
                 }
+                if (isPortrait && !showSearchBar && !selectionState.isActive) {
+                    // Back + Heart + Search + More: liquid glass, pinned over the page so they stay on screen
+                    // while scrolling (Apple Music). A sibling of the backdrop source (the list), never a
+                    // child, which is the render-feedback loop that kills the RuntimeShader.
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                                .windowInsetsPadding(WindowInsets.statusBars),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        LiquidGlassIconButton(
+                            backdrop = pinnedBackdrop,
+                            imageVector = SimpIcons.ArrowBackIosNew,
+                            modifier =
+                                Modifier
+                                    .size(48.dp),
+                        ) {
+                            navController.navigateUp()
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Row(
+                            modifier =
+                                Modifier
+                                    .height(48.dp)
+                                    .liquidGlass(pinnedBackdrop, RoundedCornerShape(24.dp)),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (!data.isRadio) {
+                                Box(
+                                    modifier = Modifier.size(48.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    HeartCheckBox(
+                                        size = 28,
+                                        checked = liked,
+                                        onStateChange = {
+                                            viewModel.onUIEvent(PlaylistUIEvent.Favorite)
+                                        },
+                                    )
+                                }
+                            }
+                            IconButton(
+                                onClick = {
+                                    showSearchBar = !showSearchBar
+                                },
+                            ) {
+                                Icon(SimpIcons.Search, null, tint = Color.White)
+                            }
+                            IconButton(
+                                onClick = onPlaylistMoreClick,
+                            ) {
+                                Icon(
+                                    imageVector = SimpIcons.MoreVert,
+                                    contentDescription = "More",
+                                    tint = Color.White,
+                                )
+                            }
+                        }
+                    }
+                }
+                // The compact title bar is for the landscape layout only; portrait keeps the glass
+                // buttons above on screen instead.
                 AnimatedVisibility(
-                    visible = shouldHideTopBar && !showSearchBar && !selectionState.isActive,
+                    visible = shouldHideTopBar && !isPortrait && !showSearchBar && !selectionState.isActive,
                     enter = fadeIn() + slideInVertically(),
                     exit = fadeOut() + slideOutVertically(),
                 ) {

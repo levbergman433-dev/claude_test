@@ -442,11 +442,14 @@ fun LocalPlaylistScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
 //    Box {
+    // The pinned glass buttons refract whatever scrolls under them: artwork, then list.
+    val pinnedBackdrop = rememberBackdrop(mutedPaletteBg)
     LazyColumn(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .background(mutedPaletteBg)
+                .then(if (isPortrait) Modifier.layerBackdrop(pinnedBackdrop) else Modifier)
                 .hazeSource(hazeState)
                 .pointerInput(changingOrder) {
                     if (!changingOrder) return@pointerInput
@@ -525,7 +528,6 @@ fun LocalPlaylistScreen(
                             // Apple Music-style: edge-to-edge artwork + liquid glass buttons.
                             // Glass buttons MUST be siblings of the backdrop source (not children)
                             // to avoid render feedback loop / RuntimeShader crash.
-                            val artworkBackdrop = rememberBackdrop(Color.Black)
                             Box(
                                 modifier =
                                     Modifier
@@ -533,7 +535,7 @@ fun LocalPlaylistScreen(
                                         .height((screenInfo.hDP / 2).dp),
                             ) {
                                 // Inner Box — backdrop SOURCE (artwork + overlays only, NO glass)
-                                Box(modifier = Modifier.fillMaxSize().layerBackdrop(artworkBackdrop)) {
+                                Box(modifier = Modifier.fillMaxSize()) {
                                     AsyncImage(
                                         model =
                                             ImageRequest
@@ -614,95 +616,6 @@ fun LocalPlaylistScreen(
                                             color = Color(0xC4FFFFFF),
                                             textAlign = TextAlign.Center,
                                         )
-                                    }
-                                }
-                                // Back button + right pill (More only) overlays — liquid glass, siblings of source
-                                Row(
-                                    modifier =
-                                        Modifier
-                                            .align(Alignment.TopCenter)
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                                            .windowInsetsPadding(WindowInsets.statusBars),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    LiquidGlassIconButton(
-                                        backdrop = artworkBackdrop,
-                                        imageVector = SimpIcons.ArrowBackIosNew,
-                                        modifier =
-                                            Modifier
-                                                .size(48.dp),
-                                    ) {
-                                        navController.navigateUp()
-                                    }
-                                    Spacer(Modifier.weight(1f))
-                                    Row(
-                                        modifier =
-                                            Modifier
-                                                .height(48.dp)
-                                                .liquidGlass(artworkBackdrop, RoundedCornerShape(24.dp)),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        // AI Suggest — only when synced with YouTube
-                                        if (shouldShowSuggestButton) {
-                                            IconButton(
-                                                onClick = {
-                                                    shouldShowSuggestions = !shouldShowSuggestions
-                                                },
-                                            ) {
-                                                Box(
-                                                    modifier =
-                                                        Modifier
-                                                            .size(24.dp)
-                                                            .graphicsLayer {
-                                                                compositingStrategy = CompositingStrategy.Offscreen
-                                                            }.drawWithContent {
-                                                                val width = size.width
-                                                                val height = size.height
-                                                                val offsetDraw = width * progressAnimated
-                                                                val brush =
-                                                                    Brush.linearGradient(
-                                                                        colors =
-                                                                            listOf(
-                                                                                Color(0xFF4C82EF),
-                                                                                Color(0xFFD96570),
-                                                                            ),
-                                                                        start = Offset(offsetDraw, 0f),
-                                                                        end =
-                                                                            Offset(
-                                                                                offsetDraw + width,
-                                                                                height,
-                                                                            ),
-                                                                    )
-                                                                with(aiPainter) {
-                                                                    draw(size = Size(width, height))
-                                                                }
-                                                                drawRect(
-                                                                    brush = brush,
-                                                                    blendMode = BlendMode.SrcIn,
-                                                                )
-                                                            },
-                                                )
-                                            }
-                                        }
-                                        IconButton(
-                                            onClick = { showSearchBar = true },
-                                        ) {
-                                            Icon(
-                                                imageVector = SimpIcons.Search,
-                                                contentDescription = "Search in playlist",
-                                                tint = Color.White,
-                                            )
-                                        }
-                                        IconButton(
-                                            onClick = onPlaylistMoreClick,
-                                        ) {
-                                            Icon(
-                                                imageVector = SimpIcons.MoreVert,
-                                                contentDescription = "More",
-                                                tint = Color.White,
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -1731,8 +1644,100 @@ fun LocalPlaylistScreen(
             },
         )
     }
+    if (isPortrait && !showSearchBar && !selectionState.isActive) {
+        // Back + (AI suggest) + Search + More: liquid glass, pinned over the page so they stay on
+        // screen while scrolling. Siblings of the backdrop source (the list), never children.
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .windowInsetsPadding(WindowInsets.statusBars),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LiquidGlassIconButton(
+                backdrop = pinnedBackdrop,
+                imageVector = SimpIcons.ArrowBackIosNew,
+                modifier =
+                    Modifier
+                        .size(48.dp),
+            ) {
+                navController.navigateUp()
+            }
+            Spacer(Modifier.weight(1f))
+            Row(
+                modifier =
+                    Modifier
+                        .height(48.dp)
+                        .liquidGlass(pinnedBackdrop, RoundedCornerShape(24.dp)),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // AI Suggest — only when synced with YouTube
+                if (shouldShowSuggestButton) {
+                    IconButton(
+                        onClick = {
+                            shouldShowSuggestions = !shouldShowSuggestions
+                        },
+                    ) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(24.dp)
+                                    .graphicsLayer {
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                    }.drawWithContent {
+                                        val width = size.width
+                                        val height = size.height
+                                        val offsetDraw = width * progressAnimated
+                                        val brush =
+                                            Brush.linearGradient(
+                                                colors =
+                                                    listOf(
+                                                        Color(0xFF4C82EF),
+                                                        Color(0xFFD96570),
+                                                    ),
+                                                start = Offset(offsetDraw, 0f),
+                                                end =
+                                                    Offset(
+                                                        offsetDraw + width,
+                                                        height,
+                                                    ),
+                                            )
+                                        with(aiPainter) {
+                                            draw(size = Size(width, height))
+                                        }
+                                        drawRect(
+                                            brush = brush,
+                                            blendMode = BlendMode.SrcIn,
+                                        )
+                                    },
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = { showSearchBar = true },
+                ) {
+                    Icon(
+                        imageVector = SimpIcons.Search,
+                        contentDescription = "Search in playlist",
+                        tint = Color.White,
+                    )
+                }
+                IconButton(
+                    onClick = onPlaylistMoreClick,
+                ) {
+                    Icon(
+                        imageVector = SimpIcons.MoreVert,
+                        contentDescription = "More",
+                        tint = Color.White,
+                    )
+                }
+            }
+        }
+    }
+    // The compact title bar is for the landscape layout only.
     AnimatedVisibility(
-        visible = shouldHideTopBar && !selectionState.isActive,
+        visible = shouldHideTopBar && !isPortrait && !selectionState.isActive,
         enter = fadeIn() + slideInVertically(),
         exit = fadeOut() + slideOutVertically(),
     ) {

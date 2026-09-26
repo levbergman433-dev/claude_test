@@ -235,11 +235,14 @@ fun AlbumScreen(
     Crossfade(uiState.loadState) {
         when (it) {
             LocalPlaylistState.PlaylistLoadState.Success -> {
+                // The pinned glass buttons refract whatever scrolls under them: artwork, then list.
+                val pinnedBackdrop = rememberBackdrop(mutedPaletteBg)
                 LazyColumn(
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .background(mutedPaletteBg)
+                            .then(if (isPortrait) Modifier.layerBackdrop(pinnedBackdrop) else Modifier)
                             .hazeSource(hazeState),
                     state = lazyState,
                 ) {
@@ -263,7 +266,6 @@ fun AlbumScreen(
                                         // ~half screen height) with title overlay + liquid glass buttons.
                                         // Glass buttons MUST be siblings of the backdrop source (not children)
                                         // to avoid render feedback loop / RuntimeShader crash.
-                                        val artworkBackdrop = rememberBackdrop(Color.Black)
                                         Box(
                                             modifier =
                                                 Modifier
@@ -271,7 +273,7 @@ fun AlbumScreen(
                                                     .height((screenInfo.hDP / 2).dp),
                                         ) {
                                             // Inner Box — backdrop SOURCE (artwork + overlays only, NO glass)
-                                            Box(modifier = Modifier.fillMaxSize().layerBackdrop(artworkBackdrop)) {
+                                            Box(modifier = Modifier.fillMaxSize()) {
                                                 AsyncImage(
                                                     model =
                                                         ImageRequest
@@ -351,52 +353,6 @@ fun AlbumScreen(
                                                         style = typo().bodyMedium,
                                                         color = Color(0xC4FFFFFF),
                                                         textAlign = TextAlign.Center,
-                                                    )
-                                                }
-                                            }
-                                            // Back button — liquid glass effect (Kyant backdrop)
-                                            LiquidGlassIconButton(
-                                                backdrop = artworkBackdrop,
-                                                imageVector = SimpIcons.ArrowBackIosNew,
-                                                modifier =
-                                                    Modifier
-                                                        .align(Alignment.TopStart)
-                                                        .padding(12.dp)
-                                                        .windowInsetsPadding(WindowInsets.statusBars)
-                                                        .size(48.dp),
-                                            ) {
-                                                navController.navigateUp()
-                                            }
-                                            // Heart + More — liquid glass pill
-                                            Row(
-                                                modifier =
-                                                    Modifier
-                                                        .align(Alignment.TopEnd)
-                                                        .padding(12.dp)
-                                                        .windowInsetsPadding(WindowInsets.statusBars)
-                                                        .height(48.dp)
-                                                        .liquidGlass(artworkBackdrop, RoundedCornerShape(24.dp)),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier.size(48.dp),
-                                                    contentAlignment = Alignment.Center,
-                                                ) {
-                                                    HeartCheckBox(
-                                                        size = 28,
-                                                        checked = uiState.liked,
-                                                        onStateChange = {
-                                                            viewModel.setAlbumLike()
-                                                        },
-                                                    )
-                                                }
-                                                IconButton(
-                                                    onClick = { albumBottomSheetShow = true },
-                                                ) {
-                                                    Icon(
-                                                        imageVector = SimpIcons.MoreVert,
-                                                        contentDescription = "More",
-                                                        tint = Color.White,
                                                     )
                                                 }
                                             }
@@ -954,8 +910,61 @@ fun AlbumScreen(
                         EndOfPage()
                     }
                 }
+                if (isPortrait && !selectionState.isActive) {
+                    // Back + Heart + More, pinned over the page so they stay on screen while
+                    // scrolling. Siblings of the backdrop source (the list), never children.
+                    Box(Modifier.fillMaxWidth()) {
+                    // Back button — liquid glass effect (Kyant backdrop)
+                    LiquidGlassIconButton(
+                        backdrop = pinnedBackdrop,
+                        imageVector = SimpIcons.ArrowBackIosNew,
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopStart)
+                                .padding(12.dp)
+                                .windowInsetsPadding(WindowInsets.statusBars)
+                                .size(48.dp),
+                    ) {
+                        navController.navigateUp()
+                    }
+                    // Heart + More — liquid glass pill
+                    Row(
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp)
+                                .windowInsetsPadding(WindowInsets.statusBars)
+                                .height(48.dp)
+                                .liquidGlass(pinnedBackdrop, RoundedCornerShape(24.dp)),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier.size(48.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            HeartCheckBox(
+                                size = 28,
+                                checked = uiState.liked,
+                                onStateChange = {
+                                    viewModel.setAlbumLike()
+                                },
+                            )
+                        }
+                        IconButton(
+                            onClick = { albumBottomSheetShow = true },
+                        ) {
+                            Icon(
+                                imageVector = SimpIcons.MoreVert,
+                                contentDescription = "More",
+                                tint = Color.White,
+                            )
+                        }
+                    }
+                    }
+                }
+                // The compact title bar is for the landscape layout only.
                 AnimatedVisibility(
-                    visible = shouldHideTopBar && !selectionState.isActive,
+                    visible = shouldHideTopBar && !isPortrait && !selectionState.isActive,
                     enter = fadeIn() + slideInVertically(),
                     exit = fadeOut() + slideOutVertically(),
                 ) {
