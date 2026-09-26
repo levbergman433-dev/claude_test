@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic.viewModel
 
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
 import com.maxrave.domain.data.model.browse.album.Track
 import androidx.lifecycle.viewModelScope
 import com.maxrave.common.Config
@@ -77,35 +80,48 @@ class HomeViewModel(
     private var quickPicksJob: Job? = null
 
     private fun loadQuickPicks() {
-        val seeds = _recentlyPlayed.value.take(QUICK_PICKS_SEEDS)
-        if (seeds.isEmpty()) return
-        quickPicksJob?.cancel()
+        if (_recentlyPlayed.value.isEmpty()) return
+        // Already building: let that run instead of restarting it from scratch.
+        if (quickPicksJob?.isActive == true) return
         quickPicksJob =
             viewModelScope.launch {
                 val played = _recentlyPlayed.value.map { it.videoId }.toSet()
-                val perSeed =
-                    seeds.map { seed ->
-                        runCatching {
-                            songRepository
-                                .getRelatedData(seed.videoId)
-                                .first { it is Resource.Success || it is Resource.Error }
-                                .data
-                                ?.first
-                                .orEmpty()
-                        }.getOrDefault(emptyList())
+                // Each attempt takes a wider set of seeds, so one song with no related tracks (or
+                // a request that timed out) does not leave the shelf empty; the last picks that
+                // did load stay on screen meanwhile.
+                for (attempt in 0 until QUICK_PICKS_ATTEMPTS) {
+                    val seeds = _recentlyPlayed.value.take(QUICK_PICKS_SEEDS + attempt * 2)
+                    val perSeed =
+                        seeds
+                            .map { seed ->
+                                async {
+                                    withTimeoutOrNull(QUICK_PICKS_TIMEOUT_MS) {
+                                        runCatching {
+                                            songRepository
+                                                .getRelatedData(seed.videoId)
+                                                .first { it is Resource.Success || it is Resource.Error }
+                                                .data
+                                                ?.first
+                                                .orEmpty()
+                                        }.getOrNull()
+                                    }.orEmpty()
+                                }
+                            }.awaitAll()
+                    val merged = LinkedHashMap<String, Track>()
+                    val longest = perSeed.maxOfOrNull { it.size } ?: 0
+                    for (i in 0 until longest) {
+                        for (list in perSeed) {
+                            val track = list.getOrNull(i) ?: continue
+                            if (track.videoId !in played) merged.putIfAbsent(track.videoId, track)
+                        }
                     }
-                val merged = LinkedHashMap<String, Track>()
-                val longest = perSeed.maxOfOrNull { it.size } ?: 0
-                for (i in 0 until longest) {
-                    for (list in perSeed) {
-                        val track = list.getOrNull(i) ?: continue
-                        if (track.videoId !in played) merged.putIfAbsent(track.videoId, track)
+                    val picks = merged.values.take(QUICK_PICKS_COUNT)
+                    if (picks.isNotEmpty()) {
+                        _quickPicks.value = picks
+                        prefetchStreams(picks.map { it.videoId })
+                        return@launch
                     }
-                }
-                val picks = merged.values.take(QUICK_PICKS_COUNT)
-                if (picks.isNotEmpty()) {
-                    _quickPicks.value = picks
-                    prefetchStreams(picks.map { it.videoId })
+                    delay(QUICK_PICKS_RETRY_MS * (attempt + 1))
                 }
             }
     }
@@ -314,6 +330,8 @@ class HomeViewModel(
                         is Resource.Success -> {
                             _continuation.value = home.data?.first
                             _homeItemList.value = home.data?.second ?: listOf()
+                            // Home (re)loaded, e.g. pull to refresh: rebuild "Picked for you" too.
+                            loadRecentlyPlayed()
                             // Quick picks is the first all-songs shelf; its top two are the most
                             // likely first taps on Home, so their streams get resolved now.
                             home.data
@@ -481,3 +499,6 @@ class HomeViewModel(
 
 private const val QUICK_PICKS_SEEDS = 3
 private const val QUICK_PICKS_COUNT = 20
+private const val QUICK_PICKS_ATTEMPTS = 3
+private const val QUICK_PICKS_TIMEOUT_MS = 10_000L
+private const val QUICK_PICKS_RETRY_MS = 3_000L
