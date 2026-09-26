@@ -160,6 +160,7 @@ fun AppTheme(
     batterySaver: Boolean = false,
     largeTitles: Boolean = true,
     appleLayout: Boolean = true,
+    useInter: Boolean = true,
     content:
         @Composable()
         () -> Unit,
@@ -214,25 +215,28 @@ fun AppTheme(
             )
         }
     SystemBarAppearanceEffect(isDark)
-    MaterialExpressiveTheme(
-        colorScheme = colorScheme,
-        content = {
-            CompositionLocalProvider(
-                LocalRippleConfiguration provides SoftRippleConfiguration,
-                LocalContentColor provides colorScheme.onSurfaceVariant,
-                LocalAppColors provides if (isDark) DarkAppColors else LightAppColors,
-                LocalIsDarkTheme provides isDark,
-                LocalForcedDarkColorScheme provides forcedDarkScheme,
-                LocalLiquidGlassEnabled provides liquidGlassEnabled,
-                LocalAppleGlass provides (glassStyle != DataStoreManager.GLASS_STYLE_CLASSIC),
-                LocalBatterySaver provides batterySaver,
-                LocalLargeTitles provides largeTitles,
-                LocalAppleLayout provides appleLayout,
-                content = content,
-            )
-        },
-        typography = typo(colorScheme),
-    )
+    // Provided around the theme itself, because typo() below reads it to pick the font.
+    CompositionLocalProvider(LocalUseInter provides useInter) {
+        MaterialExpressiveTheme(
+            colorScheme = colorScheme,
+            content = {
+                CompositionLocalProvider(
+                    LocalRippleConfiguration provides SoftRippleConfiguration,
+                    LocalContentColor provides colorScheme.onSurfaceVariant,
+                    LocalAppColors provides if (isDark) DarkAppColors else LightAppColors,
+                    LocalIsDarkTheme provides isDark,
+                    LocalForcedDarkColorScheme provides forcedDarkScheme,
+                    LocalLiquidGlassEnabled provides liquidGlassEnabled,
+                    LocalAppleGlass provides (glassStyle != DataStoreManager.GLASS_STYLE_CLASSIC),
+                    LocalBatterySaver provides batterySaver,
+                    LocalLargeTitles provides largeTitles,
+                    LocalAppleLayout provides appleLayout,
+                    content = content,
+                )
+            },
+            typography = typo(colorScheme),
+        )
+    }
 }
 
 /**

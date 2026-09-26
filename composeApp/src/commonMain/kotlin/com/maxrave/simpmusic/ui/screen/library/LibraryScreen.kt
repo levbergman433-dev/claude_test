@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.ui.screen.library
 
+import com.maxrave.simpmusic.ui.component.AppleTopBarSeparator
+import com.maxrave.simpmusic.ui.component.applePageTitleStyle
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.expandHorizontally
@@ -478,12 +480,21 @@ fun LibraryScreen(
             }
         }
     }
+    val appleLayoutBar = LocalAppleLayout.current
     Column(
         Modifier
-            .background(Color.Transparent)
-            .hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
-                blurEnabled = true
-            }.onGloballyPositioned { coordinates ->
+            .then(
+                if (appleLayoutBar) {
+                    // Apple Music's bar is solid page colour, with a hairline under it.
+                    Modifier.background(MaterialTheme.colorScheme.background)
+                } else {
+                    Modifier
+                        .background(Color.Transparent)
+                        .hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
+                            blurEnabled = true
+                        }
+                },
+            ).onGloballyPositioned { coordinates ->
                 topAppBarHeight = with(density) { coordinates.size.height.toDp() }
             },
     ) {
@@ -491,7 +502,12 @@ fun LibraryScreen(
             title = {
                 Text(
                     text = stringResource(Res.string.library),
-                    style = if (LocalLargeTitles.current) largeTitleStyle() else typo().titleMedium,
+                    style =
+                        when {
+                            appleLayoutBar -> applePageTitleStyle()
+                            LocalLargeTitles.current -> largeTitleStyle()
+                            else -> typo().titleMedium
+                        },
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                 )
@@ -530,6 +546,7 @@ fun LibraryScreen(
                 ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
             },
         )
+        if (appleLayoutBar) AppleTopBarSeparator()
         AnimatedVisibility(visible = selectionState.isActive) {
             SongSelectionTopAppBar(
                 state = selectionState,

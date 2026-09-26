@@ -47,6 +47,8 @@ import com.maxrave.simpmusic.ui.component.AppleAlbumCard
 import com.maxrave.simpmusic.ui.component.AppleEdge
 import com.maxrave.simpmusic.ui.component.AppleTileGap
 import com.maxrave.simpmusic.ui.component.AppleTileRow
+import com.maxrave.simpmusic.ui.component.appleSecondaryTextColor
+import com.maxrave.simpmusic.ui.component.appleSeparatorColor
 import com.maxrave.simpmusic.ui.component.AppleShelfHeader
 import com.maxrave.simpmusic.ui.component.AppleSongGrid
 import com.maxrave.simpmusic.ui.component.homeContentClick
@@ -195,7 +197,7 @@ private fun AppleFeaturedCard(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 0.3.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = appleSecondaryTextColor(),
                 ),
             maxLines = 1,
         )
@@ -213,7 +215,7 @@ private fun AppleFeaturedCard(
         if (!subtitle.isNullOrBlank()) {
             Text(
                 text = subtitle,
-                style = typo().bodyMedium.copy(fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant),
+                style = typo().bodyMedium.copy(fontSize = 16.sp, color = appleSecondaryTextColor()),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -225,7 +227,7 @@ private fun AppleFeaturedCard(
                     .fillMaxWidth()
                     .aspectRatio(16f / 10f)
                     .clip(RoundedCornerShape(12.dp))
-                    .border(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f), RoundedCornerShape(12.dp)),
+                    .border(0.5.dp, appleSeparatorColor(), RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center,
         ) {
             val request =

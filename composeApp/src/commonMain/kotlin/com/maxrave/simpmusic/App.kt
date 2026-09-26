@@ -167,6 +167,7 @@ fun App(
     // same condition that used to hide the chip inside Library.
     val isYouTubeLoggedIn by viewModel.getYouTubeLoggedIn().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val showMixTabSetting by viewModel.getShowMixTab().collectAsStateWithLifecycle(TRUE)
+    val appFont by viewModel.getAppFont().collectAsStateWithLifecycle(DataStoreManager.FONT_INTER)
     val showMixForYouTab = isYouTubeLoggedIn == TRUE && showMixTabSetting == TRUE
 
     val themeMode by viewModel.getThemeMode().collectAsStateWithLifecycle(DataStoreManager.THEME_MODE_DARK)
@@ -459,6 +460,7 @@ fun App(
         batterySaver = isBatterySaver == TRUE,
         largeTitles = isLargeTitles == TRUE,
         appleLayout = isAppleLayout == TRUE,
+        useInter = appFont != DataStoreManager.FONT_POPPINS,
     ) {
         // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
         // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).

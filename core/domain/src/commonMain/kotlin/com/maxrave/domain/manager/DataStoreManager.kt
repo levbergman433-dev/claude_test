@@ -505,6 +505,11 @@ interface DataStoreManager {
 
     suspend fun setAppleLayout(enable: Boolean)
 
+    /** App-wide font: [FONT_INTER] (default, closest free match to Apple's San Francisco) or [FONT_POPPINS]. */
+    val appFont: Flow<String>
+
+    suspend fun setAppFont(font: String)
+
     /** [TRUE] (default) shows the "Mix for you" tab in navigation while logged in to YouTube. */
     val showMixTab: Flow<String>
 
@@ -637,6 +642,9 @@ interface DataStoreManager {
         const val THEME_MODE_LIGHT = "LIGHT"
 
         // Colour themes: a dark or light mode with its own background and surface tint.
+        const val FONT_INTER = "INTER"
+        const val FONT_POPPINS = "POPPINS"
+
         const val THEME_MODE_GRAPHITE = "GRAPHITE"
         const val THEME_MODE_MIDNIGHT = "MIDNIGHT"
         const val THEME_MODE_FOREST = "FOREST"

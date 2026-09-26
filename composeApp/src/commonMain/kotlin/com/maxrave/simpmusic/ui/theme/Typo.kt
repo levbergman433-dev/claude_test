@@ -13,13 +13,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.Font
 import simpmusic.composeapp.generated.resources.Res
+import simpmusic.composeapp.generated.resources.inter_bold
+import simpmusic.composeapp.generated.resources.inter_medium
+import simpmusic.composeapp.generated.resources.inter_regular
+import simpmusic.composeapp.generated.resources.inter_semibold
 import simpmusic.composeapp.generated.resources.poppins_medium
 
+/**
+ * True (default) sets the app in Inter, the closest freely licensed match to Apple's San Francisco
+ * (SF itself may only be used on Apple platforms). False keeps SimpMusic's original Poppins.
+ */
+val LocalUseInter = staticCompositionLocalOf { true }
+
+/**
+ * Inter ships four real weights, so Normal text is actually regular and bold is not synthesised.
+ * Poppins keeps its original single file, mapped to Normal as upstream always did.
+ */
 @Composable
 fun fontFamily(): FontFamily =
-    FontFamily(
-        Font(Res.font.poppins_medium, FontWeight.Normal, FontStyle.Normal),
-    )
+    if (LocalUseInter.current) {
+        FontFamily(
+            Font(Res.font.inter_regular, FontWeight.Normal, FontStyle.Normal),
+            Font(Res.font.inter_medium, FontWeight.Medium, FontStyle.Normal),
+            Font(Res.font.inter_semibold, FontWeight.SemiBold, FontStyle.Normal),
+            Font(Res.font.inter_bold, FontWeight.Bold, FontStyle.Normal),
+        )
+    } else {
+        FontFamily(
+            Font(Res.font.poppins_medium, FontWeight.Normal, FontStyle.Normal),
+        )
+    }
 
 /**
  * When true, [typo] keeps the original always-light text colors (pure white titles, #A8A8A8 body)

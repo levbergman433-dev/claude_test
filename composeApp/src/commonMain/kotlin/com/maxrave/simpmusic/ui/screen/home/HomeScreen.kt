@@ -110,6 +110,8 @@ import com.maxrave.simpmusic.extension.rgbFactor
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.AppleRecentlyPlayedShelf
 import com.maxrave.simpmusic.ui.component.AppleShelfHeader
+import com.maxrave.simpmusic.ui.component.AppleTopBarSeparator
+import com.maxrave.simpmusic.ui.component.applePageTitleStyle
 import com.maxrave.simpmusic.ui.component.AppleSongGrid
 import com.maxrave.simpmusic.ui.component.BlogPromoDialog
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
@@ -863,7 +865,10 @@ fun HomeScreen(
                     Modifier
                         .align(Alignment.TopCenter)
                         .then(
-                            if (target) {
+                            if (appleLayout) {
+                                // Apple Music's bar is solid page colour at all times.
+                                Modifier.background(MaterialTheme.colorScheme.background)
+                            } else if (target) {
                                 Modifier.background(Color.Transparent)
                             } else {
                                 Modifier
@@ -875,15 +880,17 @@ fun HomeScreen(
                             topAppBarHeightPx = coordinates.size.height
                         },
             ) {
+                // Apple keeps its bar on screen while scrolling; the classic layout hides it.
                 AnimatedVisibility(
-                    visible = isScrollingUp,
+                    visible = isScrollingUp || appleLayout,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
                     HomeTopAppBar(navController)
                 }
+                if (appleLayout) AppleTopBarSeparator()
                 AnimatedVisibility(
-                    visible = !isScrollingUp,
+                    visible = !isScrollingUp && !appleLayout,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
@@ -985,7 +992,7 @@ fun HomeTopAppBar(navController: NavController) {
                 // Apple Music: just the page name, no greeting.
                 Text(
                     text = stringResource(Res.string.home),
-                    style = largeTitleStyle().copy(fontWeight = FontWeight.SemiBold, fontFamily = null),
+                    style = applePageTitleStyle(),
                     maxLines = 1,
                 )
             } else if (LocalLargeTitles.current) {

@@ -1848,6 +1848,14 @@ class SharedViewModel(
         }
     }
 
+    fun getAppFont() = dataStoreManager.appFont
+
+    fun setAppFont(font: String) {
+        viewModelScope.launch {
+            dataStoreManager.setAppFont(font)
+        }
+    }
+
     fun getShowMixTab() = dataStoreManager.showMixTab
 
     fun setShowMixTab(show: Boolean) {

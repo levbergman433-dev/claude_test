@@ -902,4 +902,7 @@
     <string name="theme_mode_plum">Plum (dark purple)</string>
     <string name="theme_mode_mocha">Mocha (dark brown)</string>
     <string name="theme_mode_sepia">Sepia (warm light)</string>
+    <string name="app_font">Font</string>
+    <string name="font_inter">Inter (Apple-like)</string>
+    <string name="font_poppins">Poppins (original)</string>
 </resources>

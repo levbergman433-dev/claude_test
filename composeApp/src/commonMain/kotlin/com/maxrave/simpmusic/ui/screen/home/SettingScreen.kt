@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.app_font
+import simpmusic.composeapp.generated.resources.font_inter
+import simpmusic.composeapp.generated.resources.font_poppins
 import simpmusic.composeapp.generated.resources.theme_mode_graphite
 import simpmusic.composeapp.generated.resources.theme_mode_midnight
 import simpmusic.composeapp.generated.resources.theme_mode_forest
@@ -672,6 +675,7 @@ fun SettingScreen(
     // rotation or process restore reopens the same page.
     var category by rememberSaveable { mutableStateOf<String?>(null) }
     val showMixTab by sharedViewModel.getShowMixTab().collectAsStateWithLifecycle(DataStoreManager.TRUE)
+    val appFont by sharedViewModel.getAppFont().collectAsStateWithLifecycle(DataStoreManager.FONT_INTER)
     PlatformBackHandler(enabled = category != null) { category = null }
 
     val settingListState = rememberLazyListState()
@@ -796,6 +800,34 @@ fun SettingScreen(
                                         val selected = state.selectOne?.getSelected()
                                         nowPlayingStyleLabels.firstOrNull { it.second == selected }?.first?.let {
                                             sharedViewModel.setNowPlayingStyle(it)
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
+                val fontLabels =
+                    listOf(
+                        DataStoreManager.FONT_INTER to stringResource(Res.string.font_inter),
+                        DataStoreManager.FONT_POPPINS to stringResource(Res.string.font_poppins),
+                    )
+                SettingItem(
+                    title = stringResource(Res.string.app_font),
+                    subtitle = fontLabels.firstOrNull { it.first == appFont }?.second ?: "",
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.app_font) },
+                                selectOne =
+                                    SettingAlertState.SelectData(
+                                        listSelect = fontLabels.map { (it.first == appFont) to it.second },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        val selected = state.selectOne?.getSelected()
+                                        fontLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            sharedViewModel.setAppFont(it)
                                         }
                                     },
                                 dismiss = runBlocking { getString(Res.string.cancel) },

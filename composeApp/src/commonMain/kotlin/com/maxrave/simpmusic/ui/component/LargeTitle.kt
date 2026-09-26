@@ -7,6 +7,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.maxrave.simpmusic.ui.theme.LocalUseInter
+import com.maxrave.simpmusic.ui.theme.fontFamily
 import org.jetbrains.compose.resources.Font
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.poppins_bold
@@ -19,7 +21,12 @@ import simpmusic.composeapp.generated.resources.poppins_bold
 @Composable
 fun largeTitleStyle(): TextStyle =
     TextStyle(
-        fontFamily = FontFamily(Font(Res.font.poppins_bold, FontWeight.Bold, FontStyle.Normal)),
+        fontFamily =
+            if (LocalUseInter.current) {
+                fontFamily()
+            } else {
+                FontFamily(Font(Res.font.poppins_bold, FontWeight.Bold, FontStyle.Normal))
+            },
         fontWeight = FontWeight.Bold,
         fontSize = 30.sp,
         lineHeight = 36.sp,

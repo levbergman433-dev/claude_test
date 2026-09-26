@@ -38,6 +38,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -100,8 +102,9 @@ fun AppleShelfHeader(
                 text = title,
                 style =
                     typo().titleLarge.copy(
-                        fontSize = 23.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.3).sp,
                         color = MaterialTheme.colorScheme.onBackground,
                     ),
                 maxLines = 1,
@@ -109,16 +112,45 @@ fun AppleShelfHeader(
                 modifier = Modifier.weight(1f, fill = false),
             )
             if (onClick != null) {
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(4.dp))
                 Icon(
                     imageVector = SimpIcons.ArrowForwardIos,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    modifier = Modifier.size(18.dp),
+                    tint = appleSecondaryTextColor(),
+                    modifier = Modifier.size(17.dp),
                 )
             }
         }
     }
+}
+
+/**
+ * Apple's separator: an OPAQUE-looking hairline (#38383A on black), not a translucent tint of the
+ * accent — a faint, seed-coloured line is one of the things that made shelves read as cheap.
+ */
+@Composable
+fun appleSeparatorColor(): Color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.21f)
+
+/**
+ * Apple's secondary label: a neutral grey (#8E8E93 on black). The theme's onSurfaceVariant is
+ * tinted by the seed colour, which is why artist names came out pink or lavender.
+ */
+@Composable
+fun appleSecondaryTextColor(): Color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.56f)
+
+/** Apple Music's page title ("Home", "Library"): regular weight, not a heavy large title. */
+@Composable
+fun applePageTitleStyle(): TextStyle =
+    typo().titleLarge.copy(
+        fontSize = 25.sp,
+        fontWeight = FontWeight.Normal,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+
+/** The hairline Apple Music draws under its top bar at all times. */
+@Composable
+fun AppleTopBarSeparator() {
+    HorizontalDivider(thickness = 0.5.dp, color = appleSeparatorColor())
 }
 
 /** Page edge inset for Apple Music shelves; rows scroll under it to the screen edge. */
@@ -160,7 +192,7 @@ fun <T> AppleTileRow(
     }
 }
 
-private val AppleSongRowHeight = 68.dp
+private val AppleSongRowHeight = 60.dp
 
 /**
  * Apple Music's song shelf ("Best New Songs"): songs laid out as a list, four rows per column,
@@ -240,15 +272,22 @@ fun AppleSongRow(
                 contentScale = ContentScale.Crop,
                 modifier =
                     Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(6.dp)),
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .border(0.5.dp, appleSeparatorColor(), RoundedCornerShape(5.dp)),
             )
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = title,
-                        style = typo().bodyLarge.copy(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
+                        style =
+                            typo().bodyLarge.copy(
+                                fontSize = 15.sp,
+                                lineHeight = 19.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -261,7 +300,13 @@ fun AppleSongRow(
                 if (subtitle.isNotBlank()) {
                     Text(
                         text = subtitle,
-                        style = typo().bodyMedium.copy(fontSize = 14.sp),
+                        style =
+                            typo().bodyMedium.copy(
+                                fontSize = 14.sp,
+                                lineHeight = 18.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = appleSecondaryTextColor(),
+                            ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -280,9 +325,10 @@ fun AppleSongRow(
                 modifier =
                     Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = 66.dp, end = 44.dp),
+                        // Starts under the title, runs to the column's end (under the ⋮ too).
+                        .padding(start = 62.dp),
                 thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                color = appleSeparatorColor(),
             )
         }
     }
@@ -353,7 +399,7 @@ fun AppleAlbumCard(
                         fontSize = 14.sp,
                         lineHeight = 18.sp,
                         fontWeight = FontWeight.Normal,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = appleSecondaryTextColor(),
                     ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -427,7 +473,7 @@ fun AppleLibraryRow(
             Icon(
                 imageVector = SimpIcons.ArrowForwardIos,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                tint = appleSecondaryTextColor(),
                 modifier = Modifier.size(14.dp),
             )
         }
@@ -435,7 +481,7 @@ fun AppleLibraryRow(
             HorizontalDivider(
                 modifier = Modifier.padding(start = 60.dp),
                 thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                color = appleSeparatorColor(),
             )
         }
     }
