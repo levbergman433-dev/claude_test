@@ -938,4 +938,5 @@
     <string name="profile_badge_icon_diamond">Diamond</string>
     <string name="profile_badge_icon_flame">Flame</string>
     <string name="profile_badge_icon_none">None</string>
+    <string name="profile_badge_name_message">Leave empty to use your YouTube account name.</string>
 </resources>

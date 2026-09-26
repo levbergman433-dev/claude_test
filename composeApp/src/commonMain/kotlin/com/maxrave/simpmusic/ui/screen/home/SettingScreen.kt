@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.profile_badge_name_message
 import com.maxrave.simpmusic.ui.component.BadgeFont
 import com.maxrave.simpmusic.ui.component.BadgeIcon
 import com.maxrave.simpmusic.ui.component.ColorFillDialog
@@ -1029,6 +1030,7 @@ fun SettingScreen(
                             viewModel.setAlertData(
                                 SettingAlertState(
                                     title = runBlocking { getString(Res.string.profile_badge_name) },
+                                    message = runBlocking { getString(Res.string.profile_badge_name_message) },
                                     textField =
                                         SettingAlertState.TextFieldData(
                                             label = runBlocking { getString(Res.string.profile_badge_name) },
@@ -3348,9 +3350,11 @@ fun SettingScreen(
                 )
             },
             text = {
-                if (alertState.message != null) {
+                // A text field is shown with or without a message (it used to need one, so a
+                // text-only dialog like the badge name opened with nothing to type into).
+                if (alertState.message != null || alertState.textField != null) {
                     Column {
-                        Text(text = alertState.message)
+                        alertState.message?.let { Text(text = it) }
                         if (alertState.textField != null) {
                             val verify =
                                 alertState.textField.verifyCodeBlock?.invoke(
