@@ -1,5 +1,38 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.BadgeFont
+import com.maxrave.simpmusic.ui.component.BadgeIcon
+import com.maxrave.simpmusic.ui.component.ColorFillDialog
+import com.maxrave.simpmusic.ui.theme.ColorFill
+import com.maxrave.simpmusic.ui.theme.GradientType
+import com.maxrave.simpmusic.ui.theme.PersonalizationKeys
+import com.maxrave.simpmusic.ui.theme.hexToColor
+import com.maxrave.simpmusic.ui.theme.toHex
+import com.maxrave.simpmusic.expect.ui.photoPickerResult
+import simpmusic.composeapp.generated.resources.theme_mode_custom
+import simpmusic.composeapp.generated.resources.theme_color_gradient
+import simpmusic.composeapp.generated.resources.profile_badge
+import simpmusic.composeapp.generated.resources.profile_badge_description
+import simpmusic.composeapp.generated.resources.profile_badge_name
+import simpmusic.composeapp.generated.resources.profile_badge_name_default
+import simpmusic.composeapp.generated.resources.profile_badge_picture
+import simpmusic.composeapp.generated.resources.profile_badge_picture_youtube
+import simpmusic.composeapp.generated.resources.profile_badge_picture_custom
+import simpmusic.composeapp.generated.resources.profile_badge_picture_reset
+import simpmusic.composeapp.generated.resources.profile_badge_font
+import simpmusic.composeapp.generated.resources.profile_badge_font_script
+import simpmusic.composeapp.generated.resources.profile_badge_font_app
+import simpmusic.composeapp.generated.resources.profile_badge_name_color
+import simpmusic.composeapp.generated.resources.profile_badge_icon
+import simpmusic.composeapp.generated.resources.profile_badge_icon_color
+import simpmusic.composeapp.generated.resources.profile_badge_icon_verified
+import simpmusic.composeapp.generated.resources.profile_badge_icon_check
+import simpmusic.composeapp.generated.resources.profile_badge_icon_star
+import simpmusic.composeapp.generated.resources.profile_badge_icon_heart
+import simpmusic.composeapp.generated.resources.profile_badge_icon_crown
+import simpmusic.composeapp.generated.resources.profile_badge_icon_diamond
+import simpmusic.composeapp.generated.resources.profile_badge_icon_flame
+import simpmusic.composeapp.generated.resources.profile_badge_icon_none
 import simpmusic.composeapp.generated.resources.app_font
 import simpmusic.composeapp.generated.resources.font_inter
 import simpmusic.composeapp.generated.resources.font_poppins
@@ -612,6 +645,22 @@ fun SettingScreen(
     val romanizationStored by sharedViewModel.getRomanizationLanguages().collectAsStateWithLifecycle("")
     val japaneseDictionaryState by viewModel.japaneseDictionaryState.collectAsStateWithLifecycle()
     var showColorPickerDialog by rememberSaveable { mutableStateOf(false) }
+    var showPageFillDialog by rememberSaveable { mutableStateOf(false) }
+    var showAccentFillDialog by rememberSaveable { mutableStateOf(false) }
+    var badgeColorTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    val pageFillRaw by remember { sharedViewModel.stringPref(PersonalizationKeys.PAGE_FILL) }.collectAsStateWithLifecycle(null)
+    val accentFillRaw by remember { sharedViewModel.stringPref(PersonalizationKeys.ACCENT_FILL) }.collectAsStateWithLifecycle(null)
+    val badgeEnabled by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ENABLED) }.collectAsStateWithLifecycle(null)
+    val badgeName by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_NAME) }.collectAsStateWithLifecycle(null)
+    val badgeNameColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_NAME_COLOR) }.collectAsStateWithLifecycle(null)
+    val badgeFont by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_FONT) }.collectAsStateWithLifecycle(null)
+    val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
+    val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
+    val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    val badgePhotoPicker =
+        photoPickerResult { uri ->
+            uri?.let { sharedViewModel.setStringPref(PersonalizationKeys.BADGE_AVATAR, it) }
+        }
     val discordLoggedIn by viewModel.discordLoggedIn.collectAsStateWithLifecycle()
     val loggedIn by viewModel.loggedIn.collectAsStateWithLifecycle()
     val syncFollowToYouTube by viewModel.syncFollowToYouTube.collectAsStateWithLifecycle()
@@ -747,6 +796,7 @@ fun SettingScreen(
                         DataStoreManager.THEME_MODE_PLUM to stringResource(Res.string.theme_mode_plum),
                         DataStoreManager.THEME_MODE_MOCHA to stringResource(Res.string.theme_mode_mocha),
                         DataStoreManager.THEME_MODE_SEPIA to stringResource(Res.string.theme_mode_sepia),
+                        DataStoreManager.THEME_MODE_CUSTOM to stringResource(Res.string.theme_mode_custom),
                     )
                 SettingItem(
                     title = stringResource(Res.string.theme),
@@ -763,7 +813,12 @@ fun SettingScreen(
                                     runBlocking { getString(Res.string.change) } to { state ->
                                         val selected = state.selectOne?.getSelected()
                                         themeModeLabels.firstOrNull { it.second == selected }?.first?.let {
-                                            sharedViewModel.setThemeMode(it)
+                                            // Custom is applied from its editor, once there is a fill to show.
+                                            if (it == DataStoreManager.THEME_MODE_CUSTOM) {
+                                                showPageFillDialog = true
+                                            } else {
+                                                sharedViewModel.setThemeMode(it)
+                                            }
                                         }
                                     },
                                 dismiss = runBlocking { getString(Res.string.cancel) },
@@ -843,6 +898,7 @@ fun SettingScreen(
                         }
                         add(DataStoreManager.THEME_COLOR_CUSTOM to stringResource(Res.string.theme_color_custom))
                         add(DataStoreManager.THEME_COLOR_APPLE_MUSIC to stringResource(Res.string.theme_color_apple_music))
+                        add(DataStoreManager.THEME_COLOR_GRADIENT to stringResource(Res.string.theme_color_gradient))
                     }
                 SettingItem(
                     title = stringResource(Res.string.theme_color),
@@ -859,6 +915,10 @@ fun SettingScreen(
                                     runBlocking { getString(Res.string.change) } to { state ->
                                         val selected = state.selectOne?.getSelected()
                                         colorSourceLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            if (it == DataStoreManager.THEME_COLOR_GRADIENT) {
+                                                showAccentFillDialog = true
+                                                return@let
+                                            }
                                             sharedViewModel.setThemeColorSource(it)
                                             if (it == DataStoreManager.THEME_COLOR_CUSTOM) {
                                                 showColorPickerDialog = true
@@ -944,6 +1004,142 @@ fun SettingScreen(
                     smallSubtitle = true,
                     switch = ((showMixTab == DataStoreManager.TRUE) to { sharedViewModel.setShowMixTab(it) }),
                 )
+            }
+        }
+        if (category == SettingsCategory.APPEARANCE.name) item(key = "profile_badge") {
+            Column {
+                Text(
+                    text = stringResource(Res.string.profile_badge),
+                    style = typo().labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                val enabled = badgeEnabled == DataStoreManager.TRUE
+                SettingItem(
+                    title = stringResource(Res.string.profile_badge),
+                    subtitle = stringResource(Res.string.profile_badge_description),
+                    smallSubtitle = true,
+                    switch = (enabled to { on -> sharedViewModel.setStringPref(PersonalizationKeys.BADGE_ENABLED, if (on) DataStoreManager.TRUE else DataStoreManager.FALSE) }),
+                )
+                if (enabled) {
+                    SettingItem(
+                        title = stringResource(Res.string.profile_badge_name),
+                        subtitle = badgeName?.takeIf { it.isNotBlank() } ?: stringResource(Res.string.profile_badge_name_default),
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.profile_badge_name) },
+                                    textField =
+                                        SettingAlertState.TextFieldData(
+                                            label = runBlocking { getString(Res.string.profile_badge_name) },
+                                            value = badgeName.orEmpty(),
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            sharedViewModel.setStringPref(PersonalizationKeys.BADGE_NAME, state.textField?.value?.take(40) ?: "")
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.profile_badge_picture),
+                        subtitle =
+                            if (badgeAvatar.isNullOrBlank()) {
+                                stringResource(Res.string.profile_badge_picture_youtube)
+                            } else {
+                                stringResource(Res.string.profile_badge_picture_custom)
+                            },
+                        onClick = { badgePhotoPicker.launch() },
+                    )
+                    if (!badgeAvatar.isNullOrBlank()) {
+                        SettingItem(
+                            title = stringResource(Res.string.profile_badge_picture_reset),
+                            subtitle = stringResource(Res.string.profile_badge_picture_youtube),
+                            onClick = { sharedViewModel.setStringPref(PersonalizationKeys.BADGE_AVATAR, "") },
+                        )
+                    }
+                    val fontLabelsBadge =
+                        listOf(
+                            BadgeFont.SCRIPT.name to stringResource(Res.string.profile_badge_font_script),
+                            BadgeFont.APP.name to stringResource(Res.string.profile_badge_font_app),
+                            BadgeFont.POPPINS.name to stringResource(Res.string.font_poppins),
+                        )
+                    val currentBadgeFont = badgeFont ?: BadgeFont.SCRIPT.name
+                    SettingItem(
+                        title = stringResource(Res.string.profile_badge_font),
+                        subtitle = fontLabelsBadge.firstOrNull { it.first == currentBadgeFont }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.profile_badge_font) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = fontLabelsBadge.map { (it.first == currentBadgeFont) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            fontLabelsBadge.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setStringPref(PersonalizationKeys.BADGE_FONT, it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.profile_badge_name_color),
+                        subtitle = "#" + (badgeNameColor ?: "FFFFFF"),
+                        smallSubtitle = true,
+                        onClick = { badgeColorTarget = PersonalizationKeys.BADGE_NAME_COLOR },
+                    )
+                    val iconLabels =
+                        listOf(
+                            BadgeIcon.VERIFIED.name to stringResource(Res.string.profile_badge_icon_verified),
+                            BadgeIcon.CHECK.name to stringResource(Res.string.profile_badge_icon_check),
+                            BadgeIcon.STAR.name to stringResource(Res.string.profile_badge_icon_star),
+                            BadgeIcon.HEART.name to stringResource(Res.string.profile_badge_icon_heart),
+                            BadgeIcon.CROWN.name to stringResource(Res.string.profile_badge_icon_crown),
+                            BadgeIcon.DIAMOND.name to stringResource(Res.string.profile_badge_icon_diamond),
+                            BadgeIcon.FLAME.name to stringResource(Res.string.profile_badge_icon_flame),
+                            BadgeIcon.NONE.name to stringResource(Res.string.profile_badge_icon_none),
+                        )
+                    val currentIcon = badgeIcon ?: BadgeIcon.VERIFIED.name
+                    SettingItem(
+                        title = stringResource(Res.string.profile_badge_icon),
+                        subtitle = iconLabels.firstOrNull { it.first == currentIcon }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.profile_badge_icon) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = iconLabels.map { (it.first == currentIcon) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            iconLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setStringPref(PersonalizationKeys.BADGE_ICON, it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    if (currentIcon != BadgeIcon.NONE.name) {
+                        SettingItem(
+                            title = stringResource(Res.string.profile_badge_icon_color),
+                            subtitle = "#" + (badgeIconColor ?: "1D9BF0"),
+                            smallSubtitle = true,
+                            onClick = { badgeColorTarget = PersonalizationKeys.BADGE_ICON_COLOR },
+                        )
+                    }
+                }
             }
         }
         if (category == SettingsCategory.ACCOUNT.name) item(key = "content") {
@@ -2848,6 +3044,55 @@ fun SettingScreen(
                 ) {
                     Text(text = alertBasicState.dismiss)
                 }
+            },
+        )
+    }
+    if (showPageFillDialog) {
+        ColorFillDialog(
+            title = stringResource(Res.string.theme_mode_custom),
+            initial = ColorFill.decode(pageFillRaw) ?: ColorFill(true, GradientType.VERTICAL, Color(0xFF2B1B4A), Color(0xFF05040A)),
+            allowGradient = true,
+            onDismiss = { showPageFillDialog = false },
+            onSave = { fill ->
+                sharedViewModel.setStringPref(PersonalizationKeys.PAGE_FILL, fill.encode())
+                sharedViewModel.setThemeMode(DataStoreManager.THEME_MODE_CUSTOM)
+                showPageFillDialog = false
+            },
+        )
+    }
+    if (showAccentFillDialog) {
+        ColorFillDialog(
+            title = stringResource(Res.string.theme_color),
+            initial = ColorFill.decode(accentFillRaw) ?: ColorFill(true, GradientType.DIAGONAL, Color(0xFFFA2D48), Color(0xFF9B72CF)),
+            allowGradient = true,
+            onDismiss = { showAccentFillDialog = false },
+            onSave = { fill ->
+                if (fill.gradient) {
+                    sharedViewModel.setStringPref(PersonalizationKeys.ACCENT_FILL, fill.encode())
+                    sharedViewModel.setThemeColorSource(DataStoreManager.THEME_COLOR_GRADIENT)
+                } else {
+                    // A solid pick is simply the existing custom colour.
+                    sharedViewModel.setCustomThemeColor("FF" + fill.first.toHex())
+                    sharedViewModel.setThemeColorSource(DataStoreManager.THEME_COLOR_CUSTOM)
+                }
+                showAccentFillDialog = false
+            },
+        )
+    }
+    badgeColorTarget?.let { key ->
+        val stored = if (key == PersonalizationKeys.BADGE_NAME_COLOR) badgeNameColor ?: "FFFFFF" else badgeIconColor ?: "1D9BF0"
+        val start = hexToColor(stored) ?: Color.White
+        ColorFillDialog(
+            title =
+                stringResource(
+                    if (key == PersonalizationKeys.BADGE_NAME_COLOR) Res.string.profile_badge_name_color else Res.string.profile_badge_icon_color,
+                ),
+            initial = ColorFill(false, GradientType.VERTICAL, start, start),
+            allowGradient = false,
+            onDismiss = { badgeColorTarget = null },
+            onSave = { fill ->
+                sharedViewModel.setStringPref(key, fill.first.toHex())
+                badgeColorTarget = null
             },
         )
     }

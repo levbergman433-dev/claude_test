@@ -235,9 +235,13 @@ fun LocalPlaylistScreen(
     val aiPainter = rememberVectorPainter(SimpIcons.TipsAndUpdates)
 
     val lazyState = rememberLazyListState()
-    val firstItemVisible by remember {
+    // The header's own buttons scroll away once the list moves ~110dp, long before the whole
+    // header (artwork, title, Play) leaves the screen. The pinned bar takes over from that point,
+    // so back / like / search / more are never out of reach mid-scroll.
+    val pinBarAfterPx = with(androidx.compose.ui.platform.LocalDensity.current) { 110.dp.toPx() }
+    val firstItemVisible by remember(pinBarAfterPx) {
         derivedStateOf {
-            lazyState.firstVisibleItemIndex == 0
+            lazyState.firstVisibleItemIndex == 0 && lazyState.firstVisibleItemScrollOffset < pinBarAfterPx
         }
     }
     val downloadState by viewModel.uiState.map { it.downloadState }.collectAsState(
@@ -1753,6 +1757,14 @@ fun LocalPlaylistScreen(
                     ) {
                         navController.navigateUp()
                     }
+                }
+            },
+            actions = {
+                IconButton(onClick = { showSearchBar = true }) {
+                    Icon(SimpIcons.Search, contentDescription = "Search in playlist", tint = Color.White)
+                }
+                IconButton(onClick = onPlaylistMoreClick) {
+                    Icon(SimpIcons.MoreVert, contentDescription = "More", tint = Color.White)
                 }
             },
             colors =

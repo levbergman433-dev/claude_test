@@ -177,9 +177,13 @@ fun AlbumScreen(
     }
 
     val lazyState = rememberLazyListState()
-    val firstItemVisible by remember {
+    // The header's own buttons scroll away once the list moves ~110dp, long before the whole
+    // header (artwork, title, Play) leaves the screen. The pinned bar takes over from that point,
+    // so back / like / search / more are never out of reach mid-scroll.
+    val pinBarAfterPx = with(androidx.compose.ui.platform.LocalDensity.current) { 110.dp.toPx() }
+    val firstItemVisible by remember(pinBarAfterPx) {
         derivedStateOf {
-            lazyState.firstVisibleItemIndex == 0
+            lazyState.firstVisibleItemIndex == 0 && lazyState.firstVisibleItemScrollOffset < pinBarAfterPx
         }
     }
     var shouldHideTopBar by rememberSaveable { mutableStateOf(false) }
@@ -982,6 +986,23 @@ fun AlbumScreen(
                                 ) {
                                     navController.navigateUp()
                                 }
+                            }
+                        },
+                        actions = {
+                            Box(
+                                modifier = Modifier.size(48.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                HeartCheckBox(
+                                    size = 24,
+                                    checked = uiState.liked,
+                                    onStateChange = {
+                                        viewModel.setAlbumLike()
+                                    },
+                                )
+                            }
+                            IconButton(onClick = { albumBottomSheetShow = true }) {
+                                Icon(SimpIcons.MoreVert, contentDescription = "More", tint = Color.White)
                             }
                         },
                         colors =

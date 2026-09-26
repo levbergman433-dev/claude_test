@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic
 
+import com.maxrave.simpmusic.ui.theme.ColorFill
+import com.maxrave.simpmusic.ui.theme.LocalPageBrush
+import com.maxrave.simpmusic.ui.theme.PersonalizationKeys
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -173,6 +176,16 @@ fun App(
     val themeMode by viewModel.getThemeMode().collectAsStateWithLifecycle(DataStoreManager.THEME_MODE_DARK)
     val themeColorSource by viewModel.getThemeColorSource().collectAsStateWithLifecycle(DataStoreManager.THEME_COLOR_DEFAULT)
     val customThemeColorHex by viewModel.getCustomThemeColor().collectAsStateWithLifecycle(DataStoreManager.DEFAULT_THEME_COLOR_HEX)
+    val pageFillRaw by remember { viewModel.stringPref(PersonalizationKeys.PAGE_FILL) }.collectAsStateWithLifecycle(null)
+    val accentFillRaw by remember { viewModel.stringPref(PersonalizationKeys.ACCENT_FILL) }.collectAsStateWithLifecycle(null)
+    val pageFill =
+        remember(themeMode, pageFillRaw) {
+            if (themeMode == DataStoreManager.THEME_MODE_CUSTOM) ColorFill.decode(pageFillRaw) else null
+        }
+    val accentFill =
+        remember(themeColorSource, accentFillRaw) {
+            if (themeColorSource == DataStoreManager.THEME_COLOR_GRADIENT) ColorFill.decode(accentFillRaw) else null
+        }
     // MiniPlayer visibility: derived, never stored.
     //
     // This used to be a rememberSaveable Boolean written by a LaunchedEffect. Two things went
@@ -461,6 +474,8 @@ fun App(
         largeTitles = isLargeTitles == TRUE,
         appleLayout = isAppleLayout == TRUE,
         useInter = appFont != DataStoreManager.FONT_POPPINS,
+        pageFill = pageFill,
+        accentFill = accentFill,
     ) {
         // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
         // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).
@@ -473,9 +488,16 @@ fun App(
         val desktopWindow = if (isLightScheme) desktopWindowLight else desktopWindowDark
         val desktopPanel =
             if (isLightScheme) MaterialTheme.colorScheme.surfaceContainer else desktopPanelDark
+        // A custom gradient page is painted once, behind the whole scaffold, which is then clear.
+        val pageBrush = LocalPageBrush.current?.takeIf { !isDesktopShell }
         Scaffold(
+            modifier = if (pageBrush != null) Modifier.background(pageBrush) else Modifier,
             containerColor =
-                if (isDesktopShell) desktopWindow else MaterialTheme.colorScheme.background,
+                when {
+                    isDesktopShell -> desktopWindow
+                    pageBrush != null -> Color.Transparent
+                    else -> MaterialTheme.colorScheme.background
+                },
             bottomBar = {
                 if (!isTablet) {
                     AnimatedVisibility(

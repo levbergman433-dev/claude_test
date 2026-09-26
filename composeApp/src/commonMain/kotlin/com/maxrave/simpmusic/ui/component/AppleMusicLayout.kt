@@ -57,6 +57,7 @@ import com.maxrave.simpmusic.ui.icon.ArrowBackIosNew
 import com.maxrave.simpmusic.ui.icon.ArrowForwardIos
 import com.maxrave.simpmusic.ui.icon.MoreVert
 import com.maxrave.simpmusic.ui.icon.SimpIcons
+import com.maxrave.simpmusic.ui.theme.LocalAccentBrush
 import com.maxrave.simpmusic.ui.theme.typo
 
 /*
@@ -140,12 +141,16 @@ fun appleSecondaryTextColor(): Color = MaterialTheme.colorScheme.onBackground.co
 
 /** Apple Music's page title ("Home", "Library"): regular weight, not a heavy large title. */
 @Composable
-fun applePageTitleStyle(): TextStyle =
-    typo().titleLarge.copy(
-        fontSize = 25.sp,
-        fontWeight = FontWeight.Normal,
-        color = MaterialTheme.colorScheme.onBackground,
-    )
+fun applePageTitleStyle(): TextStyle {
+    val base =
+        typo().titleLarge.copy(
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+    // With a gradient accent, page titles carry it.
+    return LocalAccentBrush.current?.let { base.copy(brush = it, fontWeight = FontWeight.SemiBold) } ?: base
+}
 
 /** The hairline Apple Music draws under its top bar at all times. */
 @Composable

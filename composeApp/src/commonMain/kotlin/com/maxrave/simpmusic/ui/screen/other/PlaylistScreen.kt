@@ -199,9 +199,13 @@ fun PlaylistScreen(
     var searchBarHeightPx by remember { mutableStateOf(0) }
 
     val lazyState = rememberLazyListState()
-    val firstItemVisible by remember {
+    // The header's own buttons scroll away once the list moves ~110dp, long before the whole
+    // header (artwork, title, Play) leaves the screen. The pinned bar takes over from that point,
+    // so back / like / search / more are never out of reach mid-scroll.
+    val pinBarAfterPx = with(androidx.compose.ui.platform.LocalDensity.current) { 110.dp.toPx() }
+    val firstItemVisible by remember(pinBarAfterPx) {
         derivedStateOf {
-            lazyState.firstVisibleItemIndex == 0
+            lazyState.firstVisibleItemIndex == 0 && lazyState.firstVisibleItemScrollOffset < pinBarAfterPx
         }
     }
     var shouldHideTopBar by rememberSaveable { mutableStateOf(false) }
@@ -1395,12 +1399,29 @@ fun PlaylistScreen(
                             }
                         },
                         actions = {
+                            if (!data.isRadio) {
+                                Box(
+                                    modifier = Modifier.size(48.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    HeartCheckBox(
+                                        size = 24,
+                                        checked = liked,
+                                        onStateChange = {
+                                            viewModel.onUIEvent(PlaylistUIEvent.Favorite)
+                                        },
+                                    )
+                                }
+                            }
                             IconButton(
                                 onClick = {
                                     showSearchBar = !showSearchBar
                                 },
                             ) {
                                 Icon(SimpIcons.Search, null, tint = Color.White)
+                            }
+                            IconButton(onClick = onPlaylistMoreClick) {
+                                Icon(SimpIcons.MoreVert, contentDescription = "More", tint = Color.White)
                             }
                         },
                         colors =

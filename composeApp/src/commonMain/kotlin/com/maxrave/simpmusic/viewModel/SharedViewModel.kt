@@ -646,6 +646,16 @@ class SharedViewModel(
 
     fun getString(key: String): String? = runBlocking { dataStoreManager.getString(key).first() }
 
+    /** A plain string preference as a flow (personalisation settings; see PersonalizationKeys). */
+    fun stringPref(key: String): Flow<String?> = dataStoreManager.getString(key)
+
+    fun setStringPref(
+        key: String,
+        value: String,
+    ) {
+        viewModelScope.launch { dataStoreManager.putString(key, value) }
+    }
+
     fun putString(
         key: String,
         value: String,

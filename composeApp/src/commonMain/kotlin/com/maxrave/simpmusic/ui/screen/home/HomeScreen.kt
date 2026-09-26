@@ -1,5 +1,11 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.BadgeFont
+import com.maxrave.simpmusic.ui.component.BadgeIcon
+import com.maxrave.simpmusic.ui.component.ProfileBadge
+import com.maxrave.simpmusic.ui.theme.PersonalizationKeys
+import com.maxrave.simpmusic.ui.theme.hexToColor
+import com.maxrave.domain.manager.DataStoreManager
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -152,6 +158,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.ui.theme.LocalAppleLayout
 import com.maxrave.simpmusic.ui.theme.LocalLargeTitles
+import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import com.maxrave.simpmusic.ui.theme.desktopPanelDark
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.FOOTGUNS_STAR_KEY
@@ -250,6 +257,29 @@ fun HomeScreen(
     val scrollState = rememberLazyListState()
     val isScrollingUp by scrollState.isScrollingUp()
     val accountInfo by viewModel.accountInfo.collectAsStateWithLifecycle()
+    val badgeEnabled by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ENABLED) }.collectAsStateWithLifecycle(null)
+    val badgeName by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_NAME) }.collectAsStateWithLifecycle(null)
+    val badgeNameColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_NAME_COLOR) }.collectAsStateWithLifecycle(null)
+    val badgeFont by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_FONT) }.collectAsStateWithLifecycle(null)
+    val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
+    val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
+    val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    // Off by default; when on it replaces the page title in the top bar.
+    val profileBadge: (@Composable () -> Unit)? =
+        if (badgeEnabled == DataStoreManager.TRUE) {
+            {
+                ProfileBadge(
+                    name = badgeName?.takeIf { it.isNotBlank() } ?: accountInfo?.first ?: "",
+                    avatar = badgeAvatar?.takeIf { it.isNotBlank() } ?: accountInfo?.second,
+                    nameColor = badgeNameColor?.let { hexToColor(it) } ?: Color.White,
+                    font = BadgeFont.entries.firstOrNull { it.name == badgeFont } ?: BadgeFont.SCRIPT,
+                    icon = BadgeIcon.entries.firstOrNull { it.name == badgeIcon } ?: BadgeIcon.VERIFIED,
+                    iconColor = badgeIconColor?.let { hexToColor(it) } ?: Color(0xFF1D9BF0),
+                )
+            }
+        } else {
+            null
+        }
     val homeData by viewModel.homeItemList.collectAsStateWithLifecycle()
     val appleLayout = LocalAppleLayout.current
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
@@ -865,8 +895,9 @@ fun HomeScreen(
                     Modifier
                         .align(Alignment.TopCenter)
                         .then(
-                            if (appleLayout) {
-                                // Apple Music's bar is solid page colour at all times.
+                            if (appleLayout && LocalPageBrush.current == null) {
+                                // Apple Music's bar is solid page colour at all times. (A gradient
+                                // page instead blurs what is under it, so the bar is not a band.)
                                 Modifier.background(MaterialTheme.colorScheme.background)
                             } else if (target) {
                                 Modifier.background(Color.Transparent)
@@ -886,7 +917,7 @@ fun HomeScreen(
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
-                    HomeTopAppBar(navController)
+                    HomeTopAppBar(navController, badge = profileBadge)
                 }
                 if (appleLayout) AppleTopBarSeparator()
                 AnimatedVisibility(
@@ -958,7 +989,10 @@ fun HomeScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeTopAppBar(navController: NavController) {
+fun HomeTopAppBar(
+    navController: NavController,
+    badge: (@Composable () -> Unit)? = null,
+) {
     val hour =
         remember {
             val date = now().time
@@ -988,7 +1022,9 @@ fun HomeTopAppBar(navController: NavController) {
                         stringResource(Res.string.good_night)
                     }
                 }
-            if (LocalAppleLayout.current) {
+            if (badge != null) {
+                badge()
+            } else if (LocalAppleLayout.current) {
                 // Apple Music: just the page name, no greeting.
                 Text(
                     text = stringResource(Res.string.home),

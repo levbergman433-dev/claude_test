@@ -652,10 +652,15 @@ interface DataStoreManager {
         const val THEME_MODE_MOCHA = "MOCHA"
         const val THEME_MODE_SEPIA = "SEPIA"
 
+        // User-built page fill (solid or gradient), stored under the "page_fill" string key.
+        const val THEME_MODE_CUSTOM = "CUSTOM"
+
         const val THEME_COLOR_DEFAULT = "DEFAULT"
         const val THEME_COLOR_WALLPAPER = "WALLPAPER"
         const val THEME_COLOR_CUSTOM = "CUSTOM"
         const val THEME_COLOR_APPLE_MUSIC = "APPLE_MUSIC"
+        // Accent gradient, stored under the "accent_fill" string key.
+        const val THEME_COLOR_GRADIENT = "GRADIENT"
 
         const val GLASS_STYLE_APPLE = "APPLE"
         const val GLASS_STYLE_CLASSIC = "CLASSIC"

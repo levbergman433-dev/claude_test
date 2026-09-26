@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.library
 
+import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import com.maxrave.simpmusic.ui.component.AppleTopBarSeparator
 import com.maxrave.simpmusic.ui.component.applePageTitleStyle
 import androidx.compose.animation.AnimatedVisibility
@@ -484,7 +485,7 @@ fun LibraryScreen(
     Column(
         Modifier
             .then(
-                if (appleLayoutBar) {
+                if (appleLayoutBar && LocalPageBrush.current == null) {
                     // Apple Music's bar is solid page colour, with a hairline under it.
                     Modifier.background(MaterialTheme.colorScheme.background)
                 } else {

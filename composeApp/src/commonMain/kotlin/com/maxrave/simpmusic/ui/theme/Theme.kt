@@ -17,6 +17,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import com.materialkolor.PaletteStyle
 import com.materialkolor.rememberDynamicColorScheme
 import com.maxrave.domain.manager.DataStoreManager
@@ -161,12 +162,15 @@ fun AppTheme(
     largeTitles: Boolean = true,
     appleLayout: Boolean = true,
     useInter: Boolean = true,
+    pageFill: ColorFill? = null,
+    accentFill: ColorFill? = null,
     content:
         @Composable()
         () -> Unit,
 ) {
-    val isDark = isDarkTheme(themeMode)
-    val surfaceTheme = surfaceThemeFor(themeMode)
+    // A custom page fill decides dark/light by its own brightness, so text always contrasts.
+    val isDark = if (pageFill != null) pageFill.base.luminance() < 0.5f else isDarkTheme(themeMode)
+    val surfaceTheme = pageFill?.base ?: surfaceThemeFor(themeMode)
     val wallpaperScheme =
         if (themeColorSource == DataStoreManager.THEME_COLOR_WALLPAPER) {
             platformDynamicColorScheme(isDark)
@@ -178,6 +182,7 @@ fun AppTheme(
         when (themeColorSource) {
             DataStoreManager.THEME_COLOR_CUSTOM -> customThemeColor ?: seed
             DataStoreManager.THEME_COLOR_APPLE_MUSIC -> appleMusicRed
+            DataStoreManager.THEME_COLOR_GRADIENT -> accentFill?.first ?: seed
             else -> seed
         }
     // Symmetric base: dark pins background/surface to pure black via isAmoled; light pins them to
@@ -197,8 +202,10 @@ fun AppTheme(
     // Applied after, not inside modifyColorScheme: materialkolor only rebuilds when the seed or
     // dark/light changes, so switching Dark -> Midnight (both dark) would otherwise do nothing.
     val colorScheme =
-        remember(seededScheme, surfaceTheme, isDark) {
-            if (surfaceTheme != null) seededScheme.withSurfaceTheme(surfaceTheme, isDark) else seededScheme
+        remember(seededScheme, surfaceTheme, isDark, pageFill) {
+            val themed = if (surfaceTheme != null) seededScheme.withSurfaceTheme(surfaceTheme, isDark) else seededScheme
+            // A gradient page: anything painting "the page colour" (bars, glows) matches its top.
+            if (pageFill != null && pageFill.gradient) themed.copy(background = pageFill.first) else themed
         }
     // Immersive screens stay dark even at light theme (see [ForceDarkContent]). Resolve their scheme
     // once here instead of letting every such subtree build a palette of its own.
@@ -216,7 +223,11 @@ fun AppTheme(
         }
     SystemBarAppearanceEffect(isDark)
     // Provided around the theme itself, because typo() below reads it to pick the font.
-    CompositionLocalProvider(LocalUseInter provides useInter) {
+    CompositionLocalProvider(
+        LocalUseInter provides useInter,
+        LocalPageBrush provides pageFill?.takeIf { it.gradient }?.brush,
+        LocalAccentBrush provides accentFill?.takeIf { it.gradient }?.brush,
+    ) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             content = {
