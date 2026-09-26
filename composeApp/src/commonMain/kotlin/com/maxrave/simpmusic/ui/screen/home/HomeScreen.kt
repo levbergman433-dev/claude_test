@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.accentTint
 import com.maxrave.simpmusic.ui.component.BadgeFont
 import com.maxrave.simpmusic.ui.component.BadgeIcon
 import com.maxrave.simpmusic.ui.component.ProfileBadge
@@ -1066,7 +1067,7 @@ fun HomeTopAppBar(
                 // row used to hold lives in its menu.
                 var menuOpen by remember { mutableStateOf(false) }
                 Box {
-                    RippleIconButton(imageVector = SimpIcons.MoreVert, tint = MaterialTheme.colorScheme.primary) {
+                    RippleIconButton(imageVector = SimpIcons.MoreVert, modifier = Modifier.accentTint(), tint = MaterialTheme.colorScheme.primary) {
                         menuOpen = true
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {

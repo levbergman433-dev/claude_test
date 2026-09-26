@@ -461,7 +461,7 @@ fun AppleLibraryRow(
                 imageVector = icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(24.dp).accentTint(),
             )
             Spacer(Modifier.width(16.dp))
             Text(
@@ -505,7 +505,8 @@ fun AppleBackRow(
                 .padding(bottom = 8.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .clickable(onClick = onClick)
-                .padding(horizontal = 4.dp, vertical = 6.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp)
+                .accentTint(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {

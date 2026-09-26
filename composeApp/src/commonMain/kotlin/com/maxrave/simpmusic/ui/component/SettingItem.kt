@@ -1,6 +1,14 @@
 package com.maxrave.simpmusic.ui.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import com.maxrave.simpmusic.ui.theme.LocalAccentBrush
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -106,14 +114,39 @@ fun SettingItem(
             }
             if (switch != null) {
                 Spacer(Modifier.width(10.dp))
-                Switch(
-                    modifier = Modifier.wrapContentWidth(),
-                    checked = switch.first,
-                    onCheckedChange = {
-                        switch.second.invoke(it)
-                    },
-                    enabled = isEnable,
-                )
+                val accentBrush = LocalAccentBrush.current
+                if (accentBrush != null && switch.first && isEnable) {
+                    // Gradient accent: the "on" track is painted with the gradient. The switch is
+                    // drawn at its bare 52x32 size so the painted pill matches the track exactly.
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                        Switch(
+                            modifier =
+                                Modifier
+                                    .clip(CircleShape)
+                                    .background(accentBrush),
+                            checked = true,
+                            onCheckedChange = {
+                                switch.second.invoke(it)
+                            },
+                            colors =
+                                SwitchDefaults.colors(
+                                    checkedTrackColor = Color.Transparent,
+                                    checkedBorderColor = Color.Transparent,
+                                    checkedThumbColor = Color.White,
+                                    checkedIconColor = Color.Black,
+                                ),
+                        )
+                    }
+                } else {
+                    Switch(
+                        modifier = Modifier.wrapContentWidth(),
+                        checked = switch.first,
+                        onCheckedChange = {
+                            switch.second.invoke(it)
+                        },
+                        enabled = isEnable,
+                    )
+                }
             }
         }
     }

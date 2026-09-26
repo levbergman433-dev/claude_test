@@ -174,7 +174,8 @@ fun AppBottomNavigationBar(
                                     .width(tabWidth)
                                     .fillMaxHeight()
                                     .clip(RoundedCornerShape(FlatIndicatorHeight / 2))
-                                    .clickable { selectTab(screen) },
+                                    .clickable { selectTab(screen) }
+                                    .accentTint(enabled = selected),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
                         ) {
@@ -203,6 +204,7 @@ fun AppBottomNavigationBar(
                     .clickable { selectTab(BottomNavScreen.Search) },
             contentAlignment = Alignment.Center,
         ) {
+            Box(Modifier.accentTint(enabled = searchSelected)) {
             CompositionLocalProvider(
                 LocalContentColor provides
                     if (searchSelected) {
@@ -212,6 +214,7 @@ fun AppBottomNavigationBar(
                     },
             ) {
                 BottomNavScreen.Search.icon()
+            }
             }
         }
     }

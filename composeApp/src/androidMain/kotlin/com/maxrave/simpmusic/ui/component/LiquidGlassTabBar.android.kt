@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.component
 
+import com.maxrave.simpmusic.ui.component.accentTint
 import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -314,7 +315,7 @@ private fun LiquidGlassTab(
                 indication = null,
                 role = Role.Tab,
                 onClick = onClick,
-            ),
+            ).accentTint(enabled = selected),
         verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
