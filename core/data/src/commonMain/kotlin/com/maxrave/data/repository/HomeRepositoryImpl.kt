@@ -67,8 +67,32 @@ internal class HomeRepositoryImpl(
         flow {
             runCatching {
                 val limit = dataStoreManager.homeLimit.first()
-                youTube
-                    .customQuery(browseId = "FEmusic_home", params = params)
+                val primary = youTube.customQuery(browseId = "FEmusic_home", params = params)
+                val hasSections =
+                    primary
+                        .getOrNull()
+                        ?.contents
+                        ?.singleColumnBrowseResultsRenderer
+                        ?.tabs
+                        ?.firstOrNull()
+                        ?.tabRenderer
+                        ?.content
+                        ?.sectionListRenderer
+                        ?.contents
+                        ?.isNotEmpty() == true
+                // A signed-in Home can fail or come back empty while the guest one still works —
+                // e.g. an account in a country where YouTube Music is unavailable (Brunei). Fall back
+                // to the guest feed instead of a "Can't connect" page with a working connection.
+                val homeResult =
+                    if (hasSections) {
+                        primary
+                    } else {
+                        youTube
+                            .customQuery(browseId = "FEmusic_home", params = params, guest = true)
+                            .takeIf { it.isSuccess }
+                            ?: primary
+                    }
+                homeResult
                     .onSuccess { result ->
                         val list: ArrayList<HomeItem> = arrayListOf()
                         if (result.contents

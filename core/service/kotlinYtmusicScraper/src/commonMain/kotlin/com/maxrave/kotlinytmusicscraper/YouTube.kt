@@ -856,8 +856,9 @@ class YouTube {
         continuation: String? = null,
         country: String? = null,
         setLogin: Boolean = true,
+        guest: Boolean = false,
     ) = runCatching {
-        ytMusic.browse(WEB_REMIX, browseId, params, continuation, country, setLogin).body<BrowseResponse>()
+        ytMusic.browse(WEB_REMIX, browseId, params, continuation, country, setLogin, guest).body<BrowseResponse>()
     }
 
     /**

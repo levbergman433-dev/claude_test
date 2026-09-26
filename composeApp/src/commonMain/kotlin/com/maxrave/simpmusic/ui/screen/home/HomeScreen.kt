@@ -635,11 +635,20 @@ fun HomeScreen(
                         )
                         return@Crossfade
                     }
+                    // Apple layout: personal first. Quick picks leads, then Recently Played, then the
+                    // first few of the user's own YouTube shelves; the discovery block (new releases,
+                    // charts, top artists) follows them rather than sitting on top.
+                    val quickPicksTitle = stringResource(Res.string.quick_picks)
+                    val orderedHome =
+                        remember(homeData, appleLayout, quickPicksTitle) {
+                            if (appleLayout) homeData.sortedBy { it.title != quickPicksTitle } else homeData
+                        }
+                    val discoverAfterIndex = minOf(APPLE_DISCOVER_AFTER, orderedHome.lastIndex)
                     LazyColumn(
                         state = scrollState,
                         verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 20.dp),
                     ) {
-                        itemsIndexed(homeData, key = { _, item ->
+                        itemsIndexed(orderedHome, key = { _, item ->
                             item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
                         }) { index, item ->
                             Box {
@@ -685,26 +694,6 @@ fun HomeScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     // Apple Music Home opens with Recently Played; there is no
                                     // "Welcome back" account block.
-                                    if (appleLayout && index == 0) {
-                                        AppleNewTabSections(
-                                            newRelease = newRelease,
-                                            chart = chart,
-                                            navController = navController,
-                                            homeViewModel = viewModel,
-                                            onMore = { recentSheetSong = it.toTrack().toSongEntity() },
-                                        )
-                                        Spacer(Modifier.height(28.dp))
-                                    }
-                                    if (appleLayout && index == 0 && recentlyPlayed.isNotEmpty()) {
-                                        AppleRecentlyPlayedShelf(
-                                            title = stringResource(Res.string.recently_played),
-                                            songs = recentlyPlayed,
-                                            onSongClick = { viewModel.playSongRadio(it) },
-                                            onSongLongClick = { recentSheetSong = it },
-                                            onSeeAll = { navController.navigate(RecentlySongsDestination) },
-                                        )
-                                        Spacer(Modifier.height(28.dp))
-                                    }
                                     if (!appleLayout && index == 0 && accountInfo != null && accountShow) {
                                         AccountLayout(
                                             accountName = accountInfo?.first ?: "",
@@ -756,6 +745,26 @@ fun HomeScreen(
                                         HomeItem(
                                             navController = navController,
                                             data = item,
+                                        )
+                                    }
+                                    if (appleLayout && index == 0 && recentlyPlayed.isNotEmpty()) {
+                                        Spacer(Modifier.height(28.dp))
+                                        AppleRecentlyPlayedShelf(
+                                            title = stringResource(Res.string.recently_played),
+                                            songs = recentlyPlayed,
+                                            onSongClick = { viewModel.playSongRadio(it) },
+                                            onSongLongClick = { recentSheetSong = it },
+                                            onSeeAll = { navController.navigate(RecentlySongsDestination) },
+                                        )
+                                    }
+                                    if (appleLayout && index == discoverAfterIndex) {
+                                        Spacer(Modifier.height(28.dp))
+                                        AppleNewTabSections(
+                                            newRelease = newRelease,
+                                            chart = chart,
+                                            navController = navController,
+                                            homeViewModel = viewModel,
+                                            onMore = { recentSheetSong = it.toTrack().toSongEntity() },
                                         )
                                     }
                                 }
@@ -1448,3 +1457,6 @@ fun ChartData(
         }
     }
 }
+
+/** Apple layout: the discovery block follows Quick picks and this many of the user's own shelves. */
+private const val APPLE_DISCOVER_AFTER = 3

@@ -50,6 +50,7 @@ object SUPPORTED_LOCATION {
             "BE",
             "BG",
             "BH",
+            "BN",
             "BO",
             "BR",
             "BY",
