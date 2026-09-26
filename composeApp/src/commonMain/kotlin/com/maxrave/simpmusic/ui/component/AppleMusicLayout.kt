@@ -239,6 +239,55 @@ fun AppleSongGrid(
     }
 }
 
+/**
+ * [AppleSongGrid] for any list of songs: [row] maps an item to its title, subtitle, artwork and
+ * explicit flag. Used for the app-built Quick picks, which are Tracks rather than Home contents.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun <T> AppleSongListGrid(
+    items: List<T>,
+    key: (T) -> String,
+    row: (T) -> AppleSongRowData,
+    onClick: (T) -> Unit,
+    onMore: (T) -> Unit,
+) {
+    val state = rememberLazyGridState()
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val columnWidth = maxWidth * 0.9f - AppleEdge - AppleTileGap
+        LazyHorizontalGrid(
+            rows = GridCells.Fixed(4),
+            state = state,
+            contentPadding = PaddingValues(horizontal = AppleEdge),
+            horizontalArrangement = Arrangement.spacedBy(AppleTileGap),
+            flingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = state, snapPosition = SnapPosition.Start)),
+            modifier = Modifier.height(AppleSongRowHeight * 4),
+        ) {
+            itemsIndexed(items, key = { index, item -> "${key(item)}-$index" }) { index, item ->
+                val data = row(item)
+                AppleSongRow(
+                    title = data.title,
+                    subtitle = data.subtitle,
+                    artwork = data.artwork,
+                    isExplicit = data.isExplicit,
+                    showDivider = index % 4 != 3 && index != items.lastIndex,
+                    width = columnWidth,
+                    onClick = { onClick(item) },
+                    onMore = { onMore(item) },
+                )
+            }
+        }
+    }
+}
+
+/** What one [AppleSongRow] shows. */
+data class AppleSongRowData(
+    val title: String,
+    val subtitle: String,
+    val artwork: String?,
+    val isExplicit: Boolean,
+)
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppleSongRow(

@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.AppleSongRowData
+import com.maxrave.simpmusic.ui.component.AppleSongListGrid
 import com.maxrave.simpmusic.ui.component.accentTint
 import com.maxrave.simpmusic.ui.component.BadgeFont
 import com.maxrave.simpmusic.ui.component.BadgeIcon
@@ -284,6 +286,7 @@ fun HomeScreen(
     val homeData by viewModel.homeItemList.collectAsStateWithLifecycle()
     val appleLayout = LocalAppleLayout.current
     val recentlyPlayed by viewModel.recentlyPlayed.collectAsStateWithLifecycle()
+    val appQuickPicks by viewModel.quickPicks.collectAsStateWithLifecycle()
     var recentSheetSong by remember { mutableStateOf<SongEntity?>(null) }
     // Refresh whenever Home is (re)entered, so a song just played shows up at the front.
     LaunchedEffect(appleLayout) {
@@ -644,6 +647,9 @@ fun HomeScreen(
                             if (appleLayout) homeData.sortedBy { it.title != quickPicksTitle } else homeData
                         }
                     val discoverAfterIndex = minOf(APPLE_DISCOVER_AFTER, orderedHome.lastIndex)
+                    // Not every account gets a Quick picks shelf from YouTube; those get the app's
+                    // own (songs related to what was played last) at the very top instead.
+                    val youtubeHasQuickPicks = orderedHome.firstOrNull()?.title == quickPicksTitle
                     LazyColumn(
                         state = scrollState,
                         verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 20.dp),
@@ -694,6 +700,39 @@ fun HomeScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     // Apple Music Home opens with Recently Played; there is no
                                     // "Welcome back" account block.
+                                    if (appleLayout && index == 0 && !youtubeHasQuickPicks) {
+                                        if (appQuickPicks.isNotEmpty()) {
+                                            AppleShelfHeader(
+                                                title = quickPicksTitle,
+                                                modifier = Modifier.padding(bottom = 8.dp),
+                                            )
+                                            AppleSongListGrid(
+                                                items = appQuickPicks,
+                                                key = { it.videoId },
+                                                row = { t ->
+                                                    AppleSongRowData(
+                                                        title = t.title,
+                                                        subtitle = t.artists?.joinToString(", ") { it.name }.orEmpty(),
+                                                        artwork = t.thumbnails?.lastOrNull()?.url,
+                                                        isExplicit = t.isExplicit,
+                                                    )
+                                                },
+                                                onClick = { viewModel.playTrackRadio(it) },
+                                                onMore = { recentSheetSong = it.toSongEntity() },
+                                            )
+                                            Spacer(Modifier.height(28.dp))
+                                        }
+                                        if (recentlyPlayed.isNotEmpty()) {
+                                            AppleRecentlyPlayedShelf(
+                                                title = stringResource(Res.string.recently_played),
+                                                songs = recentlyPlayed,
+                                                onSongClick = { viewModel.playSongRadio(it) },
+                                                onSongLongClick = { recentSheetSong = it },
+                                                onSeeAll = { navController.navigate(RecentlySongsDestination) },
+                                            )
+                                            Spacer(Modifier.height(28.dp))
+                                        }
+                                    }
                                     if (!appleLayout && index == 0 && accountInfo != null && accountShow) {
                                         AccountLayout(
                                             accountName = accountInfo?.first ?: "",
@@ -747,7 +786,7 @@ fun HomeScreen(
                                             data = item,
                                         )
                                     }
-                                    if (appleLayout && index == 0 && recentlyPlayed.isNotEmpty()) {
+                                    if (appleLayout && index == 0 && youtubeHasQuickPicks && recentlyPlayed.isNotEmpty()) {
                                         Spacer(Modifier.height(28.dp))
                                         AppleRecentlyPlayedShelf(
                                             title = stringResource(Res.string.recently_played),

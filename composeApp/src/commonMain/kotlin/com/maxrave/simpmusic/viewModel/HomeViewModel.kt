@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.viewModel
 
+import com.maxrave.domain.data.model.browse.album.Track
 import androidx.lifecycle.viewModelScope
 import com.maxrave.common.Config
 import com.maxrave.common.SELECTED_LANGUAGE
@@ -60,7 +61,68 @@ class HomeViewModel(
         viewModelScope.launch {
             _recentlyPlayed.value =
                 runCatching { songRepository.getRecentSong(RECENTLY_PLAYED_COUNT, 0) }.getOrDefault(emptyList())
+            loadQuickPicks()
         }
+    }
+
+    private val _quickPicks = MutableStateFlow<List<Track>>(emptyList())
+
+    /**
+     * The app's own Quick picks, for accounts whose YouTube Home has none: songs related to the
+     * last few played, interleaved so each seed contributes, minus what was just played. Rebuilt
+     * whenever Home is entered, so it follows what the user is listening to.
+     */
+    val quickPicks: StateFlow<List<Track>> = _quickPicks
+
+    private var quickPicksJob: Job? = null
+
+    private fun loadQuickPicks() {
+        val seeds = _recentlyPlayed.value.take(QUICK_PICKS_SEEDS)
+        if (seeds.isEmpty()) return
+        quickPicksJob?.cancel()
+        quickPicksJob =
+            viewModelScope.launch {
+                val played = _recentlyPlayed.value.map { it.videoId }.toSet()
+                val perSeed =
+                    seeds.map { seed ->
+                        runCatching {
+                            songRepository
+                                .getRelatedData(seed.videoId)
+                                .first { it is Resource.Success || it is Resource.Error }
+                                .data
+                                ?.first
+                                .orEmpty()
+                        }.getOrDefault(emptyList())
+                    }
+                val merged = LinkedHashMap<String, Track>()
+                val longest = perSeed.maxOfOrNull { it.size } ?: 0
+                for (i in 0 until longest) {
+                    for (list in perSeed) {
+                        val track = list.getOrNull(i) ?: continue
+                        if (track.videoId !in played) merged.putIfAbsent(track.videoId, track)
+                    }
+                }
+                val picks = merged.values.take(QUICK_PICKS_COUNT)
+                if (picks.isNotEmpty()) {
+                    _quickPicks.value = picks
+                    prefetchStreams(picks.map { it.videoId })
+                }
+            }
+    }
+
+    /** Play [track] as the seed of its radio, like any song tile on Home. */
+    fun playTrackRadio(track: Track) {
+        setQueueData(
+            QueueData.Data(
+                listTracks = arrayListOf(track),
+                firstPlayedTrack = track,
+                playlistId = "RDAMVM${track.videoId}",
+                playlistName = track.title,
+                playlistType = PlaylistType.RADIO,
+                continuation = null,
+            ),
+        )
+        loadMediaItem(track, Config.SONG_CLICK)
     }
 
     /** Play [song] the way a song tile on Home does: as the seed of its radio. */
@@ -416,3 +478,6 @@ class HomeViewModel(
         const val HOME_PARAMS_FOCUS = "ggM8SgQIBxABSgQIBRABSgQICRABSgQIChABSgQIDRABSgQICBABSgQIBBABSgQIDhABSgQIAxABSgQIBhAD"
     }
 }
+
+private const val QUICK_PICKS_SEEDS = 3
+private const val QUICK_PICKS_COUNT = 20
