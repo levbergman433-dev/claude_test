@@ -60,6 +60,7 @@ import simpmusic.composeapp.generated.resources.fill_color_2
 import simpmusic.composeapp.generated.resources.fill_gradient
 import simpmusic.composeapp.generated.resources.fill_solid
 import simpmusic.composeapp.generated.resources.gradient_diagonal
+import simpmusic.composeapp.generated.resources.gradient_drag_hint
 import simpmusic.composeapp.generated.resources.gradient_horizontal
 import simpmusic.composeapp.generated.resources.gradient_radial
 import simpmusic.composeapp.generated.resources.gradient_sweep
@@ -103,7 +104,9 @@ fun ColorFillDialog(
     var editing by remember { mutableIntStateOf(0) }
     val current = stops[if (gradient) editing else 0]
 
-    val fill = ColorFill(gradient, type, stops[0], if (gradient) stops[1] else stops[0])
+    var focusX by remember { mutableFloatStateOf(initial.focusX) }
+    var focusY by remember { mutableFloatStateOf(initial.focusY) }
+    val fill = ColorFill(gradient, type, stops[0], if (gradient) stops[1] else stops[0], focusX, focusY)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -127,16 +130,50 @@ fun ColorFillDialog(
                         )
                     }
                 }
-                // Live preview of the whole fill.
+                // Live preview of the whole fill. With a gradient, dragging on it moves the
+                // gradient's point (the handle): the centre of a circle or sweep, or where the
+                // blend sits for the straight ones.
                 Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(84.dp)
+                            .height(if (gradient) 150.dp else 84.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(fill.brush)
-                            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)),
+                            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+                            .then(
+                                if (gradient) {
+                                    Modifier
+                                        .pointerInput(Unit) {
+                                            fun update(p: Offset) {
+                                                focusX = (p.x / size.width).coerceIn(0f, 1f)
+                                                focusY = (p.y / size.height).coerceIn(0f, 1f)
+                                            }
+                                            awaitEachGesture {
+                                                val down = awaitFirstDown()
+                                                update(down.position)
+                                                drag(down.id) { change ->
+                                                    update(change.position)
+                                                    change.consume()
+                                                }
+                                            }
+                                        }.drawWithContent {
+                                            drawContent()
+                                            val c = Offset(focusX * size.width, focusY * size.height)
+                                            drawCircle(Color.Black.copy(alpha = 0.35f), radius = 13.dp.toPx(), center = c)
+                                            drawCircle(Color.White, radius = 11.dp.toPx(), center = c, style = Stroke(3.dp.toPx()))
+                                        }
+                                } else {
+                                    Modifier
+                                },
+                            ),
                 )
+                if (gradient) {
+                    Text(
+                        text = stringResource(Res.string.gradient_drag_hint),
+                        style = typo().bodySmall,
+                    )
+                }
                 if (gradient) {
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),

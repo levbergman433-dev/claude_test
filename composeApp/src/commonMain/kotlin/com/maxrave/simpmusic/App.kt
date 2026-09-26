@@ -480,7 +480,11 @@ fun App(
         // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
         // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).
         val isLightScheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
-        val backdrop = rememberBackdrop(if (isLightScheme) Color.White else Color.Black)
+        val backdrop =
+            rememberBackdrop(
+                if (isLightScheme) Color.White else Color.Black,
+                LocalPageBrush.current?.takeIf { getPlatform() != Platform.Desktop },
+            )
 
         // The desktop shell is a window colour with panels floating on it. The two schemes mirror
         // each other: the window takes the extreme (pure black / pure white) and the panel steps

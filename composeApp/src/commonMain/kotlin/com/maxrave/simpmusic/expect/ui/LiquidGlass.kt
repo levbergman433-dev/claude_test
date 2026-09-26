@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.expect.ui
 
+import androidx.compose.runtime.key
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +39,23 @@ fun rememberBackdrop(color: Color): PlatformBackdrop =
     rememberLayerBackdrop {
         drawRect(color)
         drawContent()
+    }
+
+/**
+ * Same, but the base the glass refracts is [brush] when set — a custom gradient page is painted
+ * behind the scaffold, outside the recorded layer, so a plain colour base made every glass surface
+ * (nav bar, mini player) read as black over it.
+ */
+@Composable
+fun rememberBackdrop(
+    color: Color,
+    brush: Brush?,
+): PlatformBackdrop =
+    key(brush) {
+        rememberLayerBackdrop {
+            if (brush != null) drawRect(brush) else drawRect(color)
+            drawContent()
+        }
     }
 
 fun Modifier.drawBackdropCustomShape(

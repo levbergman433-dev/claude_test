@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.component
 
+import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -58,6 +59,9 @@ fun AmbientThemeGlow(
     // arrives — and the animation below is what makes it breathe in rather than pop.
     tint: Color? = null,
 ) {
+    // A custom page fill is the page's own look; the glow fades into a SOLID page colour, which
+    // painted a hard-edged block over the gradient.
+    if (LocalPageBrush.current != null) return
     val backgroundColor = MaterialTheme.colorScheme.background
     val isLightTheme = backgroundColor.luminance() > 0.5f
     val pageBackground =

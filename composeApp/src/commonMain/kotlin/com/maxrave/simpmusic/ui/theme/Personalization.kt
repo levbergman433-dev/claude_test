@@ -2,7 +2,13 @@ package com.maxrave.simpmusic.ui.theme
 
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.RadialGradientShader
+import androidx.compose.ui.graphics.Shader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.SweepGradientShader
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
@@ -36,20 +42,49 @@ enum class GradientType {
     SWEEP,
     ;
 
+    /**
+     * [focusX]/[focusY] (0..1) move the gradient: the centre of a circle or sweep, or, for the
+     * straight ones, where the blend between the two colours sits along the gradient's direction.
+     * The brush is resolved against whatever size it is drawn at.
+     */
     fun brush(
         first: Color,
         second: Color,
-    ): Brush =
-        when (this) {
-            VERTICAL -> Brush.verticalGradient(listOf(first, second))
-            // Default start/end run from the top-left corner to the bottom-right one.
-            DIAGONAL -> Brush.linearGradient(listOf(first, second))
-            HORIZONTAL -> Brush.horizontalGradient(listOf(first, second))
-            // The first colour is the circle in the middle.
-            RADIAL -> Brush.radialGradient(listOf(first, second))
+        focusX: Float = 0.5f,
+        focusY: Float = 0.5f,
+    ): Brush {
+        val fx = focusX.coerceIn(0f, 1f)
+        val fy = focusY.coerceIn(0f, 1f)
+        val mid = lerp(first, second, 0.5f)
+        // Straight gradients: the halfway colour is placed at the focus, stretching one side.
+        fun stops(t: Float) = arrayOf(0f to first, t.coerceIn(0.02f, 0.98f) to mid, 1f to second)
+        return when (this) {
+            VERTICAL -> Brush.verticalGradient(*stops(fy))
+            DIAGONAL -> Brush.linearGradient(*stops((fx + fy) / 2f))
+            HORIZONTAL -> Brush.horizontalGradient(*stops(fx))
+            RADIAL ->
+                object : ShaderBrush() {
+                    override fun createShader(size: Size): Shader {
+                        val center = Offset(fx * size.width, fy * size.height)
+                        // Reach the farthest corner, so the outer colour fills the whole surface.
+                        val radius =
+                            listOf(
+                                Offset(0f, 0f),
+                                Offset(size.width, 0f),
+                                Offset(0f, size.height),
+                                Offset(size.width, size.height),
+                            ).maxOf { (it - center).getDistance() }.coerceAtLeast(1f)
+                        return RadialGradientShader(center, radius, listOf(first, second))
+                    }
+                }
             // Closed loop, so there is no seam where the sweep meets its start.
-            SWEEP -> Brush.sweepGradient(listOf(first, second, first))
+            SWEEP ->
+                object : ShaderBrush() {
+                    override fun createShader(size: Size): Shader =
+                        SweepGradientShader(Offset(fx * size.width, fy * size.height), listOf(first, second, first))
+                }
         }
+    }
 }
 
 /**
@@ -62,15 +97,17 @@ data class ColorFill(
     val type: GradientType,
     val first: Color,
     val second: Color,
+    val focusX: Float = 0.5f,
+    val focusY: Float = 0.5f,
 ) {
-    val brush: Brush get() = if (gradient) type.brush(first, second) else Brush.verticalGradient(listOf(first, first))
+    val brush: Brush get() = if (gradient) type.brush(first, second, focusX, focusY) else Brush.verticalGradient(listOf(first, first))
 
     /** One colour standing for the whole fill: what surfaces, text contrast and seeds derive from. */
     val base: Color get() = if (gradient) lerp(first, second, 0.5f) else first
 
     fun encode(): String =
         if (gradient) {
-            "GRADIENT;${type.name};${first.toHex()};${second.toHex()}"
+            "GRADIENT;${type.name};${first.toHex()};${second.toHex()};$focusX;$focusY"
         } else {
             "SOLID;${first.toHex()}"
         }
@@ -88,7 +125,9 @@ data class ColorFill(
                     val type = GradientType.entries.firstOrNull { it.name == parts.getOrNull(1) } ?: GradientType.VERTICAL
                     val a = parts.getOrNull(2)?.let { hexToColor(it) } ?: return null
                     val b = parts.getOrNull(3)?.let { hexToColor(it) } ?: return null
-                    ColorFill(true, type, a, b)
+                    val fx = parts.getOrNull(4)?.toFloatOrNull() ?: 0.5f
+                    val fy = parts.getOrNull(5)?.toFloatOrNull() ?: 0.5f
+                    ColorFill(true, type, a, b, fx, fy)
                 }
                 else -> null
             }
