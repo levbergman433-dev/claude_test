@@ -166,6 +166,7 @@ import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
 import com.maxrave.simpmusic.ui.theme.LocalAppleLayout
 import com.maxrave.simpmusic.ui.theme.LocalLargeTitles
 import com.maxrave.simpmusic.ui.theme.LocalPageBrush
+import com.maxrave.simpmusic.ui.component.pageBrushSlice
 import com.maxrave.simpmusic.ui.theme.desktopPanelDark
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.FOOTGUNS_STAR_KEY
@@ -952,9 +953,13 @@ fun HomeScreen(
                         .align(Alignment.TopCenter)
                         .then(
                             if (appleLayout && LocalPageBrush.current == null) {
-                                // Apple Music's bar is solid page colour at all times. (A gradient
-                                // page instead blurs what is under it, so the bar is not a band.)
+                                // Apple Music's bar is solid page colour at all times.
                                 Modifier.background(MaterialTheme.colorScheme.background)
+                            } else if (LocalPageBrush.current != null && (appleLayout || !target)) {
+                                // Gradient page: the bar is the slice of the gradient behind it. The
+                                // blur below tints with a solid surface colour, which over a gradient
+                                // turned the bar into a flat band once the page scrolled.
+                                Modifier.pageBrushSlice(LocalPageBrush.current!!)
                             } else if (target) {
                                 Modifier.background(Color.Transparent)
                             } else {

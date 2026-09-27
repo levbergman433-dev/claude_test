@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.SweepGradientShader
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 
 /**
@@ -116,6 +117,26 @@ data class ColorFill(
 
     /** One colour standing for the whole fill: what surfaces, text contrast and seeds derive from. */
     val base: Color get() = if (gradient) lerp(first, second, 0.5f) else first
+
+    /**
+     * Whether text on this fill reads better dark than light.
+     *
+     * Decided by contrast against BOTH colours, keeping whichever text colour stays more legible at
+     * the worse end of the gradient. The old rule judged only the midpoint and called anything under
+     * 50% luminance "dark", which put white text on light gradients and on mid-tone colours (WCAG's
+     * black/white crossover is around 18% luminance, not 50%).
+     */
+    fun prefersDarkText(): Boolean {
+        fun contrast(
+            a: Float,
+            b: Float,
+        ) = (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
+        val l1 = first.luminance()
+        val l2 = second.luminance()
+        val withBlack = minOf(contrast(l1, 0f), contrast(l2, 0f))
+        val withWhite = minOf(contrast(l1, 1f), contrast(l2, 1f))
+        return withBlack > withWhite
+    }
 
     fun encode(): String =
         if (gradient) {

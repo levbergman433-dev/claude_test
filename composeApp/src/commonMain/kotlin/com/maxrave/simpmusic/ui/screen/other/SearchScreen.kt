@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.ui.screen.other
 
+import com.maxrave.simpmusic.ui.theme.LocalPageBrush
+import com.maxrave.simpmusic.ui.component.pageBrushSlice
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -961,6 +963,9 @@ fun SearchScreen(
                         .then(
                             if (atTop) {
                                 Modifier.background(Color.Transparent)
+                            } else if (LocalPageBrush.current != null) {
+                                // Gradient page: the gradient's own slice, not a flat tinted band.
+                                Modifier.pageBrushSlice(LocalPageBrush.current!!)
                             } else {
                                 Modifier.hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
                                     blurEnabled = true

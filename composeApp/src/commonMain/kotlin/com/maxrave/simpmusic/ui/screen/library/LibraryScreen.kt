@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.library
 
+import com.maxrave.simpmusic.ui.component.pageBrushSlice
 import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import com.maxrave.simpmusic.ui.component.AppleTopBarSeparator
 import com.maxrave.simpmusic.ui.component.applePageTitleStyle
@@ -488,6 +489,10 @@ fun LibraryScreen(
                 if (appleLayoutBar && LocalPageBrush.current == null) {
                     // Apple Music's bar is solid page colour, with a hairline under it.
                     Modifier.background(MaterialTheme.colorScheme.background)
+                } else if (LocalPageBrush.current != null) {
+                    // Gradient page: the slice of the gradient behind the bar, not a tinted blur
+                    // that reads as a flat band over the gradient.
+                    Modifier.pageBrushSlice(LocalPageBrush.current!!)
                 } else {
                     Modifier
                         .background(Color.Transparent)

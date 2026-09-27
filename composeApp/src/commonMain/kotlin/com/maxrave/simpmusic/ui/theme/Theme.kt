@@ -169,7 +169,7 @@ fun AppTheme(
         () -> Unit,
 ) {
     // A custom page fill decides dark/light by its own brightness, so text always contrasts.
-    val isDark = if (pageFill != null) pageFill.base.luminance() < 0.5f else isDarkTheme(themeMode)
+    val isDark = if (pageFill != null) !pageFill.prefersDarkText() else isDarkTheme(themeMode)
     val surfaceTheme = pageFill?.base ?: surfaceThemeFor(themeMode)
     val wallpaperScheme =
         if (themeColorSource == DataStoreManager.THEME_COLOR_WALLPAPER) {
