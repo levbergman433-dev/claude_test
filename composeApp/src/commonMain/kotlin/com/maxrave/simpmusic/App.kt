@@ -1,5 +1,14 @@
 package com.maxrave.simpmusic
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import com.maxrave.simpmusic.ui.theme.PageImage
+import com.maxrave.simpmusic.expect.ui.decodeImageBitmap
+import com.maxrave.data.io.readLocalImageBytes
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.runtime.produceState
+import com.maxrave.simpmusic.ui.component.TOP_BAR_DEFAULT
+import com.maxrave.simpmusic.ui.component.LocalTopBarStyle
 import com.maxrave.simpmusic.ui.navigation.destination.home.ListenTogetherDestination
 import com.maxrave.simpmusic.ui.component.GlassMenuHost
 import com.maxrave.simpmusic.ui.component.GlassMenuOverlay
@@ -162,6 +171,7 @@ fun App(
     val isTranslucentBottomBar by viewModel.getTranslucentBottomBar().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLiquidGlassEnabled by viewModel.getEnableLiquidGlass().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val menuStyle by remember { viewModel.stringPref(PersonalizationKeys.MENU_STYLE) }.collectAsStateWithLifecycle(null)
+    val topBarStyle by remember { viewModel.stringPref(PersonalizationKeys.TOP_BAR_STYLE) }.collectAsStateWithLifecycle(null)
     val glassStyle by viewModel.getGlassStyle().collectAsStateWithLifecycle(DataStoreManager.GLASS_STYLE_APPLE)
     val isBatterySaver by viewModel.getBatterySaver().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLargeTitles by viewModel.getLargeTitles().collectAsStateWithLifecycle(DataStoreManager.TRUE)
@@ -184,6 +194,25 @@ fun App(
     val pageFill =
         remember(themeMode, pageFillRaw) {
             if (themeMode == DataStoreManager.THEME_MODE_CUSTOM) ColorFill.decode(pageFillRaw) else null
+        }
+    // A picture as the page background. Decoded and shrunk off the main thread; null while loading
+    // or when none is set, so the page simply shows the colour theme until it is ready.
+    val pageImageUri by remember { viewModel.stringPref(PersonalizationKeys.PAGE_IMAGE) }.collectAsStateWithLifecycle(null)
+    val pageImageDimRaw by remember { viewModel.stringPref(PersonalizationKeys.PAGE_IMAGE_DIM) }.collectAsStateWithLifecycle(null)
+    val pageImageBitmap by produceState<ImageBitmap?>(null, pageImageUri) {
+        val uri = pageImageUri
+        value =
+            if (uri.isNullOrBlank()) {
+                null
+            } else {
+                withContext(Dispatchers.Default) {
+                    readLocalImageBytes(uri)?.let { decodeImageBitmap(it) }?.let { PageImage.downscale(it) }
+                }
+            }
+    }
+    val pageImage =
+        remember(pageImageBitmap, pageImageDimRaw) {
+            pageImageBitmap?.let { PageImage.from(it, (pageImageDimRaw?.toIntOrNull() ?: 35) / 100f) }
         }
     val accentFill =
         remember(themeColorSource, accentFillRaw) {
@@ -230,6 +259,10 @@ fun App(
         val data = intent.data
         Logger.d("MainActivity", "onCreate: $data")
         if (data != null) {
+            // A link opened while the app is already running: the player may be expanded over
+            // everything, and a page the link navigates to would open behind it — which looks
+            // exactly like the link doing nothing. Close it first; a song link re-opens playback.
+            isShowNowPlaylistScreen = false
             if (data == "simpmusic://notification".toUri()) {
                 viewModel.setIntent(null)
                 navController.navigate(
@@ -400,6 +433,7 @@ fun App(
                             data.host == "youtu.be" -> path
                             else -> null
                         }?.let { videoId ->
+                            viewModel.setIntent(null)
                             viewModel.loadSharedMediaItem(videoId)
                         }
                     }
@@ -495,6 +529,7 @@ fun App(
         useInter = appFont != DataStoreManager.FONT_POPPINS,
         pageFill = pageFill,
         accentFill = accentFill,
+        pageImage = pageImage,
     ) {
         // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
         // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).
@@ -525,6 +560,7 @@ fun App(
         val glassMenuHost = remember(backdrop) { GlassMenuHost(backdrop) }
         CompositionLocalProvider(
             LocalGlassMenuHost provides glassMenuHost.takeIf { pageIsBackdropSource && menuStyle != MENU_STYLE_FROSTED },
+            LocalTopBarStyle provides (topBarStyle ?: TOP_BAR_DEFAULT),
         ) {
         Box(Modifier.fillMaxSize()) {
         Scaffold(

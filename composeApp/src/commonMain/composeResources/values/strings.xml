@@ -430,6 +430,11 @@
     <string name="open_links_header">Links</string>
     <string name="open_youtube_links">Open YouTube Music links in Tunes</string>
     <string name="open_youtube_links_description">Android sends music.youtube.com and youtube.com links to YouTube Music or the browser unless you allow this app. Tap, then "Add link" and tick them all. If YouTube Music is installed, turn off "Open supported links" in its settings too.</string>
+    <string name="top_bar_style">Top bar</string>
+    <string name="top_bar_default">Page colour (default)</string>
+    <string name="top_bar_blur">Frosted blur</string>
+    <string name="top_bar_dim">Dimmed</string>
+    <string name="top_bar_transparent">Transparent</string>
     <string name="menu_style">Menu &amp; sheet style</string>
     <string name="menu_style_liquid">Liquid glass (needs Liquid glass on)</string>
     <string name="menu_style_frosted">Frosted</string>
@@ -973,4 +978,14 @@
     <string name="menu_button_size_default">Default</string>
     <string name="menu_button_size_large">Large</string>
     <string name="menu_button_size_xl">Extra large</string>
+    <string name="page_image">Background image</string>
+    <string name="page_image_none">None — tap to choose a picture</string>
+    <string name="page_image_set">Custom picture — tap to change</string>
+    <string name="page_image_dim">Background dim</string>
+    <string name="page_image_dim_none">None</string>
+    <string name="page_image_dim_light">Light</string>
+    <string name="page_image_dim_medium">Medium</string>
+    <string name="page_image_dim_strong">Strong</string>
+    <string name="page_image_remove">Remove background image</string>
+    <string name="page_image_remove_subtitle">Go back to the colour theme</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.library
 
+import com.maxrave.simpmusic.ui.component.topBarSurface
 import com.maxrave.simpmusic.ui.component.pageBrushSlice
 import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import com.maxrave.simpmusic.ui.component.AppleTopBarSeparator
@@ -485,7 +486,10 @@ fun LibraryScreen(
     val appleLayoutBar = LocalAppleLayout.current
     Column(
         Modifier
-            .then(
+            .topBarSurface(
+                atTop = false,
+                hazeState = hazeState,
+                default =
                 if (appleLayoutBar && LocalPageBrush.current == null) {
                     // Apple Music's bar is solid page colour, with a hairline under it.
                     Modifier.background(MaterialTheme.colorScheme.background)

@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.topBarSurface
 import com.maxrave.simpmusic.ui.theme.GradientType
 import com.maxrave.simpmusic.ui.theme.ColorFill
 import com.maxrave.simpmusic.ui.component.GlassDropdownMenu
@@ -951,7 +952,10 @@ fun HomeScreen(
                 modifier =
                     Modifier
                         .align(Alignment.TopCenter)
-                        .then(
+                        .topBarSurface(
+                            atTop = target && !appleLayout,
+                            hazeState = hazeState,
+                            default =
                             if (appleLayout && LocalPageBrush.current == null) {
                                 // Apple Music's bar is solid page colour at all times.
                                 Modifier.background(MaterialTheme.colorScheme.background)

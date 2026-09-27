@@ -1,5 +1,12 @@
 package com.maxrave.simpmusic.ui.component
 
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.background
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,4 +44,35 @@ fun Modifier.pageBrushSlice(brush: Brush): Modifier {
                 }
             }
         }
+}
+
+/** Top bar looks (Appearance > Top bar). [TOP_BAR_DEFAULT] keeps each screen's own behaviour. */
+const val TOP_BAR_DEFAULT = "DEFAULT"
+const val TOP_BAR_BLUR = "BLUR"
+const val TOP_BAR_DIM = "DIM"
+const val TOP_BAR_TRANSPARENT = "TRANSPARENT"
+
+val LocalTopBarStyle = staticCompositionLocalOf { TOP_BAR_DEFAULT }
+
+/**
+ * The surface behind a page's top bar. With the default style the screen's own [default] is used
+ * (the page colour or gradient slice the bar has always had); the other styles replace it once the
+ * page has scrolled: a frosted blur of what is underneath, a translucent dim, or nothing at all.
+ */
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+fun Modifier.topBarSurface(
+    atTop: Boolean,
+    hazeState: HazeState,
+    default: Modifier,
+): Modifier {
+    val style = LocalTopBarStyle.current
+    if (style == TOP_BAR_DEFAULT) return this.then(default)
+    if (atTop) return this
+    return when (style) {
+        TOP_BAR_BLUR -> this.hazeEffect(hazeState, style = HazeMaterials.ultraThin()) { blurEnabled = true }
+        TOP_BAR_DIM -> this.background(MaterialTheme.colorScheme.background.copy(alpha = 0.72f))
+        TOP_BAR_TRANSPARENT -> this
+        else -> this.then(default)
+    }
 }

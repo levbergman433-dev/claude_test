@@ -171,6 +171,27 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
 import com.maxrave.common.LIMIT_CACHE_SIZE
+import simpmusic.composeapp.generated.resources.page_image_remove_subtitle
+import simpmusic.composeapp.generated.resources.page_image_remove
+import simpmusic.composeapp.generated.resources.page_image_dim_strong
+import simpmusic.composeapp.generated.resources.page_image_dim_medium
+import simpmusic.composeapp.generated.resources.page_image_dim_light
+import simpmusic.composeapp.generated.resources.page_image_dim_none
+import simpmusic.composeapp.generated.resources.page_image_dim
+import simpmusic.composeapp.generated.resources.page_image_set
+import simpmusic.composeapp.generated.resources.page_image_none
+import simpmusic.composeapp.generated.resources.page_image
+import com.maxrave.simpmusic.expect.ui.persistPickedImage
+import com.maxrave.data.io.readLocalImageBytes
+import simpmusic.composeapp.generated.resources.top_bar_transparent
+import simpmusic.composeapp.generated.resources.top_bar_dim
+import simpmusic.composeapp.generated.resources.top_bar_blur
+import simpmusic.composeapp.generated.resources.top_bar_default
+import simpmusic.composeapp.generated.resources.top_bar_style
+import com.maxrave.simpmusic.ui.component.TOP_BAR_TRANSPARENT
+import com.maxrave.simpmusic.ui.component.TOP_BAR_DIM
+import com.maxrave.simpmusic.ui.component.TOP_BAR_BLUR
+import com.maxrave.simpmusic.ui.component.TOP_BAR_DEFAULT
 import simpmusic.composeapp.generated.resources.open_youtube_links_description
 import simpmusic.composeapp.generated.resources.open_youtube_links
 import simpmusic.composeapp.generated.resources.open_links_header
@@ -679,8 +700,23 @@ fun SettingScreen(
     val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
     val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
     val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    val topBarStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.TOP_BAR_STYLE) }.collectAsStateWithLifecycle(null)
     val menuStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_STYLE) }.collectAsStateWithLifecycle(null)
     val menuButtonSizePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_BUTTON_SIZE) }.collectAsStateWithLifecycle(null)
+    val pageImagePref by remember { sharedViewModel.stringPref(PersonalizationKeys.PAGE_IMAGE) }.collectAsStateWithLifecycle(null)
+    val pageImageDimPref by remember { sharedViewModel.stringPref(PersonalizationKeys.PAGE_IMAGE_DIM) }.collectAsStateWithLifecycle(null)
+    // The picked file is copied into the app's own storage: the picker's uri loses its read
+    // permission on Android once the app restarts, and the background must survive that.
+    val pageImagePicker =
+        photoPickerResult { uri ->
+            if (uri != null) {
+                coroutineScope.launch {
+                    val bytes = readLocalImageBytes(uri) ?: return@launch
+                    val saved = persistPickedImage(bytes, "page_bg_${bytes.contentHashCode().toUInt()}.jpg") ?: return@launch
+                    sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE, saved)
+                }
+            }
+        }
     val badgePhotoPicker =
         photoPickerResult { uri ->
             uri?.let { sharedViewModel.setStringPref(PersonalizationKeys.BADGE_AVATAR, it) }
@@ -1054,6 +1090,83 @@ fun SettingScreen(
                         )
                     },
                 )
+                val topBarLabels =
+                    listOf(
+                        TOP_BAR_DEFAULT to stringResource(Res.string.top_bar_default),
+                        TOP_BAR_BLUR to stringResource(Res.string.top_bar_blur),
+                        TOP_BAR_DIM to stringResource(Res.string.top_bar_dim),
+                        TOP_BAR_TRANSPARENT to stringResource(Res.string.top_bar_transparent),
+                    )
+                val currentTopBar = topBarStylePref ?: TOP_BAR_DEFAULT
+                SettingItem(
+                    title = stringResource(Res.string.top_bar_style),
+                    subtitle = topBarLabels.firstOrNull { it.first == currentTopBar }?.second ?: "",
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.top_bar_style) },
+                                selectOne =
+                                    SettingAlertState.SelectData(
+                                        listSelect = topBarLabels.map { (it.first == currentTopBar) to it.second },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        val selected = state.selectOne?.getSelected()
+                                        topBarLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            sharedViewModel.setStringPref(PersonalizationKeys.TOP_BAR_STYLE, it)
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
+                SettingItem(
+                    title = stringResource(Res.string.page_image),
+                    subtitle =
+                        stringResource(
+                            if (pageImagePref.isNullOrBlank()) Res.string.page_image_none else Res.string.page_image_set,
+                        ),
+                    onClick = { pageImagePicker.launch() },
+                )
+                if (!pageImagePref.isNullOrBlank()) {
+                    val dimLabels =
+                        listOf(
+                            "0" to stringResource(Res.string.page_image_dim_none),
+                            "20" to stringResource(Res.string.page_image_dim_light),
+                            "35" to stringResource(Res.string.page_image_dim_medium),
+                            "55" to stringResource(Res.string.page_image_dim_strong),
+                        )
+                    val currentDim = pageImageDimPref ?: "35"
+                    SettingItem(
+                        title = stringResource(Res.string.page_image_dim),
+                        subtitle = dimLabels.firstOrNull { it.first == currentDim }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.page_image_dim) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = dimLabels.map { (it.first == currentDim) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            dimLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE_DIM, it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    SettingItem(
+                        title = stringResource(Res.string.page_image_remove),
+                        subtitle = stringResource(Res.string.page_image_remove_subtitle),
+                        onClick = { sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE, "") },
+                    )
+                }
                 val menuStyleLabels =
                     listOf(
                         MENU_STYLE_LIQUID to stringResource(Res.string.menu_style_liquid),

@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.other
 
+import com.maxrave.simpmusic.ui.component.topBarSurface
 import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import com.maxrave.simpmusic.ui.component.pageBrushSlice
 import androidx.compose.animation.AnimatedContent
@@ -960,7 +961,10 @@ fun SearchScreen(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .then(
+                        .topBarSurface(
+                            atTop = atTop,
+                            hazeState = hazeState,
+                            default =
                             if (atTop) {
                                 Modifier.background(Color.Transparent)
                             } else if (LocalPageBrush.current != null) {

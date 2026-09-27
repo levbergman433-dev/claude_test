@@ -31,6 +31,13 @@ object PersonalizationKeys {
     // Look of pop-up menus: MENU_STYLE_LIQUID (default) or MENU_STYLE_FROSTED.
     const val MENU_STYLE = "menu_style"
 
+    // Look of the top bar once a page scrolls (see topBarSurface).
+    const val TOP_BAR_STYLE = "top_bar_style"
+
+    // A picture as the page background: a file in app storage, and how much it is dimmed (0-80).
+    const val PAGE_IMAGE = "page_image"
+    const val PAGE_IMAGE_DIM = "page_image_dim"
+
     const val BADGE_ENABLED = "profile_badge_enabled"
     const val BADGE_NAME = "profile_badge_name"
     const val BADGE_NAME_COLOR = "profile_badge_name_color"

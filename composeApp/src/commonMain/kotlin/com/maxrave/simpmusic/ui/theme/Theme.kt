@@ -164,13 +164,20 @@ fun AppTheme(
     useInter: Boolean = true,
     pageFill: ColorFill? = null,
     accentFill: ColorFill? = null,
+    pageImage: PageImage? = null,
     content:
         @Composable()
         () -> Unit,
 ) {
     // A custom page fill decides dark/light by its own brightness, so text always contrasts.
-    val isDark = if (pageFill != null) !pageFill.prefersDarkText() else isDarkTheme(themeMode)
-    val surfaceTheme = pageFill?.base ?: surfaceThemeFor(themeMode)
+    // A background picture wins over the page fill: it is the more specific choice.
+    val isDark =
+        when {
+            pageImage != null -> pageImage.isDark
+            pageFill != null -> !pageFill.prefersDarkText()
+            else -> isDarkTheme(themeMode)
+        }
+    val surfaceTheme = pageImage?.base ?: pageFill?.base ?: surfaceThemeFor(themeMode)
     val wallpaperScheme =
         if (themeColorSource == DataStoreManager.THEME_COLOR_WALLPAPER) {
             platformDynamicColorScheme(isDark)
@@ -202,10 +209,14 @@ fun AppTheme(
     // Applied after, not inside modifyColorScheme: materialkolor only rebuilds when the seed or
     // dark/light changes, so switching Dark -> Midnight (both dark) would otherwise do nothing.
     val colorScheme =
-        remember(seededScheme, surfaceTheme, isDark, pageFill) {
+        remember(seededScheme, surfaceTheme, isDark, pageFill, pageImage) {
             val themed = if (surfaceTheme != null) seededScheme.withSurfaceTheme(surfaceTheme, isDark) else seededScheme
             // A gradient page: anything painting "the page colour" (bars, glows) matches its top.
-            if (pageFill != null && pageFill.gradient) themed.copy(background = pageFill.first) else themed
+            when {
+                pageImage != null -> themed.copy(background = pageImage.base)
+                pageFill != null && pageFill.gradient -> themed.copy(background = pageFill.first)
+                else -> themed
+            }
         }
     // Immersive screens stay dark even at light theme (see [ForceDarkContent]). Resolve their scheme
     // once here instead of letting every such subtree build a palette of its own.
@@ -225,7 +236,7 @@ fun AppTheme(
     // Provided around the theme itself, because typo() below reads it to pick the font.
     CompositionLocalProvider(
         LocalUseInter provides useInter,
-        LocalPageBrush provides pageFill?.takeIf { it.gradient }?.brush,
+        LocalPageBrush provides (pageImage?.brush ?: pageFill?.takeIf { it.gradient }?.brush),
         LocalAccentBrush provides accentFill?.takeIf { it.gradient }?.brush,
     ) {
         MaterialExpressiveTheme(
