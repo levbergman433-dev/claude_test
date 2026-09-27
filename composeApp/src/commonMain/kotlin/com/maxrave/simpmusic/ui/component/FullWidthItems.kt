@@ -142,7 +142,7 @@ fun SongFullWidthItems(
     val downloadState by songRepository
         .getSongAsFlow(songEntity?.videoId ?: track?.videoId ?: "")
         .mapNotNull { it?.downloadState }
-        .collectAsStateWithLifecycle(initial = DownloadState.STATE_NOT_DOWNLOADED)
+        .collectAsStateWithLifecycle(initialValue = DownloadState.STATE_NOT_DOWNLOADED)
     val composition by rememberLottieComposition {
         LottieCompositionSpec.JsonString(
             Res.readBytes("files/audio_playing_animation.json").decodeToString(),

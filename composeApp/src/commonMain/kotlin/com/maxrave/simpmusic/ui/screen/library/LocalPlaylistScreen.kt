@@ -244,7 +244,7 @@ fun LocalPlaylistScreen(
         }
     }
     val downloadState by remember { viewModel.uiState.map { it.downloadState } }.collectAsStateWithLifecycle(
-        initial = DownloadState.STATE_NOT_DOWNLOADED,
+        initialValue = DownloadState.STATE_NOT_DOWNLOADED,
     )
     var shouldHideTopBar by rememberSaveable { mutableStateOf(false) }
     var shouldShowSuggestions by rememberSaveable { mutableStateOf(false) }
@@ -267,8 +267,8 @@ fun LocalPlaylistScreen(
     val playingTrack by sharedViewModel.nowPlayingState
         .mapLatest {
             it?.songEntity
-        }.collectAsStateWithLifecycle(initial = null)
-    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsStateWithLifecycle(initial = false)
+        }.collectAsStateWithLifecycle(initialValue = null)
+    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsStateWithLifecycle(initialValue = false)
 
     val queueData by sharedViewModel.getQueueDataState().collectAsStateWithLifecycle()
     val playingPlaylistId by remember {
@@ -277,7 +277,7 @@ fun LocalPlaylistScreen(
         }
     }
 
-    val suggestedTracks by remember { viewModel.uiState.map { it.suggestions?.songs ?: emptyList() } }.collectAsStateWithLifecycle(initial = emptyList())
+    val suggestedTracks by remember { viewModel.uiState.map { it.suggestions?.songs ?: emptyList() } }.collectAsStateWithLifecycle(initialValue = emptyList())
     val suggestionsLoading by viewModel.loading.collectAsStateWithLifecycle()
     var showSyncAlertDialog by rememberSaveable { mutableStateOf(false) }
     var showUnsyncAlertDialog by rememberSaveable { mutableStateOf(false) }

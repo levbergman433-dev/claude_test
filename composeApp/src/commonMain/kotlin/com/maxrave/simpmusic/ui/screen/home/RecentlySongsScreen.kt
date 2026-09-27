@@ -83,8 +83,8 @@ fun RecentlySongsScreen(
     var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
 
     val recentlyItems = viewModel.recentlySongs.collectAsLazyPagingItems()
-    val playingTrack by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsStateWithLifecycle(initial = null)
-    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsStateWithLifecycle(initial = false)
+    val playingTrack by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsStateWithLifecycle(initialValue = null)
+    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsStateWithLifecycle(initialValue = false)
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
