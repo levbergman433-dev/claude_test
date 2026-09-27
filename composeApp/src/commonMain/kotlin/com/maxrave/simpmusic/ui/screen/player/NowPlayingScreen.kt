@@ -735,6 +735,13 @@ fun NowPlayingScreenContent(
                 actions = actions,
             )
 
+        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC_GLASS ->
+            NowPlayingContentAppleMusic(
+                state = state,
+                actions = actions,
+                glass = true,
+            )
+
         else ->
             NowPlayingContentSpotify(
                 state = state,

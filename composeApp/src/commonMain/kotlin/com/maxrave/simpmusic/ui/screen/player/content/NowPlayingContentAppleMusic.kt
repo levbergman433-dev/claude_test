@@ -15,21 +15,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
@@ -40,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -49,8 +49,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -59,7 +59,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -84,21 +83,23 @@ import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.ExplicitBadge
 import com.maxrave.simpmusic.ui.component.LiquidGlassIconButton
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicBottomCluster
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicHeaderActions
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicLyricsView
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicQueueView
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicTypography
 import com.maxrave.simpmusic.ui.icon.Forward5
 import com.maxrave.simpmusic.ui.icon.Fullscreen
 import com.maxrave.simpmusic.ui.icon.Replay5
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.icon.Subtitles
 import com.maxrave.simpmusic.ui.icon.SubtitlesOff
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicBottomCluster
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicHeaderActions
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicLyricsView
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicQueueView
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicTypography
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicView
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.LocalAppleMusicGlassBackdrop
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.appleMusicGradientColorAt
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.appleMusicVerticalFadeEdges
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.rememberAppleMusicTypography
+import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.seed
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.SharedViewModel
@@ -118,6 +119,7 @@ import org.koin.compose.koinInject
 fun NowPlayingContentAppleMusic(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
+    glass: Boolean = false,
 ) {
     // Seeded from the view model, not from MAIN: this player lives in a ModalBottomSheet, so
     // dismissing it disposes the tree and rememberSaveable dies with it. rememberSaveable is still
@@ -261,44 +263,53 @@ fun NowPlayingContentAppleMusic(
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = canvasBackdropAlpha)))
             }
         }
-        Crossfade(targetState = viewState, animationSpec = tween(300), label = "appleMusicView") { view ->
-            when (view) {
-                AppleMusicView.MAIN ->
-                    AppleMusicMainView(
-                        state = state,
-                        actions = actions,
-                        typography = typography,
-                        viewState = view,
-                        onSelectView = { viewState = it },
-                        seedColor = seedColor,
-                        activePillContainer = activePillContainer,
-                        activePillContent = activePillContent,
-                        deviceVolumeController = deviceVolumeController,
-                    )
+        // The Liquid Glass variant of this style: the controls inside the views read this backdrop
+        // and draw as glass over the frosted page. The views are SIBLINGS of the layerBackdrop box
+        // above, which is what makes that safe. Glass is forced on here regardless of the global
+        // liquid-glass switch, since picking this style is itself the request for it.
+        CompositionLocalProvider(
+            LocalAppleMusicGlassBackdrop provides if (glass) panelBackdrop else null,
+            LocalLiquidGlassEnabled provides (glass || LocalLiquidGlassEnabled.current),
+        ) {
+            Crossfade(targetState = viewState, animationSpec = tween(300), label = "appleMusicView") { view ->
+                when (view) {
+                    AppleMusicView.MAIN ->
+                        AppleMusicMainView(
+                            state = state,
+                            actions = actions,
+                            typography = typography,
+                            viewState = view,
+                            onSelectView = { viewState = it },
+                            seedColor = seedColor,
+                            activePillContainer = activePillContainer,
+                            activePillContent = activePillContent,
+                            deviceVolumeController = deviceVolumeController,
+                        )
 
-                AppleMusicView.LYRICS ->
-                    AppleMusicLyricsView(
-                        state = state,
-                        actions = actions,
-                        typography = typography,
-                        viewState = view,
-                        onSelectView = { viewState = it },
-                        activePillContainer = activePillContainer,
-                        activePillContent = activePillContent,
-                        deviceVolumeController = deviceVolumeController,
-                    )
+                    AppleMusicView.LYRICS ->
+                        AppleMusicLyricsView(
+                            state = state,
+                            actions = actions,
+                            typography = typography,
+                            viewState = view,
+                            onSelectView = { viewState = it },
+                            activePillContainer = activePillContainer,
+                            activePillContent = activePillContent,
+                            deviceVolumeController = deviceVolumeController,
+                        )
 
-                AppleMusicView.QUEUE ->
-                    AppleMusicQueueView(
-                        state = state,
-                        actions = actions,
-                        typography = typography,
-                        viewState = view,
-                        onSelectView = { viewState = it },
-                        activePillContainer = activePillContainer,
-                        activePillContent = activePillContent,
-                        deviceVolumeController = deviceVolumeController,
-                    )
+                    AppleMusicView.QUEUE ->
+                        AppleMusicQueueView(
+                            state = state,
+                            actions = actions,
+                            typography = typography,
+                            viewState = view,
+                            onSelectView = { viewState = it },
+                            activePillContainer = activePillContainer,
+                            activePillContent = activePillContent,
+                            deviceVolumeController = deviceVolumeController,
+                        )
+                }
             }
         }
 
@@ -423,7 +434,11 @@ private fun AppleMusicMainView(
             beyondViewportPageCount = 1,
             userScrollEnabled = !isRepeatOne && state.artworkQueue.isNotEmpty(),
             key = { idx ->
-                val vid = state.artworkQueue.getOrNull(idx)?.videoId.orEmpty()
+                val vid =
+                    state.artworkQueue
+                        .getOrNull(idx)
+                        ?.videoId
+                        .orEmpty()
                 "appleMusicArtwork_${vid}_$idx"
             },
         ) { page ->
@@ -513,7 +528,12 @@ private fun AppleMusicMainView(
                         .alpha(controlsAlpha)
                         .onGloballyPositioned { coords ->
                             bottomContentHeightDp =
-                                with(localDensity) { coords.size.height.toDp().value.toInt() }
+                                with(localDensity) {
+                                    coords.size.height
+                                        .toDp()
+                                        .value
+                                        .toInt()
+                                }
                         },
             ) {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -825,84 +845,87 @@ private fun AppleMusicArtworkPage(
                         // taller zone (fullscreen ended up under the status bar, subtitles far
                         // below the picture).
                         Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-                        MediaPlayerViewWithSubtitle(
-                            playerName = MAIN_PLAYER,
-                            // fillMaxWidth, never fillMaxSize: a free height lets the surface's
-                            // own .aspectRatio(videoRatio) apply, which is what stops it being
-                            // stretched.
-                            modifier = Modifier.fillMaxWidth().align(Alignment.Center),
-                            shouldShowSubtitle = showSubtitle,
-                            shouldPip = false,
-                            shouldScaleDownSubtitle = true,
-                            timelineState = state.timelineState,
-                            lyricsData = state.screenData.lyricsData?.lyrics,
-                            translatedLyricsData = state.screenData.lyricsData?.translatedLyrics?.first,
-                            isInPipMode = state.isInPipMode,
-                            mainTextStyle = typo().bodyLarge,
-                            translatedTextStyle = typo().bodyMedium,
-                        )
+                            MediaPlayerViewWithSubtitle(
+                                playerName = MAIN_PLAYER,
+                                // fillMaxWidth, never fillMaxSize: a free height lets the surface's
+                                // own .aspectRatio(videoRatio) apply, which is what stops it being
+                                // stretched.
+                                modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                                shouldShowSubtitle = showSubtitle,
+                                shouldPip = false,
+                                shouldScaleDownSubtitle = true,
+                                timelineState = state.timelineState,
+                                lyricsData = state.screenData.lyricsData?.lyrics,
+                                translatedLyricsData =
+                                    state.screenData.lyricsData
+                                        ?.translatedLyrics
+                                        ?.first,
+                                isInPipMode = state.isInPipMode,
+                                mainTextStyle = typo().bodyLarge,
+                                translatedTextStyle = typo().bodyMedium,
+                            )
 
-                        // Classic/M3E's over-video controls, ported: fullscreen, ±5s, subtitles.
-                        // A tap on the video toggles them; they auto-hide after 3s.
-                        // Rendered INSIDE the video zone and drawn after the tap-catcher below,
-                        // so its buttons are the topmost target — otherwise the catcher swallows
-                        // every tap and the buttons look dead.
-                        Crossfade(targetState = showVideoOverlay, label = "appleMusicVideoOverlay") { shown ->
-                            if (shown) {
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxSize()
-                                            .background(Color.Black.copy(alpha = 0.28f)),
-                                ) {
-                                    IconButton(
-                                        onClick = { actions.onEnterFullscreenVideo() },
-                                        modifier = Modifier.align(Alignment.TopEnd),
-                                    ) {
-                                        Icon(imageVector = SimpIcons.Fullscreen, contentDescription = "", tint = Color.White)
-                                    }
-                                    Row(
-                                        modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                            // Classic/M3E's over-video controls, ported: fullscreen, ±5s, subtitles.
+                            // A tap on the video toggles them; they auto-hide after 3s.
+                            // Rendered INSIDE the video zone and drawn after the tap-catcher below,
+                            // so its buttons are the topmost target — otherwise the catcher swallows
+                            // every tap and the buttons look dead.
+                            Crossfade(targetState = showVideoOverlay, label = "appleMusicVideoOverlay") { shown ->
+                                if (shown) {
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxSize()
+                                                .background(Color.Black.copy(alpha = 0.28f)),
                                     ) {
                                         IconButton(
-                                            onClick = { actions.onUIEvent(UIEvent.Backward) },
-                                            modifier = Modifier.size(48.dp).clip(CircleShape),
+                                            onClick = { actions.onEnterFullscreenVideo() },
+                                            modifier = Modifier.align(Alignment.TopEnd),
                                         ) {
-                                            Icon(
-                                                imageVector = SimpIcons.Replay5,
-                                                contentDescription = "",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(36.dp).alpha(0.8f),
-                                            )
+                                            Icon(imageVector = SimpIcons.Fullscreen, contentDescription = "", tint = Color.White)
                                         }
-                                        IconButton(
-                                            onClick = { actions.onUIEvent(UIEvent.Forward) },
-                                            modifier = Modifier.size(48.dp).clip(CircleShape),
+                                        Row(
+                                            modifier = Modifier.align(Alignment.Center).fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceEvenly,
                                         ) {
-                                            Icon(
-                                                imageVector = SimpIcons.Forward5,
-                                                contentDescription = "",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(36.dp).alpha(0.8f),
-                                            )
+                                            IconButton(
+                                                onClick = { actions.onUIEvent(UIEvent.Backward) },
+                                                modifier = Modifier.size(48.dp).clip(CircleShape),
+                                            ) {
+                                                Icon(
+                                                    imageVector = SimpIcons.Replay5,
+                                                    contentDescription = "",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(36.dp).alpha(0.8f),
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { actions.onUIEvent(UIEvent.Forward) },
+                                                modifier = Modifier.size(48.dp).clip(CircleShape),
+                                            ) {
+                                                Icon(
+                                                    imageVector = SimpIcons.Forward5,
+                                                    contentDescription = "",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(36.dp).alpha(0.8f),
+                                                )
+                                            }
                                         }
-                                    }
-                                    if (state.screenData.lyricsData != null) {
-                                        IconButton(
-                                            onClick = { onToggleSubtitle() },
-                                            modifier = Modifier.align(Alignment.BottomEnd),
-                                        ) {
-                                            Icon(
-                                                imageVector = if (showSubtitle) SimpIcons.SubtitlesOff else SimpIcons.Subtitles,
-                                                contentDescription = "",
-                                                tint = Color.White,
-                                            )
+                                        if (state.screenData.lyricsData != null) {
+                                            IconButton(
+                                                onClick = { onToggleSubtitle() },
+                                                modifier = Modifier.align(Alignment.BottomEnd),
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (showSubtitle) SimpIcons.SubtitlesOff else SimpIcons.Subtitles,
+                                                    contentDescription = "",
+                                                    tint = Color.White,
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
                         }
                     }
                 } else {

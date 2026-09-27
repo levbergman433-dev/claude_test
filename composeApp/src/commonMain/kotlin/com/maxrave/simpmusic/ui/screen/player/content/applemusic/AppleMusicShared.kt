@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -39,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -64,16 +67,19 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.domain.data.player.GenericCastState
 import com.maxrave.domain.mediaservice.handler.ControlState
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.DeviceVolumeController
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.PlatformCastButton
 import com.maxrave.simpmusic.expect.ui.isPlatformCastAvailable
 import com.maxrave.simpmusic.extension.formatDuration
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.ExplicitBadge
 import com.maxrave.simpmusic.ui.component.heartBurst
+import com.maxrave.simpmusic.ui.component.liquidGlass
 import com.maxrave.simpmusic.ui.component.rememberHeartBurstState
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.component.rememberLoopingPhase
@@ -123,6 +129,38 @@ internal fun appleMusicGradientColorAt(
         lerp(top, mid, (fraction / 0.48f).coerceIn(0f, 1f))
     } else {
         lerp(mid, bottom, ((fraction - 0.48f) / 0.52f).coerceIn(0f, 1f))
+    }
+}
+
+/**
+ * Non-null while the Liquid Glass variant of this style is showing: the backdrop (the frosted
+ * page) that the glass controls refract. Null in the plain Apple Music style, where every control
+ * keeps its flat look. Provided around the views only, which are siblings of the backdrop source.
+ */
+internal val LocalAppleMusicGlassBackdrop = staticCompositionLocalOf<PlatformBackdrop?> { null }
+
+/**
+ * The rim for this style's glass. Small round buttons catch only a short arc of the default
+ * directional sweep and read as rimless; 1.dp is the smallest width that stays visible.
+ */
+internal val AppleMusicGlassRim = Highlight(width = 1.dp)
+
+/** A glass circle of [size] behind [content] in the Liquid Glass variant; just [content] otherwise. */
+@Composable
+internal fun AppleMusicGlassCircle(
+    size: Dp,
+    content: @Composable () -> Unit,
+) {
+    val backdrop = LocalAppleMusicGlassBackdrop.current
+    if (backdrop == null) {
+        content()
+        return
+    }
+    Box(
+        modifier = Modifier.size(size).liquidGlass(backdrop, CircleShape, highlight = AppleMusicGlassRim),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
     }
 }
 
@@ -269,56 +307,65 @@ internal fun AppleMusicHeaderActions(
     actions: NowPlayingContentActions,
     modifier: Modifier = Modifier,
 ) {
+    val glass = LocalAppleMusicGlassBackdrop.current != null
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        // The glass circles are wider than the bare glyphs, so they sit closer together.
+        horizontalArrangement = Arrangement.spacedBy(if (glass) 8.dp else 12.dp),
     ) {
         if (state.isUserLoggedIn) {
-            // 40dp target around a 22dp glyph: a bare 22dp clickable is under half the Material
-            // minimum, on the row that gets tapped most.
-            Box(
-                modifier =
-                    Modifier
-                        .appleMusicPressInflate()
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .clickable { actions.onAddToYouTubeLiked() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Crossfade(targetState = state.likeStatus, label = "appleMusicYtLiked") { liked ->
-                    Icon(
-                        imageVector = if (liked) SimpIcons.CheckCircle else SimpIcons.AddCircleOutline,
-                        contentDescription = "",
-                        tint = Color.White,
-                    )
+            AppleMusicGlassCircle(size = 40.dp) {
+                // 40dp target around a 22dp glyph: a bare 22dp clickable is under half the Material
+                // minimum, on the row that gets tapped most.
+                Box(
+                    modifier =
+                        Modifier
+                            .appleMusicPressInflate()
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .clickable { actions.onAddToYouTubeLiked() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Crossfade(targetState = state.likeStatus, label = "appleMusicYtLiked") { liked ->
+                        Icon(
+                            imageVector = if (liked) SimpIcons.CheckCircle else SimpIcons.AddCircleOutline,
+                            contentDescription = "",
+                            tint = Color.White,
+                        )
+                    }
                 }
             }
         }
         val likeBurst = rememberHeartBurstState()
-        Box(
-            modifier =
-                Modifier
-                    .appleMusicPressInflate()
-                    .size(32.dp)
-                    .heartBurst(likeBurst)
-                    .clip(CircleShape)
-                    .clickable {
-                        if (!state.controllerState.isLiked) likeBurst.fire()
-                        actions.onUIEvent(UIEvent.ToggleLike)
-                    },
-            contentAlignment = Alignment.Center,
-        ) {
-            Crossfade(targetState = state.controllerState.isLiked, label = "appleMusicFavorite") { liked ->
-                Icon(
-                    imageVector = if (liked) SimpIcons.Star else SimpIcons.StarBorder,
-                    contentDescription = "",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp),
-                )
+        AppleMusicGlassCircle(size = 40.dp) {
+            Box(
+                modifier =
+                    Modifier
+                        .appleMusicPressInflate()
+                        .size(32.dp)
+                        .heartBurst(likeBurst)
+                        .clip(CircleShape)
+                        .clickable {
+                            if (!state.controllerState.isLiked) likeBurst.fire()
+                            actions.onUIEvent(UIEvent.ToggleLike)
+                        },
+                contentAlignment = Alignment.Center,
+            ) {
+                Crossfade(targetState = state.controllerState.isLiked, label = "appleMusicFavorite") { liked ->
+                    Icon(
+                        imageVector = if (liked) SimpIcons.Star else SimpIcons.StarBorder,
+                        contentDescription = "",
+                        tint = Color.White,
+                        // Smaller inside the glass circle, so the star does not touch its rim.
+                        modifier = Modifier.size(if (glass) 26.dp else 32.dp),
+                    )
+                }
             }
         }
-        AppleMusicGlyphButton(icon = SimpIcons.MoreVert, onClick = { actions.onShowMoreSheet() })
+        AppleMusicGlassCircle(size = 40.dp) {
+            AppleMusicGlyphButton(icon = SimpIcons.MoreVert, onClick = { actions.onShowMoreSheet() })
+        }
     }
 }
 
@@ -400,6 +447,14 @@ internal fun AppleMusicThinSlider(
         animationSpec = spring(dampingRatio = 0.5f, stiffness = 300f),
         label = "appleMusicSliderInflate",
     )
+    // Liquid Glass variant: a glass lens rises over the bar while it is being dragged, the way
+    // iOS 26's sliders do, and sinks away on release. Plain style: no thumb at all.
+    val glassBackdrop = LocalAppleMusicGlassBackdrop.current
+    val lensScale by animateFloatAsState(
+        targetValue = if (glassBackdrop != null && (pressed || dragged)) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 420f),
+        label = "appleMusicSliderLens",
+    )
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
         Slider(
             value = value,
@@ -437,7 +492,31 @@ internal fun AppleMusicThinSlider(
             thumb = {
                 // No thumb — the approved mock and Apple's own bars are track-only; the
                 // active/inactive split marks the position (same call the MiniPlayer makes).
-                Spacer(Modifier.size(0.dp))
+                //
+                // The glass lens is drawn from a ZERO-size thumb that lets its child overflow: the
+                // Slider maps value to position using the thumb's measured width, so a thumb that
+                // grew while dragging would shift the whole bar under the finger.
+                Box(
+                    modifier = Modifier.size(0.dp).wrapContentSize(unbounded = true),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (glassBackdrop != null && lensScale > 0.01f) {
+                        Box(
+                            modifier =
+                                Modifier
+                                    .requiredSize(width = 38.dp, height = 24.dp)
+                                    .graphicsLayer {
+                                        scaleX = lensScale
+                                        scaleY = lensScale
+                                    }.liquidGlass(
+                                        glassBackdrop,
+                                        RoundedCornerShape(percent = 50),
+                                        interactive = false,
+                                        highlight = AppleMusicGlassRim,
+                                    ),
+                        )
+                    }
+                }
             },
         )
     }
@@ -526,14 +605,24 @@ internal fun AppleMusicTimesRow(
             // A PILL, like the mock's badge (and Apple's "Lossless"): translucent rounded
             // background, not bare text floating between the two times. It is the TALLER of the two
             // states, so it is what the slot's height ends up being — see the note above.
+            val glassBackdrop = LocalAppleMusicGlassBackdrop.current
             Box(modifier = Modifier.alpha(codecBadgeAlpha)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(Color.White.copy(alpha = 0.16f))
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        if (glassBackdrop != null) {
+                            // Liquid Glass variant: a glass capsule instead of the flat pill.
+                            Modifier.liquidGlass(
+                                glassBackdrop,
+                                RoundedCornerShape(percent = 50),
+                                interactive = false,
+                                highlight = AppleMusicGlassRim,
+                            )
+                        } else {
+                            Modifier
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(Color.White.copy(alpha = 0.16f))
+                        }.padding(horizontal = 10.dp, vertical = 4.dp),
                 ) {
                     Icon(
                         imageVector = SimpIcons.GraphicEq,
@@ -702,11 +791,48 @@ internal fun AppleMusicDock(
     activeContentColor: Color,
     modifier: Modifier = Modifier,
 ) {
+    val glassBackdrop = LocalAppleMusicGlassBackdrop.current
+    if (glassBackdrop != null) {
+        // Liquid Glass variant: the dock buttons share ONE glass capsule, centred, instead of
+        // being spread across the width on the bare page.
+        Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Row(
+                modifier =
+                    Modifier
+                        .liquidGlass(
+                            glassBackdrop,
+                            RoundedCornerShape(percent = 50),
+                            interactive = false,
+                            highlight = AppleMusicGlassRim,
+                        ).padding(horizontal = 10.dp, vertical = 5.dp),
+                horizontalArrangement = Arrangement.spacedBy(22.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AppleMusicDockButtons(viewState, onSelectView, castState, lyricsAvailable, activeColor, activeContentColor)
+            }
+        }
+        return
+    }
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        AppleMusicDockButtons(viewState, onSelectView, castState, lyricsAvailable, activeColor, activeContentColor)
+    }
+}
+
+/** The dock's buttons, laid out by whichever row [AppleMusicDock] puts them in. */
+@Composable
+private fun AppleMusicDockButtons(
+    viewState: AppleMusicView,
+    onSelectView: (AppleMusicView) -> Unit,
+    castState: GenericCastState,
+    lyricsAvailable: Boolean,
+    activeColor: Color,
+    activeContentColor: Color,
+) {
+    run {
         // Re-tapping the active tab returns to MAIN — the dock is a toggle, not one-way nav.
         AppleMusicDockButton(
             icon = SimpIcons.Lyrics,

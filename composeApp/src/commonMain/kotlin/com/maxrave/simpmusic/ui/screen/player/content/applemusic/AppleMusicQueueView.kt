@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -60,6 +59,7 @@ import com.maxrave.simpmusic.expect.ui.DeviceVolumeController
 import com.maxrave.simpmusic.ui.component.DraggableItem
 import com.maxrave.simpmusic.ui.component.QueueItemBottomSheet
 import com.maxrave.simpmusic.ui.component.SongFullWidthItems
+import com.maxrave.simpmusic.ui.component.liquidGlass
 import com.maxrave.simpmusic.ui.component.rememberDragDropState
 import com.maxrave.simpmusic.ui.icon.Info
 import com.maxrave.simpmusic.ui.icon.PlaylistAdd
@@ -76,7 +76,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
 import simpmusic.composeapp.generated.resources.Res
-import simpmusic.composeapp.generated.resources.continue_playing
 import simpmusic.composeapp.generated.resources.endless_queue
 import simpmusic.composeapp.generated.resources.now_playing
 
@@ -354,6 +353,8 @@ private fun AppleMusicQueuePill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val glassBackdrop = LocalAppleMusicGlassBackdrop.current
+    val shape = RoundedCornerShape(20.dp)
     Box(
         modifier =
             modifier
@@ -361,9 +362,22 @@ private fun AppleMusicQueuePill(
                 // the full inflate would visibly overlap its neighbour on every tap.
                 .appleMusicPressInflate(pressedScale = 1.08f)
                 .height(40.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(if (active) activeContainer else AppleMusicPillInactive)
-                .clickable(onClick = onClick),
+                .then(
+                    // Liquid Glass variant: every pill is glass; an active one keeps its solid
+                    // artwork-tinted fill on top, so on/off still reads at a glance.
+                    if (glassBackdrop != null) {
+                        Modifier.liquidGlass(glassBackdrop, shape, interactive = false, highlight = AppleMusicGlassRim)
+                    } else {
+                        Modifier
+                    },
+                ).clip(shape)
+                .background(
+                    when {
+                        active -> activeContainer
+                        glassBackdrop != null -> Color.Transparent
+                        else -> AppleMusicPillInactive
+                    },
+                ).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
@@ -413,36 +427,54 @@ private fun AppleMusicContinuePlayingHeader(
                     )
                 }
             }
-            // The switch needs its own label, exactly like the queue sheet's — unlabelled it
-            // reads as a mystery toggle.
-            Text(
-                text = stringResource(Res.string.endless_queue),
-                style = typography.queueSectionSubtitle,
-                modifier = Modifier.padding(end = 8.dp),
-            )
-            Switch(
-                checked = endlessQueueEnabled,
-                onCheckedChange = { checked ->
-                    coroutineScope.launch { dataStoreManager.setEndlessQueue(checked) }
-                },
-                colors =
-                    SwitchDefaults.colors(
-                        // On state takes the artwork-derived pair this style already uses for its
-                        // active pills, instead of the theme's green — on a page painted from the
-                        // cover art, a fixed accent is the one element that does not belong to the
-                        // record playing.
-                        checkedTrackColor = activePillContainer,
-                        checkedThumbColor = activePillContent,
-                        checkedBorderColor = Color.Transparent,
-                        // Transparent when off, so the control reads as an outline sitting on the
-                        // page rather than a grey slab: this row has no surface of its own, and
-                        // Material's default unchecked track paints one.
-                        uncheckedTrackColor = Color.Transparent,
-                        uncheckedBorderColor = Color.White.copy(alpha = 0.45f),
-                        uncheckedThumbColor = Color.White.copy(alpha = 0.75f),
-                    ),
-                modifier = Modifier.appleMusicPressInflate(pressedScale = 1.08f),
-            )
+            // Liquid Glass variant: the label and its switch sit together in one glass capsule.
+            val glassBackdrop = LocalAppleMusicGlassBackdrop.current
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    if (glassBackdrop != null) {
+                        Modifier
+                            .liquidGlass(
+                                glassBackdrop,
+                                RoundedCornerShape(percent = 50),
+                                interactive = false,
+                                highlight = AppleMusicGlassRim,
+                            ).padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)
+                    } else {
+                        Modifier
+                    },
+            ) {
+                // The switch needs its own label, exactly like the queue sheet's — unlabelled it
+                // reads as a mystery toggle.
+                Text(
+                    text = stringResource(Res.string.endless_queue),
+                    style = typography.queueSectionSubtitle,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
+                Switch(
+                    checked = endlessQueueEnabled,
+                    onCheckedChange = { checked ->
+                        coroutineScope.launch { dataStoreManager.setEndlessQueue(checked) }
+                    },
+                    colors =
+                        SwitchDefaults.colors(
+                            // On state takes the artwork-derived pair this style already uses for its
+                            // active pills, instead of the theme's green — on a page painted from the
+                            // cover art, a fixed accent is the one element that does not belong to the
+                            // record playing.
+                            checkedTrackColor = activePillContainer,
+                            checkedThumbColor = activePillContent,
+                            checkedBorderColor = Color.Transparent,
+                            // Transparent when off, so the control reads as an outline sitting on the
+                            // page rather than a grey slab: this row has no surface of its own, and
+                            // Material's default unchecked track paints one.
+                            uncheckedTrackColor = Color.Transparent,
+                            uncheckedBorderColor = Color.White.copy(alpha = 0.45f),
+                            uncheckedThumbColor = Color.White.copy(alpha = 0.75f),
+                        ),
+                    modifier = Modifier.appleMusicPressInflate(pressedScale = 1.08f),
+                )
+            }
         }
     }
 }
