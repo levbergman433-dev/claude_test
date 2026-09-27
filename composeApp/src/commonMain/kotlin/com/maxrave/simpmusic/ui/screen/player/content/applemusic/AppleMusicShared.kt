@@ -67,12 +67,12 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.domain.data.player.GenericCastState
 import com.maxrave.domain.mediaservice.handler.ControlState
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.DeviceVolumeController
-import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import com.maxrave.simpmusic.expect.ui.PlatformCastButton
 import com.maxrave.simpmusic.expect.ui.isPlatformCastAvailable
 import com.maxrave.simpmusic.extension.formatDuration
@@ -137,7 +137,7 @@ internal fun appleMusicGradientColorAt(
  * page) that the glass controls refract. Null in the plain Apple Music style, where every control
  * keeps its flat look. Provided around the views only, which are siblings of the backdrop source.
  */
-internal val LocalAppleMusicGlassBackdrop = staticCompositionLocalOf<PlatformBackdrop?> { null }
+internal val LocalAppleMusicGlassBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 /**
  * The rim for this style's glass. Small round buttons catch only a short arc of the default

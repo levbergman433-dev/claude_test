@@ -5,6 +5,7 @@ import androidx.compose.animation.core.AnimationVector4D
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -83,7 +84,12 @@ internal fun String?.toAudioCodecLabel(): String? {
 class NowPlayingContentState(
     val screenData: NowPlayingScreenData,
     val controllerState: ControlState,
-    val timelineState: TimeLine,
+    // The three values below change on every progress tick (10× a second while the player is on
+    // screen). They are handed over as State and read through getters, so only the composables
+    // that actually READ them recompose on a tick. Passed as plain values, they made the shell
+    // build a new instance of this class on every tick, and since the instance is compared by
+    // identity, every composable that takes `state` — i.e. the whole player — recomposed with it.
+    private val timelineHolder: State<TimeLine>,
     val timelineFlow: StateFlow<TimeLine>,
     val likeStatus: Boolean,
     val castState: GenericCastState,
@@ -97,8 +103,8 @@ class NowPlayingContentState(
     val spotShadowColor: Color,
     val gradientOffset: GradientOffset,
     val sliderTrackColor: Color,
-    val sliderValue: Float,
-    val currentLyricLineIndex: Int,
+    private val sliderValueHolder: State<Float>,
+    private val currentLyricLineIndexHolder: State<Int>,
     val showControlLayout: Boolean,
     val controlLayoutAlpha: Float,
     val showHideMiddleLayout: Boolean,
@@ -109,7 +115,11 @@ class NowPlayingContentState(
     val dismissIcon: ImageVector,
     /** Current track's audio codec ("OPUS"/"AAC"), or null while unknown — see [toAudioCodecLabel]. */
     val audioCodecLabel: String? = null,
-)
+) {
+    val timelineState: TimeLine get() = timelineHolder.value
+    val sliderValue: Float get() = sliderValueHolder.value
+    val currentLyricLineIndex: Int get() = currentLyricLineIndexHolder.value
+}
 
 /**
  * Everything a Now Playing content layer can do. All callbacks land in the shell, which owns

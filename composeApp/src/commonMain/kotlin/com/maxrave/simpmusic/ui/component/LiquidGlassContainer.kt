@@ -37,6 +37,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.lerp
+import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
@@ -75,7 +76,7 @@ import kotlin.math.sign
  */
 @Composable
 fun Modifier.liquidGlass(
-    backdrop: PlatformBackdrop,
+    backdrop: Backdrop,
     shape: Shape = CircleShape,
     interactive: Boolean = true,
     highlight: Highlight = Highlight.Default,
@@ -155,7 +156,7 @@ fun Modifier.liquidGlass(
  */
 @Composable
 fun LiquidGlassContainer(
-    backdrop: PlatformBackdrop,
+    backdrop: Backdrop,
     modifier: Modifier = Modifier,
     shape: Shape = CircleShape,
     interactive: Boolean = true,
@@ -176,7 +177,7 @@ fun LiquidGlassContainer(
  */
 @Composable
 fun LiquidGlassIconButton(
-    backdrop: PlatformBackdrop,
+    backdrop: Backdrop,
     imageVector: ImageVector,
     modifier: Modifier = Modifier.size(48.dp),
     shape: Shape = CircleShape,
@@ -283,7 +284,7 @@ private val AppleGlassHighlight =
  */
 fun Modifier.drawInteractiveGlass(
     isDark: Boolean,
-    backdrop: PlatformBackdrop,
+    backdrop: Backdrop,
     layer: GraphicsLayer?,
     luminanceAnimation: Float,
     shape: Shape,

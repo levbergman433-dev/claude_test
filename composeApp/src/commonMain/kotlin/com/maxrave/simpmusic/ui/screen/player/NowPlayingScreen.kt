@@ -141,7 +141,9 @@ fun NowPlayingScreenContent(
     // ViewModel State
     val controllerState by sharedViewModel.controllerState.collectAsStateWithLifecycle()
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
-    val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
+    // Kept as a State and never read here in composition: this ticks 10× a second, and a read
+    // would recompose the whole shell (and rebuild the content state) on every tick.
+    val timelineHolder = sharedViewModel.timeline.collectAsStateWithLifecycle()
     val likeStatus by sharedViewModel.likeStatus.collectAsStateWithLifecycle()
     val castState by sharedViewModel.castState.collectAsStateWithLifecycle()
     // Apple Music style's progress-bar codec badge — see NowPlayingContentState.toAudioCodecLabel.
@@ -404,27 +406,34 @@ fun NowPlayingScreenContent(
     var isSliding by rememberSaveable {
         mutableStateOf(false)
     }
-    var sliderValue by rememberSaveable {
-        mutableFloatStateOf(0f)
-    }
-    LaunchedEffect(key1 = timelineState, key2 = isSliding) {
-        if (!isSliding) {
-            sliderValue =
-                if (timelineState.total > 0L) {
-                    timelineState.current.toFloat() * 100 / timelineState.total.toFloat()
-                } else {
-                    0f
-                }
+    val sliderValueHolder =
+        rememberSaveable {
+            mutableFloatStateOf(0f)
+        }
+    var sliderValue by sliderValueHolder
+    // Follows the timeline from inside an effect rather than keying the effect on it, so the tick
+    // does not pass through composition.
+    LaunchedEffect(Unit) {
+        snapshotFlow { timelineHolder.value to isSliding }.collect { (timeline, sliding) ->
+            if (!sliding) {
+                sliderValue =
+                    if (timeline.total > 0L) {
+                        timeline.current.toFloat() * 100 / timeline.total.toFloat()
+                    } else {
+                        0f
+                    }
+            }
         }
     }
+    val isCrossfading by remember { derivedStateOf { timelineHolder.value.isCrossfading } }
 
     // Crossfade: RGB rainbow color cycling when transitioning between tracks
     // Only cycles while a crossfade is running. As an infinite transition read right here in
     // composition, it recomposed the entire Now Playing screen on every frame it was open.
-    val rainbowPhase by rememberLoopingPhase(active = timelineState.isCrossfading, periodMillis = 1000)
+    val rainbowPhase by rememberLoopingPhase(active = isCrossfading, periodMillis = 1000)
     val rainbowColor = hsvToColor(rainbowPhase * 360f, 1f, 1f)
     val sliderTrackColor by animateColorAsState(
-        targetValue = if (timelineState.isCrossfading) rainbowColor else Color.White,
+        targetValue = if (isCrossfading) rainbowColor else Color.White,
         animationSpec = tween(300),
         label = "sliderCrossfadeColor",
     )
@@ -489,43 +498,42 @@ fun NowPlayingScreenContent(
             }
     }
 
-    var currentLyricLineIndex by rememberSaveable {
-        mutableIntStateOf(-1)
-    }
+    val currentLyricLineIndexHolder =
+        rememberSaveable {
+            mutableIntStateOf(-1)
+        }
+    var currentLyricLineIndex by currentLyricLineIndexHolder
 
     // Canvas subtitle sync
-    LaunchedEffect(timelineState, screenDataState.lyricsData?.lyrics) {
+    LaunchedEffect(screenDataState.lyricsData?.lyrics) {
         val lyrics = screenDataState.lyricsData?.lyrics
         if (lyrics == null || lyrics.syncType == "UNSYNCED" || lyrics.syncType == null) {
             currentLyricLineIndex = -1
             return@LaunchedEffect
         }
         val lines = lyrics.lines ?: return@LaunchedEffect
-        val translatedLines =
-            screenDataState.lyricsData
-                ?.translatedLyrics
-                ?.first
-                ?.lines
-        if (timelineState.current > 0L) {
-            lines.indices.forEach { i ->
-                val startTimeMs = lines[i].startTimeMs.toLongOrNull() ?: 0L
-                val endTimeMs =
-                    if (i < lines.size - 1) {
-                        lines[i + 1].startTimeMs.toLongOrNull() ?: 0L
-                    } else {
-                        startTimeMs + 60000
+        snapshotFlow { timelineHolder.value }.collect { timelineState ->
+            if (timelineState.current > 0L) {
+                lines.indices.forEach { i ->
+                    val startTimeMs = lines[i].startTimeMs.toLongOrNull() ?: 0L
+                    val endTimeMs =
+                        if (i < lines.size - 1) {
+                            lines[i + 1].startTimeMs.toLongOrNull() ?: 0L
+                        } else {
+                            startTimeMs + 60000
+                        }
+                    if (timelineState.current in startTimeMs..endTimeMs) {
+                        currentLyricLineIndex = i
                     }
-                if (timelineState.current in startTimeMs..endTimeMs) {
-                    currentLyricLineIndex = i
                 }
-            }
-            if (lines.isNotEmpty() &&
-                timelineState.current in 0..(lines.getOrNull(0)?.startTimeMs?.toLongOrNull() ?: 0L)
-            ) {
+                if (lines.isNotEmpty() &&
+                    timelineState.current in 0..(lines.getOrNull(0)?.startTimeMs?.toLongOrNull() ?: 0L)
+                ) {
+                    currentLyricLineIndex = -1
+                }
+            } else {
                 currentLyricLineIndex = -1
             }
-        } else {
-            currentLyricLineIndex = -1
         }
     }
 
@@ -635,7 +643,7 @@ fun NowPlayingScreenContent(
         NowPlayingContentState(
             screenData = screenDataState,
             controllerState = controllerState,
-            timelineState = timelineState,
+            timelineHolder = timelineHolder,
             timelineFlow = sharedViewModel.timeline,
             likeStatus = likeStatus,
             castState = castState,
@@ -649,8 +657,8 @@ fun NowPlayingScreenContent(
             spotShadowColor = spotShadowColor,
             gradientOffset = gradientOffset,
             sliderTrackColor = sliderTrackColor,
-            sliderValue = sliderValue,
-            currentLyricLineIndex = currentLyricLineIndex,
+            sliderValueHolder = sliderValueHolder,
+            currentLyricLineIndexHolder = currentLyricLineIndexHolder,
             showControlLayout = showHideControlLayout,
             controlLayoutAlpha = controlLayoutAlpha,
             showHideMiddleLayout = showHideMiddleLayout,

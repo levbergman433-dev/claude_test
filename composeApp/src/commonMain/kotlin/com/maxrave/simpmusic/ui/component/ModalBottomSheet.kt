@@ -55,6 +55,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -87,9 +88,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -166,6 +170,7 @@ import com.maxrave.simpmusic.ui.icon.Tune
 import com.maxrave.simpmusic.ui.icon.Update
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
+import com.maxrave.simpmusic.ui.theme.LocalAppleGlass
 import com.maxrave.simpmusic.ui.theme.seed
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.NowPlayingBottomSheetUIEvent
@@ -195,9 +200,9 @@ import simpmusic.composeapp.generated.resources.bitrate
 import simpmusic.composeapp.generated.resources.bpm
 import simpmusic.composeapp.generated.resources.can_not_be_empty
 import simpmusic.composeapp.generated.resources.cancel
-import simpmusic.composeapp.generated.resources.crop_cover
 import simpmusic.composeapp.generated.resources.codec
 import simpmusic.composeapp.generated.resources.copied_to_clipboard
+import simpmusic.composeapp.generated.resources.crop_cover
 import simpmusic.composeapp.generated.resources.delete
 import simpmusic.composeapp.generated.resources.delete_playlist
 import simpmusic.composeapp.generated.resources.delete_song_from_playlist
@@ -1652,17 +1657,53 @@ fun NowPlayingBottomSheet(
             scrimColor = Color.Black.copy(alpha = .5f),
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
+            // Apple glass look: the sheet floats clear of the screen edges as one rounded pane of
+            // tinted glass — translucent body, a rim lit along the top that fades down the sides,
+            // and a sheen across the top rows — the same material as GlassDropdownMenu. A sheet is
+            // its own window, so like the menus it reproduces the material rather than the lens.
+            val appleSheet = LocalAppleGlass.current
+            val sheetColors = rememberSurfaceDarkColors()
+            val sheetDark = sheetColors.container.luminance() < 0.5f
             Card(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .wrapContentHeight(),
-                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-                colors = CardDefaults.cardColors().copy(containerColor = rememberSurfaceDarkColors().container),
+                        .wrapContentHeight()
+                        .then(if (appleSheet) Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp) else Modifier),
+                shape = if (appleSheet) RoundedCornerShape(34.dp) else RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                colors =
+                    CardDefaults.cardColors().copy(
+                        containerColor = if (appleSheet) sheetColors.container.copy(alpha = 0.84f) else sheetColors.container,
+                    ),
+                border =
+                    if (appleSheet) {
+                        BorderStroke(
+                            0.8.dp,
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = if (sheetDark) 0.42f else 0.9f),
+                                    Color.White.copy(alpha = if (sheetDark) 0.06f else 0.35f),
+                                ),
+                            ),
+                        )
+                    } else {
+                        null
+                    },
             ) {
+                val sheen = Color.White.copy(alpha = if (sheetDark) 0.07f else 0.25f)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    modifier =
+                        Modifier
+                            .then(
+                                if (appleSheet) {
+                                    Modifier.drawBehind {
+                                        drawRect(Brush.verticalGradient(listOf(sheen, Color.Transparent), endY = 90.dp.toPx()))
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            ).verticalScroll(rememberScrollState()),
                 ) {
                     Spacer(modifier = Modifier.height(5.dp))
                     Card(
@@ -1740,7 +1781,8 @@ fun NowPlayingBottomSheet(
                     Spacer(modifier = Modifier.height(5.dp))
                     HorizontalDivider(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                        thickness = 1.dp,
+                        thickness = if (appleSheet) 0.5.dp else 1.dp,
+                        color = if (appleSheet) sheetColors.content.copy(alpha = 0.14f) else DividerDefaults.color,
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Crossfade(targetState = onDelete != null) {
