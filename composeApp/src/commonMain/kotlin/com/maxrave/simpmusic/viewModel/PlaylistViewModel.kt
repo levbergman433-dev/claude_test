@@ -2,6 +2,7 @@
 
 package com.maxrave.simpmusic.viewModel
 
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewModelScope
 import com.maxrave.common.Config
@@ -117,26 +118,17 @@ class PlaylistViewModel(
                                                     }
                                                 }
                                             }
-                                            downloadUtils.downloads.collectLatest { downloads ->
-                                                var count = 0
-                                                tracks.forEachIndexed { index, track ->
-                                                    val trackDownloadState = downloads[track.videoId]?.first?.state
-                                                    val videoDownloadState =
-                                                        downloads[track.videoId]?.second?.state ?: DownloadHandler.State.STATE_COMPLETED
-                                                    if (trackDownloadState == DownloadHandler.State.STATE_DOWNLOADING ||
-                                                        videoDownloadState == DownloadHandler.State.STATE_DOWNLOADING
-                                                    ) {
-                                                        updatePlaylistDownloadState(id, STATE_DOWNLOADING)
-                                                    } else if (trackDownloadState == DownloadHandler.State.STATE_COMPLETED &&
-                                                        videoDownloadState == DownloadHandler.State.STATE_COMPLETED
-                                                    ) {
-                                                        count++
-                                                    }
-                                                    if (count == tracks.size) {
-                                                        updatePlaylistDownloadState(id, STATE_DOWNLOADED)
-                                                    }
+                                            // One aggregate per downloads update, written only when it changes. This
+                                            // used to write STATE_DOWNLOADING to the database once for EVERY song still
+                                            // downloading, on every update of any download — dozens of writes a second
+                                            // while a big playlist downloaded, each one re-querying and redrawing the
+                                            // list, which is what made scrolling it lag.
+                                            downloadUtils.downloads
+                                                .map { downloads -> aggregateDownloadState(tracks, downloads) }
+                                                .distinctUntilChanged()
+                                                .collect { aggregate ->
+                                                    if (aggregate != null) updatePlaylistDownloadState(id, aggregate)
                                                 }
-                                            }
                                         }
                                 }
                             }
@@ -144,6 +136,27 @@ class PlaylistViewModel(
                 }
             listTrackStringJob.join()
         }
+    }
+
+    /** Downloading if any track still is; downloaded once every track is; null while neither. */
+    private fun aggregateDownloadState(
+        tracks: List<Track>,
+        downloads: Map<String, Pair<DownloadHandler.Download?, DownloadHandler.Download?>>,
+    ): Int? {
+        if (tracks.isEmpty()) return null
+        var allCompleted = true
+        for (track in tracks) {
+            val entry = downloads[track.videoId]
+            val audio = entry?.first?.state
+            val video = entry?.second?.state ?: DownloadHandler.State.STATE_COMPLETED
+            if (audio == DownloadHandler.State.STATE_DOWNLOADING || video == DownloadHandler.State.STATE_DOWNLOADING) {
+                return STATE_DOWNLOADING
+            }
+            if (audio != DownloadHandler.State.STATE_COMPLETED || video != DownloadHandler.State.STATE_COMPLETED) {
+                allCompleted = false
+            }
+        }
+        return if (allCompleted) STATE_DOWNLOADED else null
     }
 
     private fun updatePlaylistDownloadState(

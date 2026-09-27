@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
@@ -83,8 +84,8 @@ fun RecentlySongsScreen(
     var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
 
     val recentlyItems = viewModel.recentlySongs.collectAsLazyPagingItems()
-    val playingTrack by sharedViewModel.nowPlayingState.map { it?.songEntity }.collectAsState(initial = null)
-    val isPlaying by sharedViewModel.controllerState.map { it.isPlaying }.collectAsState(initial = false)
+    val playingTrack by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsState(initial = null)
+    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsState(initial = false)
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(

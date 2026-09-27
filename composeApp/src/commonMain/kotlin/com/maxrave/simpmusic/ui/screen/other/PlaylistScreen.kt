@@ -273,11 +273,12 @@ fun PlaylistScreen(
         }
     }
 
-    val playingTrack by sharedViewModel.nowPlayingState
-        .mapLatest {
-            it?.songEntity
-        }.collectAsState(initial = null)
-    val isPlaying by sharedViewModel.controllerState.map { it.isPlaying }.collectAsState(initial = false)
+    // Flows built once: a bare .map in composition is a new Flow on every recomposition, and
+    // collectAsState restarts its collector for each one.
+    val playingTrack by remember {
+        sharedViewModel.nowPlayingState.mapLatest { it?.songEntity }
+    }.collectAsState(initial = null)
+    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsState(initial = false)
 
     var currentItem by remember {
         mutableStateOf<Track?>(null)
