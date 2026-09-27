@@ -16,10 +16,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +63,13 @@ fun GlassDropdownMenu(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val dark = LocalIsDarkTheme.current
+    // Menu style "Liquid glass": drawn in-window by GlassMenuOverlay as the same glass as the nav
+    // bar. The host is only provided while that style is chosen and the page is being recorded.
+    val host = LocalGlassMenuHost.current
+    if (host != null) {
+        LiquidGlassMenu(host, expanded, onDismissRequest, modifier, offset, content)
+        return
+    }
     if (!rememberFrostedMenuSupported()) {
         DropdownMenu(
             expanded = expanded,
@@ -140,3 +149,47 @@ private fun glassSheen(
         0f to Color.White.copy(alpha = if (dark) 0.08f else 0.22f),
         (56f * 3f / height.coerceAtLeast(1f)).coerceIn(0.05f, 0.6f) to Color.Transparent,
     )
+
+/** Registers this menu with [host] while it is open; [GlassMenuOverlay] draws it. */
+@Composable
+private fun LiquidGlassMenu(
+    host: GlassMenuHost,
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier,
+    offset: DpOffset,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    var anchor by remember { mutableStateOf<Rect?>(null) }
+    Layout(
+        content = {},
+        modifier =
+            Modifier.onGloballyPositioned { coordinates ->
+                anchor = coordinates.parentLayoutCoordinates?.boundsInWindow()
+            },
+    ) { _, _ -> layout(0, 0) {} }
+
+    // The overlay composes the menu far from here, so it must always call the LATEST content and
+    // dismiss lambdas, not the ones captured when the menu opened.
+    val latestContent by rememberUpdatedState(content)
+    val latestDismiss by rememberUpdatedState(onDismissRequest)
+    val token = remember { Any() }
+    val anchorRect = anchor
+    DisposableEffect(host, expanded, anchorRect) {
+        if (expanded && anchorRect != null) {
+            host.show(
+                ActiveGlassMenu(
+                    token = token,
+                    anchor = anchorRect,
+                    offset = offset,
+                    modifier = modifier,
+                    onDismissRequest = { latestDismiss() },
+                    content = { latestContent() },
+                ),
+            )
+        } else {
+            host.hide(token)
+        }
+        onDispose { host.hide(token) }
+    }
+}

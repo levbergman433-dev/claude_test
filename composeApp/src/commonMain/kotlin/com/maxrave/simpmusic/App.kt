@@ -1,5 +1,10 @@
 package com.maxrave.simpmusic
 
+import com.maxrave.simpmusic.ui.component.GlassMenuHost
+import com.maxrave.simpmusic.ui.component.GlassMenuOverlay
+import com.maxrave.simpmusic.ui.component.LocalGlassMenuHost
+import com.maxrave.simpmusic.ui.theme.MENU_STYLE_FROSTED
+import androidx.compose.runtime.CompositionLocalProvider
 import com.maxrave.simpmusic.ui.theme.ColorFill
 import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import com.maxrave.simpmusic.ui.theme.PersonalizationKeys
@@ -159,6 +164,7 @@ fun App(
 
     val isTranslucentBottomBar by viewModel.getTranslucentBottomBar().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLiquidGlassEnabled by viewModel.getEnableLiquidGlass().collectAsStateWithLifecycle(DataStoreManager.FALSE)
+    val menuStyle by remember { viewModel.stringPref(PersonalizationKeys.MENU_STYLE) }.collectAsStateWithLifecycle(null)
     val glassStyle by viewModel.getGlassStyle().collectAsStateWithLifecycle(DataStoreManager.GLASS_STYLE_APPLE)
     val isBatterySaver by viewModel.getBatterySaver().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLargeTitles by viewModel.getLargeTitles().collectAsStateWithLifecycle(DataStoreManager.TRUE)
@@ -494,6 +500,20 @@ fun App(
             if (isLightScheme) MaterialTheme.colorScheme.surfaceContainer else desktopPanelDark
         // A custom gradient page is painted once, behind the whole scaffold, which is then clear.
         val pageBrush = LocalPageBrush.current?.takeIf { !isDesktopShell }
+        // Liquid-glass menus: while the page is recorded as a backdrop, a menu can be drawn in this
+        // window as the same glass as the nav bar instead of in a pop-up window. The overlay sits
+        // AFTER the scaffold, a sibling of the backdrop source — never inside it.
+        val pageIsBackdropSource =
+            !isWebViewScreen &&
+                (
+                    (isLiquidGlassEnabled == TRUE && !isTablet) ||
+                        ((isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop) && isTablet && !isInFullscreen)
+                )
+        val glassMenuHost = remember(backdrop) { GlassMenuHost(backdrop) }
+        CompositionLocalProvider(
+            LocalGlassMenuHost provides glassMenuHost.takeIf { pageIsBackdropSource && menuStyle != MENU_STYLE_FROSTED },
+        ) {
+        Box(Modifier.fillMaxSize()) {
         Scaffold(
             modifier = if (pageBrush != null) Modifier.background(pageBrush) else Modifier,
             containerColor =
@@ -994,5 +1014,8 @@ fun App(
                 }
             },
         )
+        GlassMenuOverlay(host = glassMenuHost)
+        }
+        }
     }
 }

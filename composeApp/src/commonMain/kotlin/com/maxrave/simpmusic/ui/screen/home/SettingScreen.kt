@@ -170,6 +170,8 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
 import com.maxrave.common.LIMIT_CACHE_SIZE
+import com.maxrave.simpmusic.ui.theme.MENU_STYLE_FROSTED
+import com.maxrave.simpmusic.ui.theme.MENU_STYLE_LIQUID
 import com.maxrave.common.NetworkQuality
 import com.maxrave.common.QUALITY
 import com.maxrave.common.SUPPORTED_LANGUAGE
@@ -419,6 +421,9 @@ import simpmusic.composeapp.generated.resources.normalize_volume
 import simpmusic.composeapp.generated.resources.not_available_while_casting
 import simpmusic.composeapp.generated.resources.now_playing_style
 import simpmusic.composeapp.generated.resources.now_playing_style_apple_music
+import simpmusic.composeapp.generated.resources.menu_style
+import simpmusic.composeapp.generated.resources.menu_style_frosted
+import simpmusic.composeapp.generated.resources.menu_style_liquid
 import simpmusic.composeapp.generated.resources.adaptive_quality_weak_network
 import simpmusic.composeapp.generated.resources.adaptive_quality_weak_network_description
 import simpmusic.composeapp.generated.resources.now_playing_style_apple_music_glass
@@ -668,6 +673,7 @@ fun SettingScreen(
     val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
     val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
     val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    val menuStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_STYLE) }.collectAsStateWithLifecycle(null)
     val menuButtonSizePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_BUTTON_SIZE) }.collectAsStateWithLifecycle(null)
     val badgePhotoPicker =
         photoPickerResult { uri ->
@@ -1035,6 +1041,35 @@ fun SettingScreen(
                                         val selected = state.selectOne?.getSelected()
                                         menuSizeLabels.firstOrNull { it.second == selected }?.first?.let {
                                             sharedViewModel.setStringPref(PersonalizationKeys.MENU_BUTTON_SIZE, it)
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
+                val menuStyleLabels =
+                    listOf(
+                        MENU_STYLE_LIQUID to stringResource(Res.string.menu_style_liquid),
+                        MENU_STYLE_FROSTED to stringResource(Res.string.menu_style_frosted),
+                    )
+                val currentMenuStyle = menuStylePref ?: MENU_STYLE_LIQUID
+                SettingItem(
+                    title = stringResource(Res.string.menu_style),
+                    subtitle = menuStyleLabels.firstOrNull { it.first == currentMenuStyle }?.second ?: "",
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.menu_style) },
+                                selectOne =
+                                    SettingAlertState.SelectData(
+                                        listSelect = menuStyleLabels.map { (it.first == currentMenuStyle) to it.second },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        val selected = state.selectOne?.getSelected()
+                                        menuStyleLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            sharedViewModel.setStringPref(PersonalizationKeys.MENU_STYLE, it)
                                         }
                                     },
                                 dismiss = runBlocking { getString(Res.string.cancel) },

@@ -27,6 +27,9 @@ object PersonalizationKeys {
     // Size of the ⋮ menu button in the Home top bar: "M", "L" (default) or "XL".
     const val MENU_BUTTON_SIZE = "menu_button_size"
 
+    // Look of pop-up menus: MENU_STYLE_LIQUID (default) or MENU_STYLE_FROSTED.
+    const val MENU_STYLE = "menu_style"
+
     const val BADGE_ENABLED = "profile_badge_enabled"
     const val BADGE_NAME = "profile_badge_name"
     const val BADGE_NAME_COLOR = "profile_badge_name_color"
@@ -35,6 +38,12 @@ object PersonalizationKeys {
     const val BADGE_ICON_COLOR = "profile_badge_icon_color"
     const val BADGE_AVATAR = "profile_badge_avatar"
 }
+
+/** Menus drawn as the same liquid glass as the nav bar (needs the liquid-glass setting on). */
+const val MENU_STYLE_LIQUID = "LIQUID"
+
+/** Menus as a frosted pop-up: a blurred window on Android 12+, a solid pop-up elsewhere. */
+const val MENU_STYLE_FROSTED = "FROSTED"
 
 /** How two colours are spread across a surface. */
 enum class GradientType {
