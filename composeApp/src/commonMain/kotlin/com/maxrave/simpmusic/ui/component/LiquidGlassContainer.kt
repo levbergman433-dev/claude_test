@@ -80,6 +80,8 @@ fun Modifier.liquidGlass(
     shape: Shape = CircleShape,
     interactive: Boolean = true,
     highlight: Highlight = Highlight.Default,
+    refraction: Float = 1f,
+    pressedScale: Float = 1.12f,
 ): Modifier {
     // With the setting off, every glass surface falls back to the flat translucent pill the detail
     // screens used before the migration (surfaceContainerHighest @ 80%) — shape and hit target
@@ -104,7 +106,9 @@ fun Modifier.liquidGlass(
         luminanceAnimation = 0.5f,
         shape = shape,
         interaction = if (interactive) interaction else null,
+        pressedScale = pressedScale,
         highlight = highlight,
+        refraction = refraction,
         appleStyle = LocalAppleGlass.current,
     )
 }
@@ -295,6 +299,7 @@ fun Modifier.drawInteractiveGlass(
     minScrim: Float = 0.12f,
     maxScrim: Float = 0.5f,
     appleStyle: Boolean = false,
+    refraction: Float = 1f,
 ): Modifier =
     this
         .drawBackdrop(
@@ -343,9 +348,11 @@ fun Modifier.drawInteractiveGlass(
                 // top and bottom refraction never meet at the medial axis — that meeting point on
                 // a wide pill is what produced the dark horizontal seam. depthEffect is off to
                 // match the crisp Kyant demo look and avoid the radial discontinuity at the centre.
+                // [refraction] scales the bend: small controls sitting on busy artwork read as
+                // bubbles at full strength, so those callers ask for a gentler lens.
                 lens(
-                    size.minDimension / 4f + 2f.dp.toPx() * press,
-                    size.minDimension / 2f,
+                    size.minDimension / 4f * refraction + 2f.dp.toPx() * press,
+                    size.minDimension / 2f * refraction,
                     depthEffect = false,
                     chromaticAberration = appleStyle,
                 )

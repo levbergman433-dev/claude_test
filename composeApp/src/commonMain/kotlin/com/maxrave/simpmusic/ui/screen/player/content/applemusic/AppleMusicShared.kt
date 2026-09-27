@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -68,7 +69,6 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.domain.data.player.GenericCastState
 import com.maxrave.domain.mediaservice.handler.ControlState
 import com.maxrave.simpmusic.Platform
@@ -140,10 +140,19 @@ internal fun appleMusicGradientColorAt(
 internal val LocalAppleMusicGlassBackdrop = staticCompositionLocalOf<Backdrop?> { null }
 
 /**
- * The rim for this style's glass. Small round buttons catch only a short arc of the default
- * directional sweep and read as rimless; 1.dp is the smallest width that stays visible.
+ * This style's glass. Tuned to sit quietly on artwork rather than to show off: a lens at under
+ * half the usual bend (full strength turns a 40dp button into a bubble that visibly warps the cover
+ * behind it), the shared Apple rim, and no press scale of its own — the controls already swell on
+ * touch, and two springs on one tap is what made the first version feel rubbery.
  */
-internal val AppleMusicGlassRim = Highlight(width = 1.dp)
+@Composable
+internal fun Modifier.appleMusicGlass(
+    backdrop: Backdrop,
+    shape: Shape,
+): Modifier = liquidGlass(backdrop, shape, interactive = false, refraction = 0.4f)
+
+/** Set inside a glass circle: the circle swells as one piece, so the glyph inside must not swell on its own. */
+private val LocalAppleMusicInflateOff = staticCompositionLocalOf { false }
 
 /** A glass circle of [size] behind [content] in the Liquid Glass variant; just [content] otherwise. */
 @Composable
@@ -157,10 +166,10 @@ internal fun AppleMusicGlassCircle(
         return
     }
     Box(
-        modifier = Modifier.size(size).liquidGlass(backdrop, CircleShape, highlight = AppleMusicGlassRim),
+        modifier = Modifier.appleMusicPressInflate(pressedScale = 1.12f).size(size).appleMusicGlass(backdrop, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        content()
+        CompositionLocalProvider(LocalAppleMusicInflateOff provides true) { content() }
     }
 }
 
@@ -255,6 +264,7 @@ internal fun Modifier.appleMusicVerticalFadeEdges(
  */
 @Composable
 internal fun Modifier.appleMusicPressInflate(pressedScale: Float = 1.35f): Modifier {
+    if (LocalAppleMusicInflateOff.current) return this
     var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
         targetValue = if (pressed) pressedScale else 1f,
@@ -508,12 +518,7 @@ internal fun AppleMusicThinSlider(
                                     .graphicsLayer {
                                         scaleX = lensScale
                                         scaleY = lensScale
-                                    }.liquidGlass(
-                                        glassBackdrop,
-                                        RoundedCornerShape(percent = 50),
-                                        interactive = false,
-                                        highlight = AppleMusicGlassRim,
-                                    ),
+                                    }.appleMusicGlass(glassBackdrop, RoundedCornerShape(percent = 50)),
                         )
                     }
                 }
@@ -612,12 +617,7 @@ internal fun AppleMusicTimesRow(
                     modifier =
                         if (glassBackdrop != null) {
                             // Liquid Glass variant: a glass capsule instead of the flat pill.
-                            Modifier.liquidGlass(
-                                glassBackdrop,
-                                RoundedCornerShape(percent = 50),
-                                interactive = false,
-                                highlight = AppleMusicGlassRim,
-                            )
+                            Modifier.appleMusicGlass(glassBackdrop, RoundedCornerShape(percent = 50))
                         } else {
                             Modifier
                                 .clip(RoundedCornerShape(9.dp))
@@ -799,12 +799,8 @@ internal fun AppleMusicDock(
             Row(
                 modifier =
                     Modifier
-                        .liquidGlass(
-                            glassBackdrop,
-                            RoundedCornerShape(percent = 50),
-                            interactive = false,
-                            highlight = AppleMusicGlassRim,
-                        ).padding(horizontal = 10.dp, vertical = 5.dp),
+                        .appleMusicGlass(glassBackdrop, RoundedCornerShape(percent = 50))
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.spacedBy(22.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

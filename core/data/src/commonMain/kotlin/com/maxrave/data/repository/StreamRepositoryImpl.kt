@@ -2,6 +2,7 @@ package com.maxrave.data.repository
 
 import com.maxrave.common.ITAG
 import com.maxrave.common.MERGING_DATA_TYPE
+import com.maxrave.common.NetworkQuality
 import com.maxrave.common.QUALITY
 import com.maxrave.common.VIDEO_QUALITY
 import com.maxrave.data.db.datasource.LocalDataSource
@@ -97,14 +98,26 @@ internal class StreamRepositoryImpl(
         muxed: Boolean,
     ): Flow<String?> =
         flow {
+            // On a weak connection a stream is picked that the connection can actually carry:
+            // the low one, and 360p for video. Downloads are exempt — they are not played live,
+            // and the user chose that quality to keep.
+            val adaptToWeakNetwork =
+                !isDownloading &&
+                    dataStoreManager.getString(NetworkQuality.ADAPTIVE_QUALITY_KEY).first() != DataStoreManager.FALSE &&
+                    NetworkQuality.isWeak
+            if (adaptToWeakNetwork) Logger.w("Stream", "Weak connection: streaming $videoId at low quality")
             val itag =
                 if (isDownloading) {
                     QUALITY.itagOf(dataStoreManager.downloadQuality.first())
+                } else if (adaptToWeakNetwork) {
+                    ITAG.AUDIO_OPUS_LOW
                 } else {
                     QUALITY.itagOf(dataStoreManager.quality.first())
                 }
             val videoItag =
-                if (!muxed) {
+                if (!muxed && adaptToWeakNetwork) {
+                    ITAG.VIDEO_360P
+                } else if (!muxed) {
                     VIDEO_QUALITY.itags.getOrNull(
                         VIDEO_QUALITY.items.indexOf(
                             if (isDownloading) {

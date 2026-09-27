@@ -19,6 +19,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
+import com.maxrave.common.NetworkQuality
 import com.maxrave.domain.data.player.AudioEffects
 import com.maxrave.domain.data.player.GenericCastState
 import com.maxrave.domain.data.player.GenericMediaItem
@@ -409,6 +411,12 @@ internal class CrossfadeExoPlayerAdapter(
         currentPlayer = initialPlayerWithFilter.player
         currentPlayerFilter = initialPlayerWithFilter.filter
 
+        // Every ExoPlayer built here uses the process-wide DefaultBandwidthMeter (the Builder's
+        // default), which measures each stream transfer. Stream selection reads it to pick a
+        // quality the connection can carry.
+        val appContext = context.applicationContext
+        NetworkQuality.bitrateSupplier = { DefaultBandwidthMeter.getSingletonInstance(appContext).bitrateEstimate }
+
         // Wire up playlist navigation so ForwardingPlayer (and thus MediaSession)
         // can see the full playlist state instead of the single-item ExoPlayer state.
         // Only navigation commands are overridden — NOT getMediaItemCount/getCurrentMediaItemIndex
@@ -579,8 +587,12 @@ internal class CrossfadeExoPlayerAdapter(
                         .setBufferDurationsMs(
                             DefaultLoadControl.DEFAULT_MIN_BUFFER_MS * 4,
                             DefaultLoadControl.DEFAULT_MAX_BUFFER_MS * 4,
+                            // Start the moment the first bytes arrive: fast start on a good connection.
                             0,
-                            0,
+                            // But after a stall, wait for 2 s of audio before resuming. At 0 a weak
+                            // connection resumed on a few hundred ms of data and stalled again at
+                            // once — the stop-start stutter that made songs unlistenable there.
+                            REBUFFER_RESUME_MS,
                         ).build(),
                 ).setWakeMode(C.WAKE_MODE_NETWORK)
                 .setHandleAudioBecomingNoisy(true)
@@ -3025,3 +3037,6 @@ internal class CrossfadeExoPlayerAdapter(
         listeners.forEach { it.onTimelineChanged(list, reason) }
     }
 }
+
+/** Audio buffered before playback resumes after a stall; see the load control above. */
+private const val REBUFFER_RESUME_MS = 2_000

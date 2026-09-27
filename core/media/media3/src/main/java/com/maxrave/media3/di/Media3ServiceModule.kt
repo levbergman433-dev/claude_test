@@ -544,8 +544,9 @@ private fun provideLoadControl(): LoadControl =
             DEFAULT_MAX_BUFFER_MS * 4,
             // bufferForPlaybackMs=
             0,
-            // bufferForPlaybackAfterRebufferMs=
-            0,
+            // bufferForPlaybackAfterRebufferMs= 2 s, so a weak connection does not resume on a
+            // sliver of data and stall again straight away.
+            2_000,
         ).build()
 
 @UnstableApi

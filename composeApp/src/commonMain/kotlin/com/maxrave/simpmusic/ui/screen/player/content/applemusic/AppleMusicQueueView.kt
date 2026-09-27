@@ -59,7 +59,6 @@ import com.maxrave.simpmusic.expect.ui.DeviceVolumeController
 import com.maxrave.simpmusic.ui.component.DraggableItem
 import com.maxrave.simpmusic.ui.component.QueueItemBottomSheet
 import com.maxrave.simpmusic.ui.component.SongFullWidthItems
-import com.maxrave.simpmusic.ui.component.liquidGlass
 import com.maxrave.simpmusic.ui.component.rememberDragDropState
 import com.maxrave.simpmusic.ui.icon.Info
 import com.maxrave.simpmusic.ui.icon.PlaylistAdd
@@ -366,7 +365,7 @@ private fun AppleMusicQueuePill(
                     // Liquid Glass variant: every pill is glass; an active one keeps its solid
                     // artwork-tinted fill on top, so on/off still reads at a glance.
                     if (glassBackdrop != null) {
-                        Modifier.liquidGlass(glassBackdrop, shape, interactive = false, highlight = AppleMusicGlassRim)
+                        Modifier.appleMusicGlass(glassBackdrop, shape)
                     } else {
                         Modifier
                     },
@@ -434,11 +433,9 @@ private fun AppleMusicContinuePlayingHeader(
                 modifier =
                     if (glassBackdrop != null) {
                         Modifier
-                            .liquidGlass(
+                            .appleMusicGlass(
                                 glassBackdrop,
                                 RoundedCornerShape(percent = 50),
-                                interactive = false,
-                                highlight = AppleMusicGlassRim,
                             ).padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)
                     } else {
                         Modifier

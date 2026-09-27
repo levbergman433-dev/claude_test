@@ -170,6 +170,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
 import com.maxrave.common.LIMIT_CACHE_SIZE
+import com.maxrave.common.NetworkQuality
 import com.maxrave.common.QUALITY
 import com.maxrave.common.SUPPORTED_LANGUAGE
 import com.maxrave.common.SUPPORTED_LOCATION
@@ -418,6 +419,8 @@ import simpmusic.composeapp.generated.resources.normalize_volume
 import simpmusic.composeapp.generated.resources.not_available_while_casting
 import simpmusic.composeapp.generated.resources.now_playing_style
 import simpmusic.composeapp.generated.resources.now_playing_style_apple_music
+import simpmusic.composeapp.generated.resources.adaptive_quality_weak_network
+import simpmusic.composeapp.generated.resources.adaptive_quality_weak_network_description
 import simpmusic.composeapp.generated.resources.now_playing_style_apple_music_glass
 import simpmusic.composeapp.generated.resources.now_playing_style_m3_expressive
 import simpmusic.composeapp.generated.resources.now_playing_style_spotify
@@ -655,6 +658,7 @@ fun SettingScreen(
     var showPageFillDialog by rememberSaveable { mutableStateOf(false) }
     var showAccentFillDialog by rememberSaveable { mutableStateOf(false) }
     var badgeColorTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    val adaptiveQuality by remember { sharedViewModel.stringPref(NetworkQuality.ADAPTIVE_QUALITY_KEY) }.collectAsStateWithLifecycle(null)
     val pageFillRaw by remember { sharedViewModel.stringPref(PersonalizationKeys.PAGE_FILL) }.collectAsStateWithLifecycle(null)
     val accentFillRaw by remember { sharedViewModel.stringPref(PersonalizationKeys.ACCENT_FILL) }.collectAsStateWithLifecycle(null)
     val badgeEnabled by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ENABLED) }.collectAsStateWithLifecycle(null)
@@ -1817,6 +1821,19 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.fast_song_loading_description),
                     smallSubtitle = true,
                     switch = ((fastSongLoading == DataStoreManager.TRUE) to { sharedViewModel.setFastStreamLoading(it) }),
+                )
+                SettingItem(
+                    title = stringResource(Res.string.adaptive_quality_weak_network),
+                    subtitle = stringResource(Res.string.adaptive_quality_weak_network_description),
+                    smallSubtitle = true,
+                    switch = (
+                        (adaptiveQuality != DataStoreManager.FALSE) to { enabled: Boolean ->
+                            sharedViewModel.setStringPref(
+                                NetworkQuality.ADAPTIVE_QUALITY_KEY,
+                                if (enabled) DataStoreManager.TRUE else DataStoreManager.FALSE,
+                            )
+                        }
+                    ),
                 )
                 SettingItem(
                     title = stringResource(Res.string.battery_saver),
