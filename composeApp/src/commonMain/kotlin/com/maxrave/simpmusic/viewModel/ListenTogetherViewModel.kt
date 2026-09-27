@@ -181,6 +181,15 @@ class ListenTogetherViewModel(
         repository.transferHost(userId)
     }
 
+    /** Host: lets a member control playback (or takes it back) without handing over the room. */
+    fun setControl(
+        userId: String,
+        allowed: Boolean,
+    ) = repository.setControl(userId, allowed)
+
+    /** Guest: a transport button, carried out by the host's app when it has given us control. */
+    fun control(command: String) = repository.sendControl(command)
+
     fun cancelJoin() = repository.cancelJoin()
 
     fun clearError() = repository.clearError()

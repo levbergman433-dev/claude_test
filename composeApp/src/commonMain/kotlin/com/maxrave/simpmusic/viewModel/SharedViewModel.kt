@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic.viewModel
 
+import simpmusic.composeapp.generated.resources.lt_control_denied
+import org.koin.core.component.inject
+import com.maxrave.domain.repository.ListenTogetherRepository
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.viewModelScope
 import com.maxrave.common.Config.ALBUM_CLICK
@@ -239,7 +242,14 @@ class SharedViewModel(
     private val _shareSavedLyrics: MutableStateFlow<Boolean> = MutableStateFlow(true)
     val shareSavedLyrics: StateFlow<Boolean> get() = _shareSavedLyrics
 
+    private val listenTogetherRooms: ListenTogetherRepository by inject<ListenTogetherRepository>()
+
     init {
+        // A guest pressed a room control the host has not given them: the press went to the host
+        // as a request for control instead.
+        viewModelScope.launch {
+            listenTogetherRooms.controlDenied.collect { makeToast(getString(Res.string.lt_control_denied)) }
+        }
         viewModelScope.launch {
             log("SharedViewModel init")
             if (dataStoreManager.appVersion.first() != VersionManager.getVersionName()) {

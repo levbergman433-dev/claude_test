@@ -85,6 +85,12 @@ data class ListenTogetherState(
     val pendingJoinCode: String? = null,
     /** Set once and cleared by the UI, so a transient failure cannot wedge the screen. */
     val error: String? = null,
+    /** Host: members this host lets control playback (see [RemoteControl]). */
+    val controllers: Set<String> = emptySet(),
+    /** Host: members who asked for control, by pressing a control or picking a song. */
+    val controlRequests: List<PendingJoin> = emptyList(),
+    /** Guest: whether the host has let this client control playback, as last heard. */
+    val hasControl: Boolean = false,
 ) {
     val inRoom: Boolean get() = roomCode != null
     val isConnected: Boolean get() = connection is ConnectionState.Connected
@@ -167,6 +173,9 @@ class ListenTogetherSession(
                     suggestions = emptyList(),
                     currentTrack = null,
                     waitingFor = emptyList(),
+                    controllers = emptySet(),
+                    controlRequests = emptyList(),
+                    hasControl = false,
                 )
             }
         }
@@ -202,11 +211,82 @@ class ListenTogetherSession(
         approved?.let { _approvedTracks.emit(it) }
     }
 
-    fun rejectSuggestion(suggestionId: String) =
-        launch {
-            client.send(MessageTypes.REJECT_SUGGESTION, RejectSuggestionPayload(suggestionId = suggestionId))
-            dropSuggestion(suggestionId)
+    fun rejectSuggestion(
+        suggestionId: String,
+        reason: String = "",
+    ) = launch {
+        client.send(MessageTypes.REJECT_SUGGESTION, RejectSuggestionPayload(suggestionId = suggestionId, reason = reason))
+        dropSuggestion(suggestionId)
+    }
+
+    // ─────────────────────────── remote control (co-host) ───────────────────────────
+
+    private val _controlCommands = MutableSharedFlow<RemoteControl.Command>(extraBufferCapacity = 32)
+
+    /** Host: commands from members allowed to control playback, for the player to carry out. */
+    val controlCommands: SharedFlow<RemoteControl.Command> = _controlCommands.asSharedFlow()
+
+    private val _controlDenied = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+
+    /** Guest: the host has not given us control (yet) — the command was turned into a request. */
+    val controlDenied: SharedFlow<Unit> = _controlDenied.asSharedFlow()
+
+    /** Guest: sends a playback command to the host (see [RemoteControl]). */
+    fun sendControl(
+        command: String,
+        arg: String = "",
+        track: TrackInfo? = null,
+    ) = launch {
+        client.send(MessageTypes.SUGGEST_TRACK, SuggestTrackPayload(trackInfo = RemoteControl.encode(command, arg, track)))
+    }
+
+    /** Host: lets [userId] control playback. */
+    fun grantControl(userId: String) =
+        _state.update { s ->
+            s.copy(
+                controllers = s.controllers + userId,
+                controlRequests = s.controlRequests.filterNot { it.userId == userId },
+            )
         }
+
+    /** Host: takes control back from [userId], or declines their request. */
+    fun revokeControl(userId: String) =
+        _state.update { s ->
+            s.copy(
+                controllers = s.controllers - userId,
+                controlRequests = s.controlRequests.filterNot { it.userId == userId },
+            )
+        }
+
+    /**
+     * Returns true when the suggestion was consumed here. A play-now request from someone without
+     * control is NOT consumed: it falls through and is handled as the ordinary suggestion it is.
+     */
+    private fun handleControl(
+        suggestionId: String,
+        fromUserId: String,
+        fromUsername: String,
+        info: TrackInfo,
+    ): Boolean {
+        val state = _state.value
+        if (!state.isHost) return true
+        if (fromUserId in state.controllers) {
+            RemoteControl.decode(fromUserId, info)?.let { _controlCommands.tryEmit(it) }
+            rejectSuggestion(suggestionId, RemoteControl.REPLY_OK)
+            return true
+        }
+        if (RemoteControl.isPlayNow(info)) return false
+        // A transport command from someone without control: it becomes a request for control.
+        _state.update { s ->
+            if (s.controlRequests.any { it.userId == fromUserId }) {
+                s
+            } else {
+                s.copy(controlRequests = s.controlRequests + PendingJoin(fromUserId, fromUsername))
+            }
+        }
+        rejectSuggestion(suggestionId, RemoteControl.REPLY_NOT_ALLOWED)
+        return true
+    }
 
     fun kickUser(userId: String) =
         launch { client.send(MessageTypes.KICK_USER, KickUserPayload(userId = userId)) }
@@ -415,6 +495,10 @@ class ListenTogetherSession(
                     s.copy(
                         isHost = p.newHostId == s.selfUserId,
                         members = s.members.map { it.copy(isHost = it.userId == p.newHostId) },
+                        // Control is granted by a host, so it does not survive a new one.
+                        controllers = emptySet(),
+                        controlRequests = emptyList(),
+                        hasControl = false,
                     )
                 }
             }
@@ -473,7 +557,15 @@ class ListenTogetherSession(
 
             MessageTypes.SUGGESTION_RECEIVED -> {
                 val p = payload as? SuggestionReceivedPayload ?: return
-                val track = p.trackInfo ?: return
+                val raw = p.trackInfo ?: return
+                if ((RemoteControl.isControl(raw) || RemoteControl.isPlayNow(raw)) &&
+                    handleControl(p.suggestionId, p.fromUserId, p.fromUsername, raw)
+                ) {
+                    return
+                }
+                // A play-now request from someone without control: an ordinary suggestion of the
+                // real track.
+                val track = if (RemoteControl.isPlayNow(raw)) RemoteControl.playableTrack(raw) else raw
                 if (autoApproveSuggestions) {
                     approveSuggestion(p.suggestionId, track)
                     return
@@ -483,6 +575,17 @@ class ListenTogetherSession(
                         s
                     } else {
                         s.copy(suggestions = s.suggestions + PendingSuggestion(p.suggestionId, p.fromUsername, track))
+                    }
+                }
+            }
+
+            MessageTypes.SUGGESTION_REJECTED -> {
+                val p = payload as? SuggestionRejectedPayload ?: return
+                when (p.reason) {
+                    RemoteControl.REPLY_OK -> _state.update { it.copy(hasControl = true) }
+                    RemoteControl.REPLY_NOT_ALLOWED -> {
+                        _state.update { it.copy(hasControl = false) }
+                        _controlDenied.tryEmit(Unit)
                     }
                 }
             }

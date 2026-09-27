@@ -1,5 +1,6 @@
 package com.maxrave.data.listentogether
 
+import com.maxrave.domain.data.model.listentogether.RoomControlCommand
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.Flow
 import com.maxrave.domain.data.model.listentogether.ListenTogetherRoom
@@ -37,6 +38,26 @@ class ListenTogetherRepositoryImpl(
     override val room: StateFlow<ListenTogetherRoom> = _room.asStateFlow()
 
     override val approvedSuggestions: Flow<RoomTrack> = session.approvedTracks.map { it.toDomain() }
+
+    override val controlCommands: Flow<RoomControlCommand> =
+        session.controlCommands.map { RoomControlCommand(it.fromUserId, it.command, it.arg, it.track?.toDomain()) }
+
+    override val controlDenied: Flow<Unit> = session.controlDenied
+
+    override fun sendControl(
+        command: String,
+        arg: String,
+        track: RoomTrack?,
+    ) {
+        session.sendControl(command, arg, track?.toProtocol())
+    }
+
+    override fun setControl(
+        userId: String,
+        allowed: Boolean,
+    ) {
+        if (allowed) session.grantControl(userId) else session.revokeControl(userId)
+    }
 
     override var autoApproveJoins: Boolean
         get() = session.autoApproveJoins
@@ -126,6 +147,9 @@ private fun ListenTogetherState.toDomain() =
         waitingFor = waitingFor,
         pendingJoinCode = pendingJoinCode,
         error = error,
+        controllerIds = controllers,
+        controlRequests = controlRequests.map { it.toDomain() },
+        hasControl = hasControl,
     )
 
 private fun ConnectionState.toDomain(): RoomConnection =

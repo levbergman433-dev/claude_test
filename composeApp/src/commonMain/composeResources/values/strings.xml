@@ -410,6 +410,17 @@
     <string name="now_playing_style_spotify">Classic</string>
     <string name="now_playing_style_m3_expressive" translatable="false">Material 3 Expressive</string>
     <string name="now_playing_style_apple_music" translatable="false">Apple Music</string>
+    <string name="lt_playing_for_room">Playing for the room</string>
+    <string name="lt_control_denied">Asked the host for controls</string>
+    <string name="lt_control_requests">Want to control playback</string>
+    <string name="lt_allow">Allow</string>
+    <string name="lt_deny">Deny</string>
+    <string name="lt_give_controls">Give playback controls</string>
+    <string name="lt_take_controls">Take playback controls back</string>
+    <string name="lt_can_control">Controls</string>
+    <string name="lt_give_controls_desc">They can play, pause, skip and pick songs for everyone. You stay the host.</string>
+    <string name="lt_guest_controls_hint">Pick any song to suggest it. When the host gives you controls, songs you pick and these buttons play for everyone.</string>
+    <string name="lt_guest_controls_on">You can control playback for everyone</string>
     <string name="lt_now_playing_in_room">Playing in the room</string>
     <string name="lt_playing">Playing</string>
     <string name="lt_paused">Paused</string>

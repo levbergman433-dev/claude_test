@@ -1,5 +1,15 @@
 package com.maxrave.simpmusic.viewModel.base
 
+import com.maxrave.domain.repository.ListenTogetherRepository
+import com.maxrave.domain.data.model.listentogether.RoomControlCommand
+import com.maxrave.domain.data.model.listentogether.RoomTrack
+import com.maxrave.domain.data.model.browse.album.Track
+import com.maxrave.domain.data.entities.SongEntity
+import com.maxrave.domain.utils.toTrack
+import com.maxrave.domain.utils.connectArtists
+import com.maxrave.domain.utils.toListName
+import simpmusic.composeapp.generated.resources.lt_playing_for_room
+import simpmusic.composeapp.generated.resources.lt_suggestion_sent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maxrave.domain.extension.now
@@ -34,6 +44,7 @@ abstract class BaseViewModel :
     ViewModel(),
     KoinComponent {
     protected val mediaPlayerHandler: MediaPlayerHandler by inject<MediaPlayerHandler>()
+    private val listenTogether: ListenTogetherRepository by inject<ListenTogetherRepository>()
     private val prefetchStreamRepository: StreamRepository by inject<StreamRepository>()
     private val prefetchDataStoreManager: DataStoreManager by inject<DataStoreManager>()
 
@@ -146,8 +157,47 @@ abstract class BaseViewModel :
      * Communicate with SimpleMediaServiceHandler to load media item
      */
     fun setQueueData(queueData: QueueData.Data) {
+        // A guest's player follows the room's queue; replacing it here would only be undone by the
+        // next room update, after cutting the music for everyone's-song-but-yours. See loadMediaItem.
+        if (isRoomGuest()) return
         mediaPlayerHandler.reset()
         mediaPlayerHandler.setQueueData(queueData)
+    }
+
+    private fun isRoomGuest(): Boolean = listenTogether.room.value.let { it.inRoom && !it.isHost }
+
+    /**
+     * A guest in a Listen Together room picking a song: instead of playing it on their own (and
+     * falling out of sync), it goes to the room — played straight away when the host has given
+     * this guest controls, otherwise as a suggestion the host can approve.
+     */
+    private fun <T> sendToRoom(anyTrack: T): Boolean {
+        if (!isRoomGuest()) return false
+        val track =
+            when (anyTrack) {
+                is Track -> anyTrack
+                is SongEntity -> anyTrack.toTrack()
+                else -> null
+            } ?: return true
+        listenTogether.sendControl(
+            command = RoomControlCommand.PLAY_NOW,
+            track =
+                RoomTrack(
+                    id = track.videoId,
+                    title = track.title,
+                    artist = track.artists?.toListName()?.connectArtists().orEmpty(),
+                    durationMs = (track.durationSeconds ?: 0) * 1000L,
+                    thumbnail = track.thumbnails?.lastOrNull()?.url.orEmpty(),
+                ),
+        )
+        viewModelScope.launch {
+            makeToast(
+                getString(
+                    if (listenTogether.room.value.hasControl) Res.string.lt_playing_for_room else Res.string.lt_suggestion_sent,
+                ),
+            )
+        }
+        return true
     }
 
     fun <T> loadMediaItem(
@@ -155,6 +205,7 @@ abstract class BaseViewModel :
         type: String,
         index: Int? = null,
     ) {
+        if (sendToRoom(anyTrack)) return
         viewModelScope.launch {
             mediaPlayerHandler.loadMediaItem(
                 anyTrack = anyTrack,

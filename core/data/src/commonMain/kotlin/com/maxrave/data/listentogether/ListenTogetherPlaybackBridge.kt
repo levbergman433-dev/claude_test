@@ -1,5 +1,6 @@
 package com.maxrave.data.listentogether
 
+import com.maxrave.domain.data.model.listentogether.RoomControlCommand
 import com.maxrave.domain.data.model.searchResult.songs.Thumbnail
 import com.maxrave.domain.data.model.searchResult.songs.Artist
 import com.maxrave.common.MERGING_DATA_TYPE
@@ -100,6 +101,39 @@ class ListenTogetherPlaybackBridge(
         scope.launch { publishSeeksAsHost() }
         scope.launch { answerBufferBarrier() }
         scope.launch { enqueueApprovedSuggestions() }
+        scope.launch { carryOutControlCommands() }
+    }
+
+    /**
+     * Host: plays commands from members this host gave control to. They act on THIS player, and
+     * the host-side publishing below carries the result to the room exactly as if the host had
+     * pressed the button — which is the only way, since the server takes transport from the host
+     * alone.
+     */
+    private suspend fun carryOutControlCommands() {
+        repository.controlCommands.collect { cmd ->
+            if (!repository.room.value.isHost) return@collect
+            Logger.i(TAG, "Remote control from ${cmd.fromUserId}: ${cmd.command} ${cmd.arg}")
+            runCatching {
+                when (cmd.command) {
+                    RoomControlCommand.PLAY -> withContext(Dispatchers.Main) { handler.player.play() }
+                    RoomControlCommand.PAUSE -> withContext(Dispatchers.Main) { handler.player.pause() }
+                    RoomControlCommand.NEXT -> withContext(Dispatchers.Main) { handler.player.seekToNext() }
+                    RoomControlCommand.PREVIOUS -> withContext(Dispatchers.Main) { handler.player.seekToPrevious() }
+                    RoomControlCommand.SEEK ->
+                        cmd.arg.toLongOrNull()?.let { ms -> withContext(Dispatchers.Main) { handler.player.seekTo(ms) } }
+                    RoomControlCommand.PLAY_NOW ->
+                        cmd.track?.takeIf { it.id.isNotBlank() }?.let { track ->
+                            withContext(Dispatchers.Main) {
+                                handler.playNext(track.toPlayableTrack())
+                                handler.player.seekToNext()
+                                handler.player.play()
+                            }
+                        }
+                    else -> Unit
+                }
+            }.onFailure { Logger.e(TAG, "Remote control failed: ${it.message}") }
+        }
     }
 
     /**

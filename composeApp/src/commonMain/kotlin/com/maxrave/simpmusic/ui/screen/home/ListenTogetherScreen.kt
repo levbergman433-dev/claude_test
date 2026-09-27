@@ -1,5 +1,17 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.domain.data.model.listentogether.RoomControlCommand
+import com.maxrave.simpmusic.ui.icon.SkipPrevious
+import com.maxrave.simpmusic.ui.icon.SkipNext
+import com.maxrave.simpmusic.ui.icon.Pause
+import com.maxrave.simpmusic.ui.icon.PlayArrow
+import simpmusic.composeapp.generated.resources.lt_control_requests
+import simpmusic.composeapp.generated.resources.lt_can_control
+import simpmusic.composeapp.generated.resources.lt_give_controls
+import simpmusic.composeapp.generated.resources.lt_take_controls
+import simpmusic.composeapp.generated.resources.lt_give_controls_desc
+import simpmusic.composeapp.generated.resources.lt_guest_controls_on
+import simpmusic.composeapp.generated.resources.lt_guest_controls_hint
 import coil3.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import com.maxrave.domain.data.model.listentogether.RoomTrack
@@ -312,6 +324,11 @@ fun ListenTogetherScreen(
     managing?.let { member ->
         MemberActionDialog(
             member = member,
+            hasControl = member.userId in state.controllerIds,
+            onToggleControl = {
+                viewModel.setControl(member.userId, member.userId !in state.controllerIds)
+                managing = null
+            },
             onTransferHost = {
                 viewModel.transferHost(member.userId)
                 managing = null
@@ -362,18 +379,37 @@ private fun ColumnScope.WorkArea(
                     JoinRequests(state.joinRequests, viewModel::approveJoin, viewModel::rejectJoin)
                 }
             }
+            AnimatedVisibility(visible = state.isHost && state.controlRequests.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    JoinRequests(
+                        requests = state.controlRequests,
+                        onApprove = { viewModel.setControl(it, true) },
+                        onReject = { viewModel.setControl(it, false) },
+                        title = stringResource(Res.string.lt_control_requests),
+                    )
+                }
+            }
             AnimatedVisibility(visible = state.isHost && state.suggestions.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Suggestions(state.suggestions, viewModel::approveSuggestion, viewModel::rejectSuggestion)
                 }
             }
             state.currentTrack?.let { track ->
-                RoomNowPlaying(track = track, isPlaying = state.isPlaying, queueSize = state.queue.size)
+                RoomNowPlaying(
+                    track = track,
+                    isPlaying = state.isPlaying,
+                    queueSize = state.queue.size,
+                    // Guests get transport buttons: carried out by the host's app when the host has
+                    // given them controls, and a request for controls when not.
+                    onControl = if (state.isHost) null else viewModel::control,
+                    hasControl = state.hasControl,
+                )
             }
             Members(
                 members = state.members,
                 selfId = state.selfUserId,
                 canManage = state.isHost,
+                controllerIds = state.controllerIds,
                 onManage = onManage,
             )
             FooterActions(onLeave = viewModel::leaveRoom, onSettings = onSettings)
@@ -743,8 +779,9 @@ private fun JoinRequests(
     requests: List<RoomJoinRequest>,
     onApprove: (String) -> Unit,
     onReject: (String) -> Unit,
+    title: String = stringResource(Res.string.lt_join_requests),
 ) {
-    SectionHeader(stringResource(Res.string.lt_join_requests), requests.size)
+    SectionHeader(title, requests.size)
     requests.forEach { request ->
         Surface {
             Row(
@@ -816,6 +853,8 @@ private fun RoomNowPlaying(
     track: RoomTrack,
     isPlaying: Boolean,
     queueSize: Int,
+    onControl: ((String) -> Unit)?,
+    hasControl: Boolean,
 ) {
     SectionHeader(stringResource(Res.string.lt_now_playing_in_room), null)
     Surface {
@@ -860,6 +899,25 @@ private fun RoomNowPlaying(
             }
         }
     }
+    if (onControl != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlyphButton(SimpIcons.SkipPrevious) { onControl(RoomControlCommand.PREVIOUS) }
+            GlyphButton(if (isPlaying) SimpIcons.Pause else SimpIcons.PlayArrow) {
+                onControl(if (isPlaying) RoomControlCommand.PAUSE else RoomControlCommand.PLAY)
+            }
+            GlyphButton(SimpIcons.SkipNext) { onControl(RoomControlCommand.NEXT) }
+        }
+        Text(
+            stringResource(if (hasControl) Res.string.lt_guest_controls_on else Res.string.lt_guest_controls_hint),
+            style = typo().bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 @Composable
@@ -867,6 +925,7 @@ private fun Members(
     members: List<RoomMember>,
     selfId: String,
     canManage: Boolean,
+    controllerIds: Set<String>,
     onManage: (RoomMember) -> Unit,
 ) {
     SectionHeader(stringResource(Res.string.lt_in_room), members.size)
@@ -914,6 +973,20 @@ private fun Members(
                                     stringResource(Res.string.lt_host_badge),
                                     style = typo().labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                        }
+                        if (member.userId in controllerIds) {
+                            Box(
+                                Modifier
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.16f))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    stringResource(Res.string.lt_can_control),
+                                    style = typo().labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary,
                                 )
                             }
                         }
@@ -1014,6 +1087,8 @@ private fun TextAction(
 @Composable
 private fun MemberActionDialog(
     member: RoomMember,
+    hasControl: Boolean,
+    onToggleControl: () -> Unit,
     onTransferHost: () -> Unit,
     onKick: () -> Unit,
     onBlock: () -> Unit,
@@ -1040,6 +1115,14 @@ private fun MemberActionDialog(
             }
             Spacer(Modifier.height(16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Full playback control while the room stays yours: their picks and transport
+                // buttons are carried out by this phone.
+                DialogAction(
+                    stringResource(if (hasControl) Res.string.lt_take_controls else Res.string.lt_give_controls),
+                    stringResource(Res.string.lt_give_controls_desc),
+                    MaterialTheme.colorScheme.primary,
+                    onToggleControl,
+                )
                 DialogAction(
                     stringResource(Res.string.lt_transfer_host),
                     stringResource(Res.string.lt_transfer_host_desc),

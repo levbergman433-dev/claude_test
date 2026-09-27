@@ -67,6 +67,12 @@ data class ListenTogetherRoom(
     /** The code we asked to join and have not heard back about. */
     val pendingJoinCode: String? = null,
     val error: String? = null,
+    /** Host: members allowed to control playback without being host. */
+    val controllerIds: Set<String> = emptySet(),
+    /** Host: members asking for that control. */
+    val controlRequests: List<RoomJoinRequest> = emptyList(),
+    /** Guest: whether the host lets this client control playback. */
+    val hasControl: Boolean = false,
 ) {
     val inRoom: Boolean get() = roomCode != null
     val isConnected: Boolean get() = connection is RoomConnection.Connected
@@ -74,4 +80,21 @@ data class ListenTogetherRoom(
     /** Names, not ids — "Waiting for Long" is the only useful phrasing of the barrier. */
     val waitingForNames: List<String>
         get() = waitingFor.mapNotNull { id -> members.firstOrNull { it.userId == id }?.username }
+}
+
+/** A playback command from a member the host lets control the room. */
+data class RoomControlCommand(
+    val fromUserId: String,
+    val command: String,
+    val arg: String,
+    val track: RoomTrack?,
+) {
+    companion object {
+        const val PLAY = "play"
+        const val PAUSE = "pause"
+        const val NEXT = "next"
+        const val PREVIOUS = "previous"
+        const val SEEK = "seek"
+        const val PLAY_NOW = "playnow"
+    }
 }
