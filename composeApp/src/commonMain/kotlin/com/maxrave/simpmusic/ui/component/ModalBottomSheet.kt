@@ -81,7 +81,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -309,9 +308,9 @@ fun InfoPlayerBottomSheet(
         )
 
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
-    val songEntity by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsState(null)
-    val format by sharedViewModel.format.collectAsState(null)
-    val extractSource by sharedViewModel.extractSource.collectAsState()
+    val songEntity by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsStateWithLifecycle(null)
+    val format by sharedViewModel.format.collectAsStateWithLifecycle(null)
+    val extractSource by sharedViewModel.extractSource.collectAsStateWithLifecycle()
     val downloadProgress by sharedViewModel.downloadFileProgress.collectAsStateWithLifecycle()
 
     ModalBottomSheet(
@@ -962,7 +961,7 @@ fun QueueBottomSheet(
     var shouldShowQueueItemBottomSheet by rememberSaveable { mutableStateOf(false) }
     var clickMoreIndex by rememberSaveable { mutableIntStateOf(0) }
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
-    val songEntity by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsState(null)
+    val songEntity by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsStateWithLifecycle(null)
     val queueData by musicServiceHandler.queueData.collectAsStateWithLifecycle()
     val queue by remember {
         derivedStateOf {
@@ -974,7 +973,7 @@ fun QueueBottomSheet(
             queueData?.queueState ?: QueueData.StateSource.STATE_CREATED
         }
     }
-    val endlessQueueEnable by remember { dataStoreManager.endlessQueue.map { it == DataStoreManager.TRUE } }.collectAsState(false)
+    val endlessQueueEnable by remember { dataStoreManager.endlessQueue.map { it == DataStoreManager.TRUE } }.collectAsStateWithLifecycle(false)
 
     val shouldLoadMore =
         remember {
@@ -1460,7 +1459,7 @@ fun NowPlayingBottomSheet(
     var sleepTimerWarning by remember { mutableStateOf(false) }
     var isBottomSheetVisible by rememberSaveable { mutableStateOf(false) }
     var changePlaybackSpeedPitch by remember { mutableStateOf(false) }
-    val crossfadeEnabled by dataStoreManager.crossfadeEnabled.collectAsState(DataStoreManager.FALSE)
+    val crossfadeEnabled by dataStoreManager.crossfadeEnabled.collectAsStateWithLifecycle(DataStoreManager.FALSE)
 
     LaunchedEffect(uiState) {
         if (uiState.songUIState.videoId.isNotEmpty() && !isBottomSheetVisible) {
@@ -1473,8 +1472,8 @@ fun NowPlayingBottomSheet(
     }
 
     if (changePlaybackSpeedPitch) {
-        val playbackSpeed by dataStoreManager.playbackSpeed.collectAsState(1f)
-        val pitch by dataStoreManager.pitch.collectAsState(0)
+        val playbackSpeed by dataStoreManager.playbackSpeed.collectAsStateWithLifecycle(1f)
+        val pitch by dataStoreManager.pitch.collectAsStateWithLifecycle(0)
         PlaybackSpeedPitchBottomSheet(
             onDismiss = { changePlaybackSpeedPitch = false },
             playbackSpeed = playbackSpeed,

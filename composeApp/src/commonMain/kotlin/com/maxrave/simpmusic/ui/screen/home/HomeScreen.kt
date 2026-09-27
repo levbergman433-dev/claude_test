@@ -265,6 +265,11 @@ fun HomeScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberLazyListState()
     val isScrollingUp by scrollState.isScrollingUp()
+    // Derived, so scrolling only recomposes when the answer flips — reading the offset directly
+    // in composition rebuilt the whole screen on every scroll frame.
+    val isListAtTop by remember {
+        derivedStateOf { scrollState.firstVisibleItemIndex == 0 && scrollState.firstVisibleItemScrollOffset == 0 }
+    }
     val accountInfo by viewModel.accountInfo.collectAsStateWithLifecycle()
     val badgeEnabled by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ENABLED) }.collectAsStateWithLifecycle(null)
     val badgeName by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_NAME) }.collectAsStateWithLifecycle(null)
@@ -943,7 +948,7 @@ fun HomeScreen(
             }
         }
         AnimatedContent(
-            targetState = scrollState.firstVisibleItemIndex == 0 && scrollState.firstVisibleItemScrollOffset == 0,
+            targetState = isListAtTop,
             transitionSpec = {
                 fadeIn(tween(300)).togetherWith(fadeOut(tween(300)))
             },

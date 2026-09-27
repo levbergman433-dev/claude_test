@@ -15,7 +15,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -84,8 +83,8 @@ fun RecentlySongsScreen(
     var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
 
     val recentlyItems = viewModel.recentlySongs.collectAsLazyPagingItems()
-    val playingTrack by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsState(initial = null)
-    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsState(initial = false)
+    val playingTrack by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsStateWithLifecycle(initial = null)
+    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsStateWithLifecycle(initial = false)
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(

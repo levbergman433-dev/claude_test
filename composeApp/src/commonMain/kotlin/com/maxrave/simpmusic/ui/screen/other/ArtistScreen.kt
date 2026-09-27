@@ -47,7 +47,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -163,7 +162,7 @@ fun ArtistScreen(
 
     val playingTrack by remember {
         sharedViewModel.nowPlayingState.map { it?.track?.videoId }
-    }.collectAsState(null)
+    }.collectAsStateWithLifecycle(null)
 
     // Choosing song to show Bottom sheet
     var choosingTrack by remember {

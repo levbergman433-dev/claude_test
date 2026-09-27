@@ -61,7 +61,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -244,7 +243,7 @@ fun LocalPlaylistScreen(
             lazyState.firstVisibleItemIndex == 0 && lazyState.firstVisibleItemScrollOffset < pinBarAfterPx
         }
     }
-    val downloadState by remember { viewModel.uiState.map { it.downloadState } }.collectAsState(
+    val downloadState by remember { viewModel.uiState.map { it.downloadState } }.collectAsStateWithLifecycle(
         initial = DownloadState.STATE_NOT_DOWNLOADED,
     )
     var shouldHideTopBar by rememberSaveable { mutableStateOf(false) }
@@ -268,8 +267,8 @@ fun LocalPlaylistScreen(
     val playingTrack by sharedViewModel.nowPlayingState
         .mapLatest {
             it?.songEntity
-        }.collectAsState(initial = null)
-    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsState(initial = false)
+        }.collectAsStateWithLifecycle(initial = null)
+    val isPlaying by remember { sharedViewModel.controllerState.map { it.isPlaying } }.collectAsStateWithLifecycle(initial = false)
 
     val queueData by sharedViewModel.getQueueDataState().collectAsStateWithLifecycle()
     val playingPlaylistId by remember {
@@ -278,7 +277,7 @@ fun LocalPlaylistScreen(
         }
     }
 
-    val suggestedTracks by remember { viewModel.uiState.map { it.suggestions?.songs ?: emptyList() } }.collectAsState(initial = emptyList())
+    val suggestedTracks by remember { viewModel.uiState.map { it.suggestions?.songs ?: emptyList() } }.collectAsStateWithLifecycle(initial = emptyList())
     val suggestionsLoading by viewModel.loading.collectAsStateWithLifecycle()
     var showSyncAlertDialog by rememberSaveable { mutableStateOf(false) }
     var showUnsyncAlertDialog by rememberSaveable { mutableStateOf(false) }

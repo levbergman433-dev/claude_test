@@ -32,7 +32,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -179,7 +178,7 @@ fun AnalyticsScreen(
     // this year's own figures to say what is waiting, so there is no cheaper question to ask —
     // and the banner must be absent, not empty, when the year is too thin to fill a reel.
     val wrappedState by wrappedViewModel.uiState.collectAsStateWithLifecycle()
-    val playingTrack by remember { sharedViewModel.nowPlayingState.map { it?.track?.videoId } }.collectAsState(null)
+    val playingTrack by remember { sharedViewModel.nowPlayingState.map { it?.track?.videoId } }.collectAsStateWithLifecycle(null)
 
     // Which header is used depends on the window's aspect ratio alone, exactly as on Album and
     // Playlist: a portrait window gets the edge-to-edge artwork header, a landscape one gets the
