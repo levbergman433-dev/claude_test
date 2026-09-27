@@ -171,6 +171,11 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
 import com.maxrave.common.LIMIT_CACHE_SIZE
+import simpmusic.composeapp.generated.resources.open_youtube_links_description
+import simpmusic.composeapp.generated.resources.open_youtube_links
+import simpmusic.composeapp.generated.resources.open_links_header
+import com.maxrave.simpmusic.expect.supportsLinkHandlingSettings
+import com.maxrave.simpmusic.expect.openLinkHandlingSettings
 import com.maxrave.simpmusic.ui.theme.MENU_STYLE_FROSTED
 import com.maxrave.simpmusic.ui.theme.MENU_STYLE_LIQUID
 import com.maxrave.common.NetworkQuality
@@ -2374,6 +2379,25 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.use_ai_translation_description),
                     switch = (useAITranslation to { viewModel.setAITranslation(it) }),
                     isEnable = isHasApiKey,
+                )
+            }
+        }
+        // Android only lets a web link skip the chooser for apps the site owner verified, and only
+        // Google can verify youtube.com, so shared YouTube Music links open the browser or YouTube
+        // Music. The system does let the user allow them for this app by hand; this goes there.
+        if (category == SettingsCategory.SERVICES.name && supportsLinkHandlingSettings()) item(key = "links") {
+            Column {
+                Text(
+                    text = stringResource(Res.string.open_links_header),
+                    style = typo().labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                SettingItem(
+                    title = stringResource(Res.string.open_youtube_links),
+                    subtitle = stringResource(Res.string.open_youtube_links_description),
+                    smallSubtitle = true,
+                    onClick = { openLinkHandlingSettings() },
                 )
             }
         }

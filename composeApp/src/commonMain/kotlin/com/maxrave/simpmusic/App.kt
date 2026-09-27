@@ -381,6 +381,19 @@ fun App(
                         }
                     }
 
+                    // music.youtube.com/browse/<id>: albums (MPREb_…), artists (UC…), playlists (VL…)
+                    "browse" -> {
+                        val browseId = data.pathSegments.getOrNull(1)
+                        viewModel.setIntent(null)
+                        when {
+                            browseId == null -> Unit
+                            browseId.startsWith("MPRE") -> navController.navigate(AlbumDestination(browseId = browseId))
+                            browseId.startsWith("UC") -> navController.navigate(ArtistDestination(channelId = browseId))
+                            browseId.startsWith("VL") -> navController.navigate(PlaylistDestination(playlistId = browseId))
+                            else -> viewModel.makeToast(getString(Res.string.this_link_is_not_supported))
+                        }
+                    }
+
                     else -> {
                         when {
                             path == "watch" -> data.getQueryParameter("v")

@@ -116,6 +116,8 @@
                 <data android:pathPrefix="/c/" />
                 <!-- playlist prefix -->
                 <data android:pathPrefix="/playlist" />
+                <!-- YouTube Music album / artist / playlist pages: /browse/MPREb_…, /browse/UC…, /browse/VL… -->
+                <data android:pathPrefix="/browse/" />
             </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
