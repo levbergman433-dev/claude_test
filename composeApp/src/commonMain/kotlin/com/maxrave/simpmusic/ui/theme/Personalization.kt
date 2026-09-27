@@ -38,6 +38,9 @@ object PersonalizationKeys {
     const val PAGE_IMAGE = "page_image"
     const val PAGE_IMAGE_DIM = "page_image_dim"
 
+    /** Text on the picture: "AUTO" (by its brightness), "LIGHT" (white) or "DARK". */
+    const val PAGE_IMAGE_TEXT = "page_image_text"
+
     const val BADGE_ENABLED = "profile_badge_enabled"
     const val BADGE_NAME = "profile_badge_name"
     const val BADGE_NAME_COLOR = "profile_badge_name_color"

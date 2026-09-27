@@ -27,12 +27,11 @@ import kotlin.math.roundToInt
 @Immutable
 class PageImage(
     val brush: Brush,
-    /** The picture's average colour, dim included: what surfaces and contrast derive from. */
+    /** The picture's average colour, veil included: what surfaces derive from. */
     val base: Color,
+    /** True when text on it is light (a dark theme). */
+    val isDark: Boolean,
 ) {
-    /** Light text unless the picture is clearly bright; photos vary too much to cut at WCAG's 18%. */
-    val isDark: Boolean get() = base.luminance() < 0.4f
-
     companion object {
         /** Longest side kept in memory: enough for a phone or a laptop window, not a 48 MP photo. */
         private const val MAX_SIDE = 1600
@@ -42,21 +41,31 @@ class PageImage(
             val longest = max(image.width, image.height)
             if (longest <= MAX_SIDE) return image
             val k = MAX_SIDE.toFloat() / longest
-            return renderCover(image, IntSize((image.width * k).roundToInt(), (image.height * k).roundToInt()), 0f)
+            return renderCover(image, IntSize((image.width * k).roundToInt(), (image.height * k).roundToInt()), Color.Transparent)
         }
 
-        /** Builds the page image from a decoded picture, with a black veil of [dim] (0..1) baked in. */
+        /**
+         * Builds the page image from a decoded picture with a veil of [dim] (0..1) baked in.
+         *
+         * [lightText] forces white (true) or dark (false) text; null picks by the picture's own
+         * brightness. The veil follows the text: black under white text, white under dark text, so
+         * dimming always pushes the picture away from the text colour instead of towards it.
+         */
         fun from(
             image: ImageBitmap,
             dim: Float,
+            lightText: Boolean?,
         ): PageImage {
-            val veil = dim.coerceIn(0f, 0.9f)
-            return PageImage(brush = CoverImageBrush(image, veil), base = averageColour(image, veil))
+            val amount = dim.coerceIn(0f, 0.9f)
+            // Light text unless the picture is clearly bright; photos vary too much to cut at WCAG's 18%.
+            val dark = lightText ?: (averageColour(image, Color.Transparent).luminance() < 0.45f)
+            val veil = (if (dark) Color.Black else Color.White).copy(alpha = amount)
+            return PageImage(brush = CoverImageBrush(image, veil), base = averageColour(image, veil), isDark = dark)
         }
 
         private fun averageColour(
             image: ImageBitmap,
-            veil: Float,
+            veil: Color,
         ): Color {
             val side = 16
             val small = renderCover(image, IntSize(side, side), veil)
@@ -85,7 +94,7 @@ class PageImage(
  */
 private class CoverImageBrush(
     private val image: ImageBitmap,
-    private val veil: Float,
+    private val veil: Color,
 ) : ShaderBrush() {
     private var cachedSize: IntSize? = null
     private var cachedShader: Shader? = null
@@ -107,7 +116,7 @@ private class CoverImageBrush(
 private fun renderCover(
     image: ImageBitmap,
     target: IntSize,
-    veil: Float,
+    veil: Color,
 ): ImageBitmap {
     val out = ImageBitmap(target.width, target.height)
     val canvas = Canvas(out)
@@ -123,13 +132,13 @@ private fun renderCover(
         dstSize = target,
         paint = Paint().apply { filterQuality = FilterQuality.Medium },
     )
-    if (veil > 0f) {
+    if (veil.alpha > 0f) {
         canvas.drawRect(
             0f,
             0f,
             target.width.toFloat(),
             target.height.toFloat(),
-            Paint().apply { color = Color.Black.copy(alpha = veil) },
+            Paint().apply { color = veil },
         )
     }
     return out

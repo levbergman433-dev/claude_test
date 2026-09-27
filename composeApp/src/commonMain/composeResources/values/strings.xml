@@ -978,14 +978,16 @@
     <string name="menu_button_size_default">Default</string>
     <string name="menu_button_size_large">Large</string>
     <string name="menu_button_size_xl">Extra large</string>
-    <string name="page_image">Background image</string>
-    <string name="page_image_none">None — tap to choose a picture</string>
-    <string name="page_image_set">Custom picture — tap to change</string>
+    <string name="page_image">Picture</string>
+    <string name="page_image_set">Tap to choose a different picture</string>
     <string name="page_image_dim">Background dim</string>
     <string name="page_image_dim_none">None</string>
     <string name="page_image_dim_light">Light</string>
     <string name="page_image_dim_medium">Medium</string>
     <string name="page_image_dim_strong">Strong</string>
-    <string name="page_image_remove">Remove background image</string>
-    <string name="page_image_remove_subtitle">Go back to the colour theme</string>
+    <string name="theme_mode_image">Picture</string>
+    <string name="page_image_text">Text colour</string>
+    <string name="page_image_text_auto">Automatic</string>
+    <string name="page_image_text_light">White</string>
+    <string name="page_image_text_dark">Dark</string>
 </resources>

@@ -28,14 +28,13 @@ class DiscordRPC(
             name = APP_NAME,
             details = song.title,
             state = song.artistName?.joinToString(", "),
-            largeImage = song.thumbnails?.let { RpcImage.ExternalImage(it) },
+            largeImage = song.thumbnails?.let { RpcImage.ExternalImage(it) } ?: RpcImage.ExternalImage(APP_ICON),
             smallImage = RpcImage.ExternalImage(APP_ICON),
             largeText = song.albumName,
             smallText = song.artistName?.firstOrNull(),
             buttons =
                 listOf(
-                    "Listen on SimpMusic" to "https://simpmusic.org/app/watch?v=${song.videoId}",
-                    "Visit SimpMusic" to "https://github.com/maxrave-dev/SimpMusic",
+                    "Listen on YouTube Music" to "https://music.youtube.com/watch?v=${song.videoId}",
                 ),
             type = Type.LISTENING,
             since = currentTime,
@@ -47,8 +46,10 @@ class DiscordRPC(
 
     companion object {
         private const val APPLICATION_ID = "1271273225120125040"
-        private const val APP_NAME: String = "SimpMusic"
+        private const val APP_NAME: String = "Tunes"
+        // The Tunes launcher icon, rendered to PNG (asset/tunes_icon.png). Discord proxies it through
+        // the application's external-assets endpoint, so it must be a public URL.
         private const val APP_ICON: String =
-            "https://fra.cloud.appwrite.io/v1/storage/buckets/683f1f620010ba0fa5b1/files/69007bc8001a28a7cea8/view?project=67ec0369002bd8a96885"
+            "https://raw.githubusercontent.com/levbergman433-dev/claude_test/refs/heads/claude/zealous-faraday-9vtkak/asset/tunes_icon.png"
     }
 }

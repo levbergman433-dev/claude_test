@@ -199,8 +199,10 @@ fun App(
     // or when none is set, so the page simply shows the colour theme until it is ready.
     val pageImageUri by remember { viewModel.stringPref(PersonalizationKeys.PAGE_IMAGE) }.collectAsStateWithLifecycle(null)
     val pageImageDimRaw by remember { viewModel.stringPref(PersonalizationKeys.PAGE_IMAGE_DIM) }.collectAsStateWithLifecycle(null)
-    val pageImageBitmap by produceState<ImageBitmap?>(null, pageImageUri) {
-        val uri = pageImageUri
+    val pageImageTextRaw by remember { viewModel.stringPref(PersonalizationKeys.PAGE_IMAGE_TEXT) }.collectAsStateWithLifecycle(null)
+    val pageImageBitmap by produceState<ImageBitmap?>(null, pageImageUri, themeMode) {
+        // Only decoded while the Picture theme is chosen, so the bitmap is not held otherwise.
+        val uri = pageImageUri?.takeIf { themeMode == DataStoreManager.THEME_MODE_IMAGE }
         value =
             if (uri.isNullOrBlank()) {
                 null
@@ -211,8 +213,14 @@ fun App(
             }
     }
     val pageImage =
-        remember(pageImageBitmap, pageImageDimRaw) {
-            pageImageBitmap?.let { PageImage.from(it, (pageImageDimRaw?.toIntOrNull() ?: 35) / 100f) }
+        remember(pageImageBitmap, pageImageDimRaw, pageImageTextRaw) {
+            val lightText =
+                when (pageImageTextRaw) {
+                    "LIGHT" -> true
+                    "DARK" -> false
+                    else -> null
+                }
+            pageImageBitmap?.let { PageImage.from(it, (pageImageDimRaw?.toIntOrNull() ?: 35) / 100f, lightText) }
         }
     val accentFill =
         remember(themeColorSource, accentFillRaw) {

@@ -171,15 +171,17 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
 import com.maxrave.common.LIMIT_CACHE_SIZE
-import simpmusic.composeapp.generated.resources.page_image_remove_subtitle
-import simpmusic.composeapp.generated.resources.page_image_remove
+import simpmusic.composeapp.generated.resources.page_image_text_dark
+import simpmusic.composeapp.generated.resources.page_image_text_light
+import simpmusic.composeapp.generated.resources.page_image_text_auto
+import simpmusic.composeapp.generated.resources.page_image_text
+import simpmusic.composeapp.generated.resources.theme_mode_image
 import simpmusic.composeapp.generated.resources.page_image_dim_strong
 import simpmusic.composeapp.generated.resources.page_image_dim_medium
 import simpmusic.composeapp.generated.resources.page_image_dim_light
 import simpmusic.composeapp.generated.resources.page_image_dim_none
 import simpmusic.composeapp.generated.resources.page_image_dim
 import simpmusic.composeapp.generated.resources.page_image_set
-import simpmusic.composeapp.generated.resources.page_image_none
 import simpmusic.composeapp.generated.resources.page_image
 import com.maxrave.simpmusic.expect.ui.persistPickedImage
 import com.maxrave.data.io.readLocalImageBytes
@@ -704,6 +706,7 @@ fun SettingScreen(
     val menuStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_STYLE) }.collectAsStateWithLifecycle(null)
     val menuButtonSizePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_BUTTON_SIZE) }.collectAsStateWithLifecycle(null)
     val pageImagePref by remember { sharedViewModel.stringPref(PersonalizationKeys.PAGE_IMAGE) }.collectAsStateWithLifecycle(null)
+    val pageImageTextPref by remember { sharedViewModel.stringPref(PersonalizationKeys.PAGE_IMAGE_TEXT) }.collectAsStateWithLifecycle(null)
     val pageImageDimPref by remember { sharedViewModel.stringPref(PersonalizationKeys.PAGE_IMAGE_DIM) }.collectAsStateWithLifecycle(null)
     // The picked file is copied into the app's own storage: the picker's uri loses its read
     // permission on Android once the app restarts, and the background must survive that.
@@ -714,6 +717,7 @@ fun SettingScreen(
                     val bytes = readLocalImageBytes(uri) ?: return@launch
                     val saved = persistPickedImage(bytes, "page_bg_${bytes.contentHashCode().toUInt()}.jpg") ?: return@launch
                     sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE, saved)
+                    sharedViewModel.setThemeMode(DataStoreManager.THEME_MODE_IMAGE)
                 }
             }
         }
@@ -857,6 +861,7 @@ fun SettingScreen(
                         DataStoreManager.THEME_MODE_MOCHA to stringResource(Res.string.theme_mode_mocha),
                         DataStoreManager.THEME_MODE_SEPIA to stringResource(Res.string.theme_mode_sepia),
                         DataStoreManager.THEME_MODE_CUSTOM to stringResource(Res.string.theme_mode_custom),
+                        DataStoreManager.THEME_MODE_IMAGE to stringResource(Res.string.theme_mode_image),
                     )
                 SettingItem(
                     title = stringResource(Res.string.theme),
@@ -876,6 +881,9 @@ fun SettingScreen(
                                             // Custom is applied from its editor, once there is a fill to show.
                                             if (it == DataStoreManager.THEME_MODE_CUSTOM) {
                                                 showPageFillDialog = true
+                                            } else if (it == DataStoreManager.THEME_MODE_IMAGE && pageImagePref.isNullOrBlank()) {
+                                                // No picture yet: the theme switches once one is picked.
+                                                pageImagePicker.launch()
                                             } else {
                                                 sharedViewModel.setThemeMode(it)
                                             }
@@ -886,6 +894,74 @@ fun SettingScreen(
                         )
                     },
                 )
+                if (themeMode == DataStoreManager.THEME_MODE_IMAGE) {
+                    SettingItem(
+                        title = stringResource(Res.string.page_image),
+                        subtitle = stringResource(Res.string.page_image_set),
+                        onClick = { pageImagePicker.launch() },
+                    )
+                    val dimLabels =
+                        listOf(
+                            "0" to stringResource(Res.string.page_image_dim_none),
+                            "20" to stringResource(Res.string.page_image_dim_light),
+                            "35" to stringResource(Res.string.page_image_dim_medium),
+                            "55" to stringResource(Res.string.page_image_dim_strong),
+                        )
+                    val currentDim = pageImageDimPref ?: "35"
+                    SettingItem(
+                        title = stringResource(Res.string.page_image_dim),
+                        subtitle = dimLabels.firstOrNull { it.first == currentDim }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.page_image_dim) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = dimLabels.map { (it.first == currentDim) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            dimLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE_DIM, it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    val textLabels =
+                        listOf(
+                            "AUTO" to stringResource(Res.string.page_image_text_auto),
+                            "LIGHT" to stringResource(Res.string.page_image_text_light),
+                            "DARK" to stringResource(Res.string.page_image_text_dark),
+                        )
+                    val currentText = pageImageTextPref ?: "AUTO"
+                    SettingItem(
+                        title = stringResource(Res.string.page_image_text),
+                        subtitle = textLabels.firstOrNull { it.first == currentText }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.page_image_text) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = textLabels.map { (it.first == currentText) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            textLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE_TEXT, it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                }
                 // The Apple Music treatments ARE the blur — the frosted page behind the player, and
                 // the depth of field on the lyrics — and Modifier.blur is a documented no-op below
                 // Android 12, so on an older device they render as a flat, wrong-looking version of
@@ -1121,52 +1197,6 @@ fun SettingScreen(
                         )
                     },
                 )
-                SettingItem(
-                    title = stringResource(Res.string.page_image),
-                    subtitle =
-                        stringResource(
-                            if (pageImagePref.isNullOrBlank()) Res.string.page_image_none else Res.string.page_image_set,
-                        ),
-                    onClick = { pageImagePicker.launch() },
-                )
-                if (!pageImagePref.isNullOrBlank()) {
-                    val dimLabels =
-                        listOf(
-                            "0" to stringResource(Res.string.page_image_dim_none),
-                            "20" to stringResource(Res.string.page_image_dim_light),
-                            "35" to stringResource(Res.string.page_image_dim_medium),
-                            "55" to stringResource(Res.string.page_image_dim_strong),
-                        )
-                    val currentDim = pageImageDimPref ?: "35"
-                    SettingItem(
-                        title = stringResource(Res.string.page_image_dim),
-                        subtitle = dimLabels.firstOrNull { it.first == currentDim }?.second ?: "",
-                        onClick = {
-                            viewModel.setAlertData(
-                                SettingAlertState(
-                                    title = runBlocking { getString(Res.string.page_image_dim) },
-                                    selectOne =
-                                        SettingAlertState.SelectData(
-                                            listSelect = dimLabels.map { (it.first == currentDim) to it.second },
-                                        ),
-                                    confirm =
-                                        runBlocking { getString(Res.string.change) } to { state ->
-                                            val selected = state.selectOne?.getSelected()
-                                            dimLabels.firstOrNull { it.second == selected }?.first?.let {
-                                                sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE_DIM, it)
-                                            }
-                                        },
-                                    dismiss = runBlocking { getString(Res.string.cancel) },
-                                ),
-                            )
-                        },
-                    )
-                    SettingItem(
-                        title = stringResource(Res.string.page_image_remove),
-                        subtitle = stringResource(Res.string.page_image_remove_subtitle),
-                        onClick = { sharedViewModel.setStringPref(PersonalizationKeys.PAGE_IMAGE, "") },
-                    )
-                }
                 val menuStyleLabels =
                     listOf(
                         MENU_STYLE_LIQUID to stringResource(Res.string.menu_style_liquid),

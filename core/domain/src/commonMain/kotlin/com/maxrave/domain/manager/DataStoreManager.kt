@@ -655,6 +655,9 @@ interface DataStoreManager {
         // User-built page fill (solid or gradient), stored under the "page_fill" string key.
         const val THEME_MODE_CUSTOM = "CUSTOM"
 
+        // A picture as the page, stored under the "page_image" string key.
+        const val THEME_MODE_IMAGE = "IMAGE"
+
         const val THEME_COLOR_DEFAULT = "DEFAULT"
         const val THEME_COLOR_WALLPAPER = "WALLPAPER"
         const val THEME_COLOR_CUSTOM = "CUSTOM"
