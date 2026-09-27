@@ -24,6 +24,9 @@ object PersonalizationKeys {
     // Custom accent fill ("Theme color" > Gradient)
     const val ACCENT_FILL = "accent_fill"
 
+    // Size of the ⋮ menu button in the Home top bar: "M", "L" (default) or "XL".
+    const val MENU_BUTTON_SIZE = "menu_button_size"
+
     const val BADGE_ENABLED = "profile_badge_enabled"
     const val BADGE_NAME = "profile_badge_name"
     const val BADGE_NAME_COLOR = "profile_badge_name_color"

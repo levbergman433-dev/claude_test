@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.GlassDropdownMenu
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -107,7 +108,7 @@ fun AutoEqPicker(
             )
         }
 
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        GlassDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             Column(modifier = Modifier.width(320.dp).padding(horizontal = 12.dp)) {
                 OutlinedTextField(
                     value = query,

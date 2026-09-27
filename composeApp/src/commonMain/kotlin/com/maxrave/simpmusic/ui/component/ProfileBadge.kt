@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.component
 
+import com.maxrave.simpmusic.ui.theme.ColorFill
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -87,7 +88,7 @@ enum class BadgeFont {
 fun ProfileBadge(
     name: String,
     avatar: String?,
-    nameColor: Color,
+    nameFill: ColorFill,
     font: BadgeFont,
     icon: BadgeIcon,
     iconColor: Color,
@@ -126,10 +127,13 @@ fun ProfileBadge(
                     fontFamily = family,
                     fontSize = if (font == BadgeFont.SCRIPT) 22.sp else 17.sp,
                     fontWeight = if (font == BadgeFont.SCRIPT) FontWeight.Normal else FontWeight.SemiBold,
-                    color = nameColor,
+                    color = nameFill.first,
                     // A soft outline so the name reads over the picture and over any page colour.
                     shadow = Shadow(Color.Black.copy(alpha = 0.7f), Offset(0f, 1.5f), 4f),
-                ),
+                ).let { base ->
+                    // A gradient name is painted with the brush instead of one colour.
+                    if (nameFill.gradient) base.copy(brush = nameFill.brush) else base
+                },
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.offset(x = (-10).dp, y = 2.dp),

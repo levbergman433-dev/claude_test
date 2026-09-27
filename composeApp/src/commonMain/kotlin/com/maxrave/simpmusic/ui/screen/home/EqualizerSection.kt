@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.GlassDropdownMenu
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -156,7 +157,7 @@ fun EqualizerSection(viewModel: SettingsViewModel = koinViewModel()) {
                         modifier = Modifier.size(20.dp),
                     )
                 }
-                DropdownMenu(expanded = presetMenuOpen, onDismissRequest = { presetMenuOpen = false }) {
+                GlassDropdownMenu(expanded = presetMenuOpen, onDismissRequest = { presetMenuOpen = false }) {
                     EQUALIZER_PRESETS.forEach { preset ->
                         DropdownMenuItem(
                             text = { Text(text = preset.name, style = typo().bodyMedium) },

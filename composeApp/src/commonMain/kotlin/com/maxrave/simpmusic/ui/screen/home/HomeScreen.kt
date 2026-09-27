@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.theme.GradientType
+import com.maxrave.simpmusic.ui.theme.ColorFill
+import com.maxrave.simpmusic.ui.component.GlassDropdownMenu
 import simpmusic.composeapp.generated.resources.picked_for_you
 import com.maxrave.simpmusic.ui.component.AppleSongRowData
 import com.maxrave.simpmusic.ui.component.AppleSongListGrid
@@ -268,6 +271,7 @@ fun HomeScreen(
     val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
     val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
     val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    val menuButtonSize by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_BUTTON_SIZE) }.collectAsStateWithLifecycle(null)
     // Off by default; when on it replaces the page title in the top bar.
     val profileBadge: (@Composable () -> Unit)? =
         if (badgeEnabled == DataStoreManager.TRUE) {
@@ -275,7 +279,10 @@ fun HomeScreen(
                 ProfileBadge(
                     name = badgeName?.takeIf { it.isNotBlank() } ?: accountInfo?.first ?: "",
                     avatar = badgeAvatar?.takeIf { it.isNotBlank() } ?: accountInfo?.second,
-                    nameColor = badgeNameColor?.let { hexToColor(it) } ?: Color.White,
+                    nameFill =
+                        ColorFill.decode(badgeNameColor)
+                            ?: badgeNameColor?.let { hexToColor(it) }?.let { ColorFill(false, GradientType.VERTICAL, it, it) }
+                            ?: ColorFill(false, GradientType.VERTICAL, Color.White, Color.White),
                     font = BadgeFont.entries.firstOrNull { it.name == badgeFont } ?: BadgeFont.SCRIPT,
                     icon = BadgeIcon.entries.firstOrNull { it.name == badgeIcon } ?: BadgeIcon.VERIFIED,
                     iconColor = badgeIconColor?.let { hexToColor(it) } ?: Color(0xFF1D9BF0),
@@ -966,7 +973,7 @@ fun HomeScreen(
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
-                    HomeTopAppBar(navController, badge = profileBadge)
+                    HomeTopAppBar(navController, badge = profileBadge, menuButtonSize = menuButtonSize)
                 }
                 if (appleLayout) AppleTopBarSeparator()
                 AnimatedVisibility(
@@ -1041,6 +1048,7 @@ fun HomeScreen(
 fun HomeTopAppBar(
     navController: NavController,
     badge: (@Composable () -> Unit)? = null,
+    menuButtonSize: String? = null,
 ) {
     val hour =
         remember {
@@ -1115,10 +1123,22 @@ fun HomeTopAppBar(
                 // row used to hold lives in its menu.
                 var menuOpen by remember { mutableStateOf(false) }
                 Box {
-                    RippleIconButton(imageVector = SimpIcons.MoreVert, modifier = Modifier.accentTint(), tint = MaterialTheme.colorScheme.primary) {
+                    // Settings > Appearance > Menu button size. Large is the default.
+                    val menuIcon =
+                        when (menuButtonSize) {
+                            "M" -> 24.dp
+                            "XL" -> 36.dp
+                            else -> 30.dp
+                        }
+                    RippleIconButton(
+                        imageVector = SimpIcons.MoreVert,
+                        modifier = Modifier.size(menuIcon + 24.dp).accentTint(),
+                        tint = MaterialTheme.colorScheme.primary,
+                        iconSize = menuIcon,
+                    ) {
                         menuOpen = true
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    GlassDropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
                             text = { Text(stringResource(Res.string.notification)) },
                             onClick = {

@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home.analytics
 
+import com.maxrave.simpmusic.ui.component.GlassDropdownMenu
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -508,7 +509,7 @@ private fun DayRangePill(
                 modifier = Modifier.size(18.dp),
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        GlassDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             AnalyticsUiState.DayRange.entries.forEach { range ->
                 DropdownMenuItem(
                     text = {

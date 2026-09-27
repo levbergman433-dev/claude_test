@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.ui.component
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
@@ -19,6 +21,7 @@ fun RippleIconButton(
     modifier: Modifier = Modifier,
     fillMaxSize: Boolean = false,
     tint: Color = Color.White,
+    iconSize: Dp? = null,
     onClick: () -> Unit,
 ) {
     IconButton(
@@ -29,7 +32,12 @@ fun RippleIconButton(
             imageVector,
             null,
             tint = tint,
-            modifier = if (fillMaxSize) Modifier.fillMaxSize().padding(4.dp) else Modifier,
+            modifier =
+                when {
+                    fillMaxSize -> Modifier.fillMaxSize().padding(4.dp)
+                    iconSize != null -> Modifier.size(iconSize)
+                    else -> Modifier
+                },
         )
     }
 }

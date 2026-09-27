@@ -941,4 +941,8 @@
     <string name="profile_badge_name_message">Leave empty to use your YouTube account name.</string>
     <string name="gradient_drag_hint">Drag on the preview to move the gradient</string>
     <string name="picked_for_you">Picked for you</string>
+    <string name="menu_button_size">Menu button size</string>
+    <string name="menu_button_size_default">Default</string>
+    <string name="menu_button_size_large">Large</string>
+    <string name="menu_button_size_xl">Extra large</string>
 </resources>

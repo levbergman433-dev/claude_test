@@ -1,5 +1,10 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.fill_gradient
+import simpmusic.composeapp.generated.resources.menu_button_size_xl
+import simpmusic.composeapp.generated.resources.menu_button_size_large
+import simpmusic.composeapp.generated.resources.menu_button_size_default
+import simpmusic.composeapp.generated.resources.menu_button_size
 import simpmusic.composeapp.generated.resources.profile_badge_name_message
 import com.maxrave.simpmusic.ui.component.BadgeFont
 import com.maxrave.simpmusic.ui.component.BadgeIcon
@@ -658,6 +663,7 @@ fun SettingScreen(
     val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
     val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
     val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    val menuButtonSizePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_BUTTON_SIZE) }.collectAsStateWithLifecycle(null)
     val badgePhotoPicker =
         photoPickerResult { uri ->
             uri?.let { sharedViewModel.setStringPref(PersonalizationKeys.BADGE_AVATAR, it) }
@@ -999,6 +1005,36 @@ fun SettingScreen(
                     smallSubtitle = true,
                     switch = ((largeTitles == DataStoreManager.TRUE) to { sharedViewModel.setLargeTitles(it) }),
                 )
+                val menuSizeLabels =
+                    listOf(
+                        "M" to stringResource(Res.string.menu_button_size_default),
+                        "L" to stringResource(Res.string.menu_button_size_large),
+                        "XL" to stringResource(Res.string.menu_button_size_xl),
+                    )
+                val currentMenuSize = menuButtonSizePref ?: "L"
+                SettingItem(
+                    title = stringResource(Res.string.menu_button_size),
+                    subtitle = menuSizeLabels.firstOrNull { it.first == currentMenuSize }?.second ?: "",
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.menu_button_size) },
+                                selectOne =
+                                    SettingAlertState.SelectData(
+                                        listSelect = menuSizeLabels.map { (it.first == currentMenuSize) to it.second },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        val selected = state.selectOne?.getSelected()
+                                        menuSizeLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            sharedViewModel.setStringPref(PersonalizationKeys.MENU_BUTTON_SIZE, it)
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
                 SettingItem(
                     title = stringResource(Res.string.show_mix_tab),
                     subtitle = stringResource(Res.string.show_mix_tab_description),
@@ -1094,7 +1130,10 @@ fun SettingScreen(
                     )
                     SettingItem(
                         title = stringResource(Res.string.profile_badge_name_color),
-                        subtitle = "#" + (badgeNameColor ?: "FFFFFF"),
+                        subtitle =
+                            ColorFill.decode(badgeNameColor)?.let { fill ->
+                                if (fill.gradient) stringResource(Res.string.fill_gradient) else "#" + fill.first.toHex()
+                            } ?: ("#" + (badgeNameColor ?: "FFFFFF")),
                         smallSubtitle = true,
                         onClick = { badgeColorTarget = PersonalizationKeys.BADGE_NAME_COLOR },
                     )
@@ -3082,18 +3121,20 @@ fun SettingScreen(
         )
     }
     badgeColorTarget?.let { key ->
-        val stored = if (key == PersonalizationKeys.BADGE_NAME_COLOR) badgeNameColor ?: "FFFFFF" else badgeIconColor ?: "1D9BF0"
+        val isName = key == PersonalizationKeys.BADGE_NAME_COLOR
+        val stored = if (isName) badgeNameColor ?: "FFFFFF" else badgeIconColor ?: "1D9BF0"
         val start = hexToColor(stored) ?: Color.White
         ColorFillDialog(
             title =
                 stringResource(
-                    if (key == PersonalizationKeys.BADGE_NAME_COLOR) Res.string.profile_badge_name_color else Res.string.profile_badge_icon_color,
+                    if (isName) Res.string.profile_badge_name_color else Res.string.profile_badge_icon_color,
                 ),
-            initial = ColorFill(false, GradientType.VERTICAL, start, start),
-            allowGradient = false,
+            // The name can be a gradient; the badge icon stays one colour.
+            initial = (if (isName) ColorFill.decode(stored) else null) ?: ColorFill(false, GradientType.VERTICAL, start, start),
+            allowGradient = isName,
             onDismiss = { badgeColorTarget = null },
             onSave = { fill ->
-                sharedViewModel.setStringPref(key, fill.first.toHex())
+                sharedViewModel.setStringPref(key, if (isName) fill.encode() else fill.first.toHex())
                 badgeColorTarget = null
             },
         )
