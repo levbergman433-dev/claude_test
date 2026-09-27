@@ -1,5 +1,7 @@
 package com.maxrave.data.listentogether
 
+import com.maxrave.domain.data.model.searchResult.songs.Thumbnail
+import com.maxrave.domain.data.model.searchResult.songs.Artist
 import com.maxrave.common.MERGING_DATA_TYPE
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.listentogether.RoomTrack
@@ -97,7 +99,42 @@ class ListenTogetherPlaybackBridge(
         scope.launch { publishPlayPauseAsHost() }
         scope.launch { publishSeeksAsHost() }
         scope.launch { answerBufferBarrier() }
+        scope.launch { enqueueApprovedSuggestions() }
     }
+
+    /**
+     * Host: an approved suggestion goes in as up next. The room follows this player's queue, and
+     * the existing queue publishing carries it to every guest from here.
+     */
+    private suspend fun enqueueApprovedSuggestions() {
+        repository.approvedSuggestions.collect { track ->
+            if (!repository.room.value.isHost || track.id.isBlank()) return@collect
+            Logger.i(TAG, "Approved suggestion ${track.id} (${track.title}) -> up next")
+            runCatching {
+                withContext(Dispatchers.Main) { handler.playNext(track.toPlayableTrack()) }
+            }.onFailure { Logger.e(TAG, "Could not queue approved suggestion: ${it.message}") }
+        }
+    }
+
+    /** A room track as the app's own track type, for the handler's play-next. */
+    private fun RoomTrack.toPlayableTrack(): Track =
+        Track(
+            album = null,
+            artists = artist.split(", ").filter { it.isNotBlank() }.map { Artist(id = null, name = it) },
+            duration = null,
+            durationSeconds = (durationMs / 1000).toInt().takeIf { it > 0 },
+            isAvailable = true,
+            isExplicit = false,
+            likeStatus = null,
+            // Square, so the handler treats it as a song (audio) rather than a video.
+            thumbnails = listOf(Thumbnail(height = 544, url = thumbnail.ifBlank { "https://i.ytimg.com/vi/$id/maxresdefault.jpg" }, width = 544)),
+            title = title,
+            videoId = id,
+            videoType = null,
+            category = null,
+            feedbackTokens = null,
+            resultType = null,
+        )
 
     /**
      * Crossfade overlaps two tracks for seconds, which drifts a room apart at every transition.

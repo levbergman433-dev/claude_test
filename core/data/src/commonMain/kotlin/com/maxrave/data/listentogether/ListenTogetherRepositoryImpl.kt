@@ -1,5 +1,7 @@
 package com.maxrave.data.listentogether
 
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.Flow
 import com.maxrave.domain.data.model.listentogether.ListenTogetherRoom
 import com.maxrave.domain.data.model.listentogether.RoomConnection
 import com.maxrave.domain.data.model.listentogether.RoomJoinRequest
@@ -33,6 +35,8 @@ class ListenTogetherRepositoryImpl(
 ) : ListenTogetherRepository {
     private val _room = MutableStateFlow(ListenTogetherRoom())
     override val room: StateFlow<ListenTogetherRoom> = _room.asStateFlow()
+
+    override val approvedSuggestions: Flow<RoomTrack> = session.approvedTracks.map { it.toDomain() }
 
     override var autoApproveJoins: Boolean
         get() = session.autoApproveJoins

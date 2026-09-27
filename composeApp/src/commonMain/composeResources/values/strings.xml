@@ -793,6 +793,8 @@
     <string name="lt_as_host">When you host</string>
     <string name="lt_auto_approve_joins">Auto-approve joins</string>
     <string name="lt_auto_approve_joins_desc">Anyone with the code gets in without asking</string>
+    <string name="lt_auto_approve_suggestions">Auto-approve suggestions</string>
+    <string name="lt_auto_approve_suggestions_desc">Songs guests suggest go straight in as up next, without asking</string>
     <string name="lt_blocked">Blocked</string>
     <string name="lt_blocked_empty">Nobody is blocked</string>
     <string name="lt_unblock">Unblock</string>

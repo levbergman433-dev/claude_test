@@ -1,5 +1,8 @@
 package org.simpmusic.listentogether
 
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import com.maxrave.logger.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -180,11 +183,24 @@ class ListenTogetherSession(
             _state.update { s -> s.copy(joinRequests = s.joinRequests.filterNot { it.userId == userId }) }
         }
 
-    fun approveSuggestion(suggestionId: String) =
-        launch {
-            client.send(MessageTypes.APPROVE_SUGGESTION, ApproveSuggestionPayload(suggestionId = suggestionId))
-            dropSuggestion(suggestionId)
-        }
+    private val _approvedTracks = MutableSharedFlow<TrackInfo>(extraBufferCapacity = 16)
+
+    /**
+     * Every suggestion this host approves, by hand or automatically. The server only records the
+     * approval; the room follows the HOST's player, so the host has to put the song in its own
+     * queue for anyone to hear it — without that an approved song simply vanished.
+     */
+    val approvedTracks: SharedFlow<TrackInfo> = _approvedTracks.asSharedFlow()
+
+    fun approveSuggestion(
+        suggestionId: String,
+        track: TrackInfo? = null,
+    ) = launch {
+        val approved = track ?: _state.value.suggestions.firstOrNull { it.suggestionId == suggestionId }?.track
+        client.send(MessageTypes.APPROVE_SUGGESTION, ApproveSuggestionPayload(suggestionId = suggestionId))
+        dropSuggestion(suggestionId)
+        approved?.let { _approvedTracks.emit(it) }
+    }
 
     fun rejectSuggestion(suggestionId: String) =
         launch {
@@ -459,7 +475,7 @@ class ListenTogetherSession(
                 val p = payload as? SuggestionReceivedPayload ?: return
                 val track = p.trackInfo ?: return
                 if (autoApproveSuggestions) {
-                    approveSuggestion(p.suggestionId)
+                    approveSuggestion(p.suggestionId, track)
                     return
                 }
                 _state.update { s ->

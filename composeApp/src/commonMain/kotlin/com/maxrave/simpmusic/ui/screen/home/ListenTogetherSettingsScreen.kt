@@ -65,6 +65,8 @@ import simpmusic.composeapp.generated.resources.listen_together
 import simpmusic.composeapp.generated.resources.lt_as_host
 import simpmusic.composeapp.generated.resources.lt_auto_approve_joins
 import simpmusic.composeapp.generated.resources.lt_auto_approve_joins_desc
+import simpmusic.composeapp.generated.resources.lt_auto_approve_suggestions
+import simpmusic.composeapp.generated.resources.lt_auto_approve_suggestions_desc
 import simpmusic.composeapp.generated.resources.lt_blocked
 import simpmusic.composeapp.generated.resources.lt_blocked_empty
 import simpmusic.composeapp.generated.resources.lt_custom_server
@@ -95,6 +97,7 @@ fun ListenTogetherSettingsScreen(
     val usingCustom by viewModel.usingCustomServer.collectAsStateWithLifecycle()
     val serverUrl by viewModel.serverUrl.collectAsStateWithLifecycle()
     val autoJoins by viewModel.autoApproveJoins.collectAsStateWithLifecycle()
+    val autoSuggestions by viewModel.autoApproveSuggestions.collectAsStateWithLifecycle()
     val blocked by viewModel.blockedNames.collectAsStateWithLifecycle()
 
     var draftUrl by remember(serverUrl) { mutableStateOf(serverUrl) }
@@ -227,6 +230,12 @@ fun ListenTogetherSettingsScreen(
                         subtitle = stringResource(Res.string.lt_auto_approve_joins_desc),
                         checked = autoJoins,
                         onCheckedChange = { viewModel.setAutoApproveJoins(it) },
+                    )
+                    ToggleRow(
+                        title = stringResource(Res.string.lt_auto_approve_suggestions),
+                        subtitle = stringResource(Res.string.lt_auto_approve_suggestions_desc),
+                        checked = autoSuggestions,
+                        onCheckedChange = { viewModel.setAutoApproveSuggestions(it) },
                     )
                 }
 

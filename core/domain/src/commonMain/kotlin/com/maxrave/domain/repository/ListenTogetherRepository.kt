@@ -1,5 +1,6 @@
 package com.maxrave.domain.repository
 
+import kotlinx.coroutines.flow.Flow
 import com.maxrave.domain.data.model.listentogether.ListenTogetherRoom
 import com.maxrave.domain.data.model.listentogether.RoomTrack
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,9 @@ import kotlinx.coroutines.flow.StateFlow
  */
 interface ListenTogetherRepository {
     val room: StateFlow<ListenTogetherRoom>
+
+    /** Songs this host approved from guests' suggestions; the host adds each to its queue. */
+    val approvedSuggestions: Flow<RoomTrack>
 
     /** Host conveniences from settings; the implementation applies them where requests arrive. */
     var autoApproveJoins: Boolean
