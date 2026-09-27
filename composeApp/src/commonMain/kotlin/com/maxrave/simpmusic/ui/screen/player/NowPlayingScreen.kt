@@ -4,9 +4,9 @@ package com.maxrave.simpmusic.ui.screen.player
 
 import com.maxrave.simpmusic.ui.component.GlassMenuHost
 import com.maxrave.simpmusic.ui.component.GlassMenuOverlay
+import com.maxrave.simpmusic.ui.component.glassMenuHostSource
 import com.maxrave.simpmusic.ui.component.LocalGlassMenuHost
 import com.maxrave.simpmusic.expect.ui.rememberBackdrop
-import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +25,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -145,6 +146,12 @@ fun NowPlayingScreenContent(
     onDismiss: () -> Unit = {},
 ) {
     val coroutineScope = rememberCoroutineScope()
+    // The player follows the position closely (scrubber, lyrics, canvas subtitles): ask for the
+    // fine progress tick only while it is on screen.
+    DisposableEffect(mediaPlayerHandler) {
+        mediaPlayerHandler.setFineProgressNeeded(true)
+        onDispose { mediaPlayerHandler.setFineProgressNeeded(false) }
+    }
 
     // ViewModel State
     val controllerState by sharedViewModel.controllerState.collectAsStateWithLifecycle()
@@ -546,8 +553,10 @@ fun NowPlayingScreenContent(
     }
 
     // The player is a window of its own (a bottom sheet), so the app's glass layer is not behind
-    // it. When glass sheets are on, it gets its own: the player content is recorded as a backdrop
-    // and a sheet opened from here is drawn over it as liquid glass.
+    // it. When glass sheets are on, it gets its own: while a sheet is open the player content is
+    // recorded as a backdrop (only then — the player redraws every frame under a canvas, and
+    // copying all of it into a second layer for nothing is pure cost) and the sheet is drawn over
+    // it as liquid glass.
     val npBackdrop = rememberBackdrop(Color.Black)
     val npGlassHost =
         if (LocalGlassMenuHost.current != null) remember(npBackdrop) { GlassMenuHost(npBackdrop) } else null
@@ -746,7 +755,7 @@ fun NowPlayingScreenContent(
             },
         )
     Box(modifier = Modifier.fillMaxSize()) {
-    Box(modifier = Modifier.fillMaxSize().then(if (npGlassHost != null) Modifier.layerBackdrop(npBackdrop) else Modifier)) {
+    Box(modifier = Modifier.fillMaxSize().then(if (npGlassHost != null && npGlassHost.isOpen) Modifier.glassMenuHostSource(npGlassHost) else Modifier)) {
     when (nowPlayingStyle) {
         DataStoreManager.NOW_PLAYING_STYLE_M3_EXPRESSIVE ->
             NowPlayingContentM3Expressive(

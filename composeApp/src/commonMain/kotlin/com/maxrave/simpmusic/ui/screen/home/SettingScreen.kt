@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.LIST_MARQUEE_ITERATIONS
 import simpmusic.composeapp.generated.resources.fill_gradient
 import simpmusic.composeapp.generated.resources.menu_button_size_xl
 import simpmusic.composeapp.generated.resources.menu_button_size_large
@@ -3541,7 +3542,7 @@ fun SettingScreen(
                                             .fillMaxWidth()
                                             .wrapContentHeight(align = Alignment.CenterVertically)
                                             .basicMarquee(
-                                                iterations = Int.MAX_VALUE,
+                                                iterations = LIST_MARQUEE_ITERATIONS,
                                                 animationMode = MarqueeAnimationMode.Immediately,
                                             ).focusable(),
                                 )

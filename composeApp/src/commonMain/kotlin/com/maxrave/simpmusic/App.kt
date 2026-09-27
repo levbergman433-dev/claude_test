@@ -2,6 +2,7 @@ package com.maxrave.simpmusic
 
 import com.maxrave.simpmusic.ui.component.GlassMenuHost
 import com.maxrave.simpmusic.ui.component.GlassMenuOverlay
+import com.maxrave.simpmusic.ui.component.glassMenuHostSource
 import com.maxrave.simpmusic.ui.component.LocalGlassMenuHost
 import com.maxrave.simpmusic.ui.theme.MENU_STYLE_FROSTED
 import androidx.compose.runtime.CompositionLocalProvider
@@ -74,7 +75,6 @@ import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.expect.Orientation
 import com.maxrave.simpmusic.expect.currentOrientation
 import com.maxrave.simpmusic.expect.openUrl
-import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.copy
 import com.maxrave.simpmusic.ui.component.AppBottomNavigationBar
@@ -113,10 +113,6 @@ import com.maxrave.simpmusic.utils.VersionManager
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownTypography
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.materials.HazeMaterials
-import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -227,10 +223,6 @@ fun App(
         mutableStateOf(false)
     }
 
-    val hazeState =
-        rememberHazeState(
-            blurEnabled = true,
-        )
 
     LaunchedEffect(intent) {
         val intent = intent ?: return@LaunchedEffect
@@ -586,7 +578,7 @@ fun App(
                         .fillMaxSize()
                         .then(
                             if (isLiquidGlassEnabled == TRUE && !isTablet && !isWebViewScreen) {
-                                Modifier.layerBackdrop(backdrop)
+                                Modifier.glassMenuHostSource(glassMenuHost)
                             } else {
                                 Modifier
                             },
@@ -637,11 +629,11 @@ fun App(
                                             !isInFullscreen &&
                                             !isWebViewScreen
                                         ) {
-                                            Modifier.layerBackdrop(backdrop)
+                                            Modifier.glassMenuHostSource(glassMenuHost)
                                         } else {
                                             Modifier
                                         },
-                                    ).then(if (isWebViewScreen) Modifier else Modifier.hazeSource(hazeState)),
+                                    ),
                             ) {
                                 AppNavigationGraph(
                                     innerPadding = innerPadding,

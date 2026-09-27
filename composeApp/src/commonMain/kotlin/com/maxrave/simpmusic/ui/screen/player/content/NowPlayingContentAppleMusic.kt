@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
@@ -661,7 +662,7 @@ private fun AppleMusicMainView(
                                                     Modifier
                                                         .fillMaxWidth()
                                                         .padding(horizontal = 20.dp, vertical = 2.dp)
-                                                        .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                        .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
                                                         .focusable(),
                                             )
                                             val translatedLineText =
@@ -683,6 +684,7 @@ private fun AppleMusicMainView(
                                                             .padding(horizontal = 20.dp, vertical = 2.dp)
                                                             .basicMarquee(
                                                                 iterations = Int.MAX_VALUE,
+                                                                repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                                 animationMode = MarqueeAnimationMode.Immediately,
                                                             ).focusable(),
                                                 )
@@ -723,7 +725,7 @@ private fun AppleMusicMainView(
                                             modifier =
                                                 Modifier
                                                     .fillMaxWidth()
-                                                    .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                    .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
                                                     .focusable(),
                                         )
                                         Spacer(modifier = Modifier.height(3.dp))
@@ -734,7 +736,7 @@ private fun AppleMusicMainView(
                                             modifier =
                                                 Modifier
                                                     .fillMaxWidth()
-                                                    .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                    .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
                                                     .focusable(),
                                         )
                                     }
@@ -768,7 +770,7 @@ private fun AppleMusicMainTitleRow(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                        .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
                         .focusable(),
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -782,7 +784,7 @@ private fun AppleMusicMainTitleRow(
                     maxLines = 1,
                     modifier =
                         Modifier
-                            .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                            .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
                             .focusable()
                             .clickable { actions.onNavigateToArtist() },
                 )

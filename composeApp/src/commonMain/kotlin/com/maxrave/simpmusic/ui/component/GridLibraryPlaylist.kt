@@ -188,7 +188,7 @@ internal inline fun <reified T> GridLibraryPlaylist(
                                                 .wrapContentHeight(align = Alignment.CenterVertically)
                                                 .padding(top = 8.dp)
                                                 .basicMarquee(
-                                                    iterations = Int.MAX_VALUE,
+                                                    iterations = LIST_MARQUEE_ITERATIONS,
                                                     animationMode = MarqueeAnimationMode.Immediately,
                                                 ).focusable(),
                                     )

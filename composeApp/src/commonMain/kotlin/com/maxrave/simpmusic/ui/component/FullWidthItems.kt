@@ -330,7 +330,7 @@ fun SongFullWidthItems(
                                 .fillMaxWidth()
                                 .wrapContentHeight(align = Alignment.CenterVertically)
                                 .basicMarquee(
-                                    iterations = Int.MAX_VALUE,
+                                    iterations = LIST_MARQUEE_ITERATIONS,
                                     animationMode = MarqueeAnimationMode.Immediately,
                                 ).focusable(),
                     )
@@ -379,7 +379,7 @@ fun SongFullWidthItems(
                                     .fillMaxWidth()
                                     .wrapContentHeight(align = Alignment.CenterVertically)
                                     .basicMarquee(
-                                        iterations = Int.MAX_VALUE,
+                                        iterations = LIST_MARQUEE_ITERATIONS,
                                         animationMode = MarqueeAnimationMode.Immediately,
                                     ).focusable(),
                         )
@@ -493,7 +493,7 @@ fun SuggestItems(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable(),
                 )
@@ -510,7 +510,7 @@ fun SuggestItems(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable(),
                 )
@@ -645,7 +645,7 @@ fun PlaylistFullWidthItems(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable(),
                 )
@@ -672,7 +672,7 @@ fun PlaylistFullWidthItems(
                                 .fillMaxWidth()
                                 .wrapContentHeight(align = Alignment.CenterVertically)
                                 .basicMarquee(
-                                    iterations = Int.MAX_VALUE,
+                                    iterations = LIST_MARQUEE_ITERATIONS,
                                     animationMode = MarqueeAnimationMode.Immediately,
                                 ).focusable(),
                     )
@@ -689,7 +689,7 @@ fun PlaylistFullWidthItems(
                                 .fillMaxWidth()
                                 .wrapContentHeight(align = Alignment.CenterVertically)
                                 .basicMarquee(
-                                    iterations = Int.MAX_VALUE,
+                                    iterations = LIST_MARQUEE_ITERATIONS,
                                     animationMode = MarqueeAnimationMode.Immediately,
                                 ).focusable(),
                     )
@@ -767,7 +767,7 @@ fun ArtistFullWidthItems(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable(),
                 )
@@ -782,7 +782,7 @@ fun ArtistFullWidthItems(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable(),
                 )

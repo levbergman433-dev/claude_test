@@ -111,6 +111,9 @@ private val TAG = "Media3ServiceHandlerImpl"
 
 // Progress ticker cadence (see MediaServiceHandlerImpl.progressTickMs).
 private const val PROGRESS_TICK_VISIBLE_MS = 100L
+
+// App on screen but no player/lyrics open: only the mini player's thin bar reads the position.
+private const val PROGRESS_TICK_VISIBLE_COARSE_MS = 250L
 private const val PROGRESS_TICK_SPONSOR_BLOCK_MS = 250L
 private const val PROGRESS_TICK_BACKGROUND_MS = 1_000L
 
@@ -898,6 +901,7 @@ internal class MediaServiceHandlerImpl(
                     // (SponsorBlock, watch-time, Listen Together seek detection, the 5 s persist
                     // below) are all satisfied by a much coarser tick. See setUiVisible.
                     val tickMs = progressTickMs()
+                    player.positionPollHintMs = tickMs
                     delay(tickMs)
                     _simpleMediaState.value = SimpleMediaState.Progress(player.currentPosition)
                     sinceLastPositionSaveMs += tickMs
@@ -917,9 +921,20 @@ internal class MediaServiceHandlerImpl(
         isUiVisible = visible
     }
 
+    private val fineProgressUsers = java.util.concurrent.atomic.AtomicInteger(0)
+
+    override fun setFineProgressNeeded(needed: Boolean) {
+        if (needed) {
+            fineProgressUsers.incrementAndGet()
+        } else {
+            fineProgressUsers.updateAndGet { (it - 1).coerceAtLeast(0) }
+        }
+    }
+
     private fun progressTickMs(): Long =
         when {
-            isUiVisible -> PROGRESS_TICK_VISIBLE_MS
+            isUiVisible && fineProgressUsers.get() > 0 -> PROGRESS_TICK_VISIBLE_MS
+            isUiVisible -> PROGRESS_TICK_VISIBLE_COARSE_MS
             // SponsorBlock compares the position against segment bounds on each tick, so keep it
             // tight enough that a skip still lands within a quarter second of the segment start.
             !skipSegments.value.isNullOrEmpty() -> PROGRESS_TICK_SPONSOR_BLOCK_MS

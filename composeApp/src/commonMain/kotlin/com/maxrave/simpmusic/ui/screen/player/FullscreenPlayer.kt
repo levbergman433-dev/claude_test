@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic.ui.screen.player
 
+import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
+import androidx.compose.runtime.DisposableEffect
+import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.MarqueeAnimationMode
 import androidx.compose.foundation.background
@@ -102,7 +105,13 @@ fun FullscreenPlayer(
     sharedViewModel: SharedViewModel = koinInject(),
     hideNavBar: () -> Unit = {},
     showNavBar: () -> Unit = {},
+    mediaPlayerHandler: MediaPlayerHandler = koinInject(),
 ) {
+    // Scrubber and subtitles follow the position closely: fine progress tick while on screen.
+    DisposableEffect(mediaPlayerHandler) {
+        mediaPlayerHandler.setFineProgressNeeded(true)
+        onDispose { mediaPlayerHandler.setFineProgressNeeded(false) }
+    }
     var isFullScreen by remember { mutableStateOf(true) }
     val isInPipMode = rememberIsInPipMode()
 
@@ -346,6 +355,7 @@ fun FullscreenPlayer(
                                             .wrapContentHeight(align = Alignment.CenterVertically)
                                             .basicMarquee(
                                                 iterations = Int.MAX_VALUE,
+                                                repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                 animationMode = MarqueeAnimationMode.Immediately,
                                             ).focusable(),
                                 )

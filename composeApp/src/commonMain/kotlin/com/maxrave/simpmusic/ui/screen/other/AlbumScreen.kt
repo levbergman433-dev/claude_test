@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.other
 
+import com.maxrave.simpmusic.ui.component.LIST_MARQUEE_ITERATIONS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
@@ -980,7 +981,7 @@ fun AlbumScreen(
                                         .wrapContentHeight(
                                             align = Alignment.CenterVertically,
                                         ).basicMarquee(
-                                            iterations = Int.MAX_VALUE,
+                                            iterations = LIST_MARQUEE_ITERATIONS,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
                             )

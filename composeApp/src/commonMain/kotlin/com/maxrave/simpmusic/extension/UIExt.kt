@@ -77,34 +77,34 @@ import kotlin.math.sin
 fun Modifier.shimmer(): Modifier =
     composed {
         val appColors = LocalAppColors.current
-        var size by remember {
-            mutableStateOf(IntSize.Zero)
-        }
+        // One 0..1 phase, read only inside drawBehind: the sweep repaints each frame but never
+        // recomposes. It used to feed the animated offset straight into background(), which
+        // recomposed every placeholder on every frame for as long as a page was loading.
         val transition = rememberInfiniteTransition(label = "Shimmer")
-        val startOffsetX by transition.animateFloat(
-            initialValue = -2 * size.width.toFloat(),
-            targetValue = 2 * size.width.toFloat(),
+        val phase = transition.animateFloat(
+            initialValue = 0f,
+            targetValue = 1f,
             animationSpec =
                 infiniteRepeatable(
                     animation = tween(1000),
                 ),
             label = "Shimmer",
         )
-
-        background(
-            brush =
+        val colors =
+            listOf(
+                appColors.shimmerBackground,
+                appColors.shimmerLine,
+                appColors.shimmerBackground,
+            )
+        drawBehind {
+            val startX = -2 * size.width + phase.value * 4 * size.width
+            drawRect(
                 Brush.linearGradient(
-                    colors =
-                        listOf(
-                            appColors.shimmerBackground,
-                            appColors.shimmerLine,
-                            appColors.shimmerBackground,
-                        ),
-                    start = Offset(startOffsetX, 0f),
-                    end = Offset(startOffsetX + size.width.toFloat(), size.height.toFloat()),
+                    colors = colors,
+                    start = Offset(startX, 0f),
+                    end = Offset(startX + size.width, size.height),
                 ),
-        ).onGloballyPositioned {
-            size = it.size
+            )
         }
     }
 

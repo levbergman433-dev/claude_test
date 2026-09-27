@@ -204,7 +204,7 @@ private fun MarqueeLine(
                 .fillMaxWidth()
                 .wrapContentHeight(align = Alignment.CenterVertically)
                 .basicMarquee(
-                    iterations = Int.MAX_VALUE,
+                    iterations = LIST_MARQUEE_ITERATIONS,
                     animationMode = MarqueeAnimationMode.Immediately,
                 ).focusable(),
     )

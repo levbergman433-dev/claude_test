@@ -196,6 +196,10 @@ internal class CrossfadeExoPlayerAdapter(
     @Volatile
     private var cachedPosition = 0L
 
+    /** Set by the handler; see [MediaPlayerInterface.positionPollHintMs]. 200 until told otherwise. */
+    @Volatile
+    override var positionPollHintMs: Long = 200L
+
     @Volatile
     private var cachedDuration = 0L
 
@@ -585,7 +589,9 @@ internal class CrossfadeExoPlayerAdapter(
                     DefaultLoadControl
                         .Builder()
                         .setBufferDurationsMs(
-                            DefaultLoadControl.DEFAULT_MIN_BUFFER_MS * 4,
+                            // Refill below 50 s, fill to 200 s: loads in bursts and lets the radio
+                            // sleep in between, instead of trickling top-ups (min == max) all track.
+                            DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
                             DefaultLoadControl.DEFAULT_MAX_BUFFER_MS * 4,
                             // Start the moment the first bytes arrive: fast start on a good connection.
                             0,
@@ -2850,7 +2856,12 @@ internal class CrossfadeExoPlayerAdapter(
                     }
 
                     if (internalState == InternalState.PLAYING) {
-                        delay(200) // Update every 200ms
+                        // 200ms while something shows the position closely or a crossfade may
+                        // start within the minute; otherwise as rarely as the handler's tick,
+                        // which is 1s with the screen off.
+                        val remainingMs = (cachedDuration - cachedPosition).takeIf { cachedDuration > 0 } ?: Long.MAX_VALUE
+                        val crossfadeSoon = crossfadeEnabled && !crossfadeSuppressed && remainingMs < CROSSFADE_WATCH_WINDOW_MS
+                        delay(if (crossfadeSoon) 200L else positionPollHintMs.coerceIn(200L, 1_000L))
                     } else {
                         // Paused, buffering or idle: the position cannot drift (seekTo writes the
                         // cache directly), so there is nothing to poll. Waking five times a second
@@ -3040,3 +3051,6 @@ internal class CrossfadeExoPlayerAdapter(
 
 /** Audio buffered before playback resumes after a stall; see the load control above. */
 private const val REBUFFER_RESUME_MS = 2_000
+
+/** Longest a crossfade can reach back from a track's end (Auto up to 45 s, plus 3 s to prepare), with margin. */
+private const val CROSSFADE_WATCH_WINDOW_MS = 60_000L

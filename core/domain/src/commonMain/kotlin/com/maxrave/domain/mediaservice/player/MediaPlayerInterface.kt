@@ -121,6 +121,16 @@ interface MediaPlayerInterface {
     var crossfadeSuppressed: Boolean
 
     /**
+     * How often the player needs to refresh the position it reports, in ms, as decided by the
+     * handler from what is on screen. A player that polls its engine for the position may poll this
+     * rarely while nothing needs it finer (it still polls finely where its own work demands, such
+     * as ahead of a crossfade). Default: no hint.
+     */
+    var positionPollHintMs: Long
+        get() = 0L
+        set(_) {}
+
+    /**
      * `mediaId`s of the tracks that came from the album currently loaded in the queue, or empty
      * when the queue is not an album.
      *

@@ -523,12 +523,18 @@ private fun provideCacheDataSource(
                                     .readTimeout(30.seconds)
                                     .proxy(
                                         proxy,
-                                    ).addInterceptor(
-                                        HttpLoggingInterceptor()
-                                            .apply {
-                                                level = HttpLoggingInterceptor.Level.HEADERS
-                                            },
-                                    ).build(),
+                                    ).apply {
+                                        // Debug builds only: this client fetches every stream chunk,
+                                        // and release builds were formatting and writing the headers
+                                        // of each one to logcat.
+                                        if (Logger.isVerbose) {
+                                            addInterceptor(
+                                                HttpLoggingInterceptor().apply {
+                                                    level = HttpLoggingInterceptor.Level.HEADERS
+                                                },
+                                            )
+                                        }
+                                    }.build(),
                             ),
                         ),
                 ),
@@ -540,7 +546,10 @@ private fun provideLoadControl(): LoadControl =
     DefaultLoadControl
         .Builder()
         .setBufferDurationsMs(
-            DEFAULT_MIN_BUFFER_MS * 4,
+            // Refill below 50 s, fill up to 200 s. Min == max made the player top the buffer up
+            // in small chunks for the whole track, so the radio never got to sleep; with a gap it
+            // loads in bursts and rests in between. The 200 s fill is unchanged.
+            DEFAULT_MIN_BUFFER_MS,
             DEFAULT_MAX_BUFFER_MS * 4,
             // bufferForPlaybackMs=
             0,

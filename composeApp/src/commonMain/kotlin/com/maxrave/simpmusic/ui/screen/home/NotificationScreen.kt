@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.component.LIST_MARQUEE_ITERATIONS
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -427,7 +428,7 @@ fun ItemAlbumNotification(
                         .wrapContentHeight(align = Alignment.CenterVertically)
                         .padding(top = 10.dp)
                         .basicMarquee(
-                            iterations = Int.MAX_VALUE,
+                            iterations = LIST_MARQUEE_ITERATIONS,
                             animationMode = MarqueeAnimationMode.Immediately,
                         ).focusable(),
             )
@@ -441,7 +442,7 @@ fun ItemAlbumNotification(
                         .wrapContentHeight(align = Alignment.CenterVertically)
                         .padding(top = 10.dp)
                         .basicMarquee(
-                            iterations = Int.MAX_VALUE,
+                            iterations = LIST_MARQUEE_ITERATIONS,
                             animationMode = MarqueeAnimationMode.Immediately,
                         ).focusable(),
             )

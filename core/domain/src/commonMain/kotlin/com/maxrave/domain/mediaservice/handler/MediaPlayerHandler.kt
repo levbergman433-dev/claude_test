@@ -147,6 +147,15 @@ interface MediaPlayerHandler {
      */
     fun setUiVisible(visible: Boolean) {}
 
+    /**
+     * Something that follows the position closely is on screen — the full player, full-screen
+     * video, synced lyrics. Reference-counted: call once with true when such a screen appears and
+     * once with false when it goes. While none is, a visible app only needs a coarse tick for the
+     * mini player's thin bar, which saves ten wake-ups (and mini-player redraws) a second whenever
+     * the app is open on any other page. Default no-op keeps the fine cadence (Desktop).
+     */
+    fun setFineProgressNeeded(needed: Boolean) {}
+
     fun stopProgressUpdate()
 
     fun startBufferedUpdate()

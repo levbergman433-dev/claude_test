@@ -1293,6 +1293,7 @@ fun FullscreenLyricsSheet(
                                 Modifier
                                     .basicMarquee(
                                         iterations = Int.MAX_VALUE,
+                                        repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                         animationMode = MarqueeAnimationMode.Immediately,
                                     ).focusable(),
                         )
@@ -1338,6 +1339,7 @@ fun FullscreenLyricsSheet(
                                     Modifier
                                         .basicMarquee(
                                             iterations = Int.MAX_VALUE,
+                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
                             )

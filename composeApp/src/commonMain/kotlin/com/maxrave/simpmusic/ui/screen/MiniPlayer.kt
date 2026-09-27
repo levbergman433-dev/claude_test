@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen
 
+import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -55,7 +56,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -198,7 +198,9 @@ fun MiniPlayer(
         remember {
             mutableStateOf(false)
         }
-    val (progress, setProgress) =
+    // Held as a State and read only inside the indicator's progress lambda (draw phase), so a
+    // progress tick redraws the hairline and nothing else.
+    val progressState =
         remember {
             mutableFloatStateOf(0f)
         }
@@ -209,11 +211,10 @@ fun MiniPlayer(
 
     val coroutineScope = rememberCoroutineScope()
 
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
-        label = "",
-    )
+    // No animation on the bar. The default progress spec is a very soft spring that takes over a
+    // second to settle, and a new position lands every few hundred ms — so it never settled, and the
+    // mini player (and its glass) redrew at full frame rate for as long as anything played. At tick
+    // rate the steps on a 1dp line are a fraction of a dp: invisible.
 
     // Palette state
     val paletteState = rememberPaletteState()
@@ -275,7 +276,7 @@ fun MiniPlayer(
                         } else {
                             0f
                         }
-                    setProgress(prog)
+                    progressState.floatValue = prog
                 }
             }
         job1.join()
@@ -468,6 +469,7 @@ fun MiniPlayer(
                                                         align = Alignment.CenterVertically,
                                                     ).basicMarquee(
                                                         iterations = Int.MAX_VALUE,
+                                                        repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                         animationMode = MarqueeAnimationMode.Immediately,
                                                     ).focusable(),
                                         )
@@ -493,6 +495,7 @@ fun MiniPlayer(
                                                             align = Alignment.CenterVertically,
                                                         ).basicMarquee(
                                                             iterations = Int.MAX_VALUE,
+                                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                             animationMode = MarqueeAnimationMode.Immediately,
                                                         ).focusable(),
                                             )
@@ -534,7 +537,7 @@ fun MiniPlayer(
                             ).align(Alignment.BottomCenter),
                 ) {
                     LinearProgressIndicator(
-                        progress = { animatedProgress },
+                        progress = { progressState.floatValue },
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -731,6 +734,7 @@ fun MiniPlayer(
                                             align = Alignment.CenterVertically,
                                         ).basicMarquee(
                                             iterations = Int.MAX_VALUE,
+                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
                             )

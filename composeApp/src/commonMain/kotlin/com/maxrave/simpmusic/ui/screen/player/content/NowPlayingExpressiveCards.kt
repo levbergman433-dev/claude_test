@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
@@ -916,6 +917,7 @@ internal fun ExpressiveCollapsedToolbar(
                                             align = Alignment.CenterVertically,
                                         ).basicMarquee(
                                             iterations = Int.MAX_VALUE,
+                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
                             )
@@ -944,6 +946,7 @@ internal fun ExpressiveCollapsedToolbar(
                                                     align = Alignment.CenterVertically,
                                                 ).basicMarquee(
                                                     iterations = Int.MAX_VALUE,
+                                                    repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                     animationMode = MarqueeAnimationMode.Immediately,
                                                 ).focusable(),
                                     )

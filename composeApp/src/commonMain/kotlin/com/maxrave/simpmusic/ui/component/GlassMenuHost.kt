@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +57,15 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.unit.Density
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
+import kotlinx.coroutines.delay
 import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
 import kotlin.math.roundToInt
 
@@ -74,8 +84,24 @@ import kotlin.math.roundToInt
  */
 @Stable
 class GlassMenuHost(
-    val backdrop: Backdrop,
+    val backdrop: LayerBackdrop,
 ) {
+    /** Window position of the backdrop source; set by [glassMenuHostSource]. */
+    internal var sourceOrigin = Offset.Zero
+
+    /**
+     * What the open menu or sheet actually refracts: ONE snapshot of the page, taken when it opens.
+     *
+     * Refracting the live page makes the glass re-render — blur, lens and all, over the whole
+     * sheet — on every frame anything underneath changes: a canvas video, a scrolling title, the
+     * progress bar. Over the player that is every single frame, which is what made the sheet
+     * there lag. The page under an open sheet is behind a scrim and cannot be touched, so a still
+     * of it looks the same, and the glass now only redraws when the sheet itself moves.
+     */
+    internal val frozen = FrozenBackdrop()
+
+    /** A menu or sheet is open (or opening). Hosts whose source is not always recorded use this to record it only then. */
+    val isOpen: Boolean get() = active != null || activeSheet != null
     internal var active by mutableStateOf<ActiveGlassMenu?>(null)
 
     internal fun show(menu: ActiveGlassMenu) {
@@ -96,6 +122,33 @@ class GlassMenuHost(
         if (activeSheet?.token === token) activeSheet = null
     }
 }
+
+/** Draws a still [image] of the backdrop source, placed where the source was in the window. */
+@Stable
+internal class FrozenBackdrop : Backdrop {
+    var image by mutableStateOf<ImageBitmap?>(null)
+    var origin = Offset.Zero
+
+    override val isCoordinatesDependent: Boolean = true
+
+    override fun DrawScope.drawBackdrop(
+        density: Density,
+        coordinates: LayoutCoordinates?,
+        layerBlock: (GraphicsLayerScope.() -> Unit)?,
+    ) {
+        val snapshot = image ?: return
+        val position = coordinates?.positionInWindow() ?: return
+        translate(origin.x - position.x, origin.y - position.y) {
+            drawImage(snapshot)
+        }
+    }
+}
+
+/** Marks the backdrop source of [host]: records it for the glass and tracks where it sits. */
+fun Modifier.glassMenuHostSource(host: GlassMenuHost): Modifier =
+    this
+        .onGloballyPositioned { host.sourceOrigin = it.positionInWindow() }
+        .layerBackdrop(host.backdrop)
 
 internal class ActiveGlassSheet(
     val token: Any,
@@ -122,6 +175,23 @@ private val GlassMenuShape = RoundedCornerShape(24.dp)
  */
 @Composable
 fun GlassMenuOverlay(host: GlassMenuHost) {
+    val open = host.active != null || host.activeSheet != null
+    LaunchedEffect(open) {
+        if (open) {
+            // Snapshot on open (see [GlassMenuHost.frozen]). Until it lands the layers stay hidden,
+            // which is a frame or two.
+            // Two frames first: a source recorded only while open has to draw once before its
+            // layer holds anything.
+            repeat(2) { withFrameNanos { } }
+            host.frozen.origin = host.sourceOrigin
+            host.frozen.image = runCatching { host.backdrop.graphicsLayer.toImageBitmap() }.getOrNull()
+        } else {
+            // Kept through the sheet's slide-out, then released: it is a full-screen bitmap.
+            delay(600)
+            host.frozen.image = null
+        }
+    }
+    if (host.frozen.image == null) return
     GlassSheetLayer(host)
     GlassMenuLayer(host)
 }
@@ -240,7 +310,7 @@ private fun GlassSheetLayer(host: GlassMenuHost) {
                     .graphicsLayer {
                         translationY = (1f - progress.value) * (panelHeight + 64.dp.toPx()) + dragY
                     }.nestedScroll(dragToDismiss)
-                    .liquidGlass(host.backdrop, GlassSheetShape, interactive = false)
+                    .liquidGlass(host.frozen, GlassSheetShape, interactive = false)
                     .clip(GlassSheetShape)
                     .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -287,7 +357,7 @@ private fun GlassMenuLayer(host: GlassMenuHost) {
                                     TransformOrigin(if (alignedToEnd) 1f else 0f, if (opensUpward) 1f else 0f)
                             }.width(IntrinsicSize.Max)
                             .heightIn(max = 520.dp)
-                            .liquidGlass(host.backdrop, GlassMenuShape, interactive = false)
+                            .liquidGlass(host.frozen, GlassMenuShape, interactive = false)
                             .clip(GlassMenuShape)
                             .verticalScroll(rememberScrollState())
                             .padding(vertical = 8.dp),

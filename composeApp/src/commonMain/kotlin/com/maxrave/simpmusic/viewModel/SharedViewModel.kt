@@ -259,8 +259,10 @@ class SharedViewModel(
                                 Pair(timeLine, nowPlayingState)
                             }
                         }.distinctUntilChanged { old, new ->
-                            (old.first.total.toString() + old.second.songEntity?.videoId).hashCode() ==
-                                (new.first.total.toString() + new.second.songEntity?.videoId).hashCode()
+                            // Runs on every progress tick: compare the two fields directly rather
+                            // than building and hashing a string each time.
+                            old.first.total == new.first.total &&
+                                old.second.songEntity?.videoId == new.second.songEntity?.videoId
                         }.collectLatest {
                             log("Timeline job ${(it.first.total.toString() + it.second.songEntity?.videoId).hashCode()}")
                             val nowPlaying = it.second

@@ -17,7 +17,7 @@ import kotlin.math.abs
 
 private const val TAG = "BackdropLuminance"
 
-private const val SAMPLE_INTERVAL_MS = 1_000L
+private const val SAMPLE_INTERVAL_MS = 2_000L
 private const val SAMPLE_INTERVAL_BATTERY_SAVER_MS = 4_000L
 
 // Below this change the glass would re-tint by an invisible amount, so the 500 ms animation (and

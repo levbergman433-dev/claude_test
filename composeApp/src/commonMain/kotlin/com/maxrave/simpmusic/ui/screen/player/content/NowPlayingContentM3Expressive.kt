@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
@@ -341,6 +342,7 @@ private fun NowPlayingM3ExpressiveLayout(
                                     .wrapContentHeight(align = Alignment.CenterVertically)
                                     .basicMarquee(
                                         iterations = Int.MAX_VALUE,
+                                        repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                         animationMode = MarqueeAnimationMode.Immediately,
                                     ).focusable(),
                         )
@@ -451,6 +453,7 @@ private fun NowPlayingM3ExpressiveLayout(
                                             .padding(horizontal = 20.dp)
                                             .basicMarquee(
                                                 iterations = Int.MAX_VALUE,
+                                                repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                 animationMode = MarqueeAnimationMode.Immediately,
                                             ).focusable(),
                                 )
@@ -654,6 +657,7 @@ private fun NowPlayingM3ExpressiveLayout(
                                                                 .padding(bottom = 4.dp)
                                                                 .basicMarquee(
                                                                     iterations = Int.MAX_VALUE,
+                                                                    repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                                     animationMode = MarqueeAnimationMode.Immediately,
                                                                 ).focusable(),
                                                         text = lineText,
@@ -678,6 +682,7 @@ private fun NowPlayingM3ExpressiveLayout(
                                                                     .padding(bottom = 8.dp)
                                                                     .basicMarquee(
                                                                         iterations = Int.MAX_VALUE,
+                                                                        repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                                         animationMode = MarqueeAnimationMode.Immediately,
                                                                     ).focusable(),
                                                             text = translatedLineText,
@@ -761,6 +766,7 @@ private fun ExpressiveTrackInfoRow(
                         .wrapContentHeight(align = Alignment.CenterVertically)
                         .basicMarquee(
                             iterations = Int.MAX_VALUE,
+                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                             animationMode = MarqueeAnimationMode.Immediately,
                         ).focusable(),
             )
@@ -787,6 +793,7 @@ private fun ExpressiveTrackInfoRow(
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
                                 iterations = Int.MAX_VALUE,
+                                repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .clickable {

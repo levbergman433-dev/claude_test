@@ -495,7 +495,7 @@ fun InfoPlayerBottomSheet(
                                         .fillMaxWidth()
                                         .wrapContentHeight(align = Alignment.CenterVertically)
                                         .basicMarquee(
-                                            iterations = Int.MAX_VALUE,
+                                            iterations = LIST_MARQUEE_ITERATIONS,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
                             )
@@ -541,7 +541,7 @@ fun InfoPlayerBottomSheet(
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .padding(horizontal = 10.dp)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -566,7 +566,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -591,7 +591,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -616,7 +616,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -641,7 +641,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -666,7 +666,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -691,7 +691,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -716,7 +716,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -741,7 +741,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -766,7 +766,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -792,7 +792,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -818,7 +818,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -848,7 +848,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable()
                             .padding(horizontal = 10.dp),
@@ -902,7 +902,7 @@ fun InfoPlayerBottomSheet(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
-                                iterations = Int.MAX_VALUE,
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 animationMode = MarqueeAnimationMode.Immediately,
                             ).focusable(),
                     style = typo().bodyMedium,
@@ -1076,7 +1076,7 @@ fun QueueBottomSheet(
                                         .fillMaxWidth()
                                         .wrapContentHeight(align = Alignment.CenterVertically)
                                         .basicMarquee(
-                                            iterations = Int.MAX_VALUE,
+                                            iterations = LIST_MARQUEE_ITERATIONS,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
                             )

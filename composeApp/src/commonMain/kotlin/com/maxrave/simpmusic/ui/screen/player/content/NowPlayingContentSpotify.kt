@@ -2,6 +2,7 @@
 
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -833,6 +834,7 @@ fun NowPlayingContentSpotify(
                                         .wrapContentHeight(align = Alignment.CenterVertically)
                                         .basicMarquee(
                                             iterations = Int.MAX_VALUE,
+                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                             animationMode = MarqueeAnimationMode.Immediately,
                                         ).focusable(),
                             )
@@ -952,6 +954,7 @@ fun NowPlayingContentSpotify(
                                                 .padding(horizontal = 20.dp)
                                                 .basicMarquee(
                                                     iterations = Int.MAX_VALUE,
+                                                    repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                     animationMode = MarqueeAnimationMode.Immediately,
                                                 ).focusable(),
                                     )
@@ -1342,6 +1345,7 @@ fun NowPlayingContentSpotify(
                                                                     .padding(bottom = 4.dp)
                                                                     .basicMarquee(
                                                                         iterations = Int.MAX_VALUE,
+                                                                        repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                                         animationMode = MarqueeAnimationMode.Immediately,
                                                                     ).focusable(),
                                                             text = lineText,
@@ -1366,6 +1370,7 @@ fun NowPlayingContentSpotify(
                                                                         .padding(bottom = 8.dp)
                                                                         .basicMarquee(
                                                                             iterations = Int.MAX_VALUE,
+                                                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                                             animationMode = MarqueeAnimationMode.Immediately,
                                                                         ).focusable(),
                                                                 text = translatedLineText,
@@ -1767,6 +1772,7 @@ fun NowPlayingContentSpotify(
                                                 align = Alignment.CenterVertically,
                                             ).basicMarquee(
                                                 iterations = Int.MAX_VALUE,
+                                                repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                 animationMode = MarqueeAnimationMode.Immediately,
                                             ).focusable(),
                                 )
@@ -1796,6 +1802,7 @@ fun NowPlayingContentSpotify(
                                                         align = Alignment.CenterVertically,
                                                     ).basicMarquee(
                                                         iterations = Int.MAX_VALUE,
+                                                        repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                                         animationMode = MarqueeAnimationMode.Immediately,
                                                     ).focusable(),
                                         )
@@ -1919,6 +1926,7 @@ private fun NowPlayingTrackInfoRow(
                         .wrapContentHeight(align = Alignment.CenterVertically)
                         .basicMarquee(
                             iterations = Int.MAX_VALUE,
+                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                             animationMode = MarqueeAnimationMode.Immediately,
                         ).focusable(),
             )
@@ -1949,6 +1957,7 @@ private fun NowPlayingTrackInfoRow(
                                 .wrapContentHeight(align = Alignment.CenterVertically)
                                 .basicMarquee(
                                     iterations = Int.MAX_VALUE,
+                                    repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
                                     animationMode = MarqueeAnimationMode.Immediately,
                                 ).focusable()
                                 .clickable {
