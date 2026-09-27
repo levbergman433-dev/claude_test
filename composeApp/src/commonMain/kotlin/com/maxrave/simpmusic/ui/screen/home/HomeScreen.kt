@@ -1162,7 +1162,7 @@ fun HomeTopAppBar(
                             text = { Text(stringResource(Res.string.listen_together)) },
                             onClick = {
                                 menuOpen = false
-                                navController.navigate(ListenTogetherDestination)
+                                navController.navigate(ListenTogetherDestination())
                             },
                         )
                         DropdownMenuItem(
@@ -1182,7 +1182,7 @@ fun HomeTopAppBar(
                     navController.navigate(RecentlySongsDestination)
                 }
                 // Fourth button, immediately before Settings — the position the design canvas fixes.
-                ListenTogetherIconButton { navController.navigate(ListenTogetherDestination) }
+                ListenTogetherIconButton { navController.navigate(ListenTogetherDestination()) }
                 RippleIconButton(imageVector = SimpIcons.Settings, tint = MaterialTheme.colorScheme.onBackground) {
                     navController.navigate(SettingsDestination)
                 }

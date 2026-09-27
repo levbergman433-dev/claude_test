@@ -1,5 +1,12 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import coil3.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import com.maxrave.domain.data.model.listentogether.RoomTrack
+import simpmusic.composeapp.generated.resources.lt_now_playing_in_room
+import simpmusic.composeapp.generated.resources.lt_playing
+import simpmusic.composeapp.generated.resources.lt_paused
+import simpmusic.composeapp.generated.resources.lt_up_next_count
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
@@ -174,8 +181,11 @@ private fun initialOf(name: String): String = name.trim().firstOrNull()?.upperca
 fun ListenTogetherScreen(
     navController: NavController,
     innerPadding: PaddingValues,
+    inviteCode: String? = null,
     viewModel: ListenTogetherViewModel = koinViewModel(),
 ) {
+    // Opened from an invite link: the code is filled in and the room joined on its own.
+    LaunchedEffect(inviteCode) { viewModel.handleInvite(inviteCode) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val displayName by viewModel.displayName.collectAsStateWithLifecycle()
     val codeInput by viewModel.roomCodeInput.collectAsStateWithLifecycle()
@@ -198,7 +208,7 @@ fun ListenTogetherScreen(
         val copyCode: () -> Unit = { state.roomCode?.let { clipboard.setText(AnnotatedString(it)) } }
         val shareTitle = stringResource(Res.string.listen_together)
         val shareCode: () -> Unit = {
-            state.roomCode?.let { shareUrl(title = shareTitle, url = SHARE_PREFIX + it) }
+            state.roomCode?.let { shareUrl(title = shareTitle, url = inviteMessage(it)) }
         }
         val openSettings: () -> Unit = { navController.navigate(ListenTogetherSettingsDestination) }
 
@@ -357,6 +367,9 @@ private fun ColumnScope.WorkArea(
                     Suggestions(state.suggestions, viewModel::approveSuggestion, viewModel::rejectSuggestion)
                 }
             }
+            state.currentTrack?.let { track ->
+                RoomNowPlaying(track = track, isPlaying = state.isPlaying, queueSize = state.queue.size)
+            }
             Members(
                 members = state.members,
                 selfId = state.selfUserId,
@@ -430,8 +443,13 @@ private fun CreditFooter() {
     }
 }
 
-/** Prefix for the share button; the code alone means nothing to the recipient. */
-private const val SHARE_PREFIX = "Join my SimpMusic room with code "
+/**
+ * What the share button sends: the code in words, and a link that opens the app straight into the
+ * room (see the "listen" deep link in App.kt). Some chat apps do not make custom-scheme links
+ * tappable, so the code is always there to paste — the code field picks it out of the whole
+ * message.
+ */
+private fun inviteMessage(code: String) = "Listen with me on Tunes — room code $code\nsimpmusic://listen?code=$code"
 
 // ───────────────────────────────── structure ─────────────────────────────────
 
@@ -792,6 +810,58 @@ private fun Suggestions(
     }
 }
 
+/** What the room is listening to right now, so a guest can see it without opening the player. */
+@Composable
+private fun RoomNowPlaying(
+    track: RoomTrack,
+    isPlaying: Boolean,
+    queueSize: Int,
+) {
+    SectionHeader(stringResource(Res.string.lt_now_playing_in_room), null)
+    Surface {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            AsyncImage(
+                model = track.thumbnail,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)),
+            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    track.title,
+                    style = typo().bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    track.artist,
+                    style = typo().bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    if (isPlaying) stringResource(Res.string.lt_playing) else stringResource(Res.string.lt_paused),
+                    style = typo().labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            if (queueSize > 0) {
+                Text(
+                    stringResource(Res.string.lt_up_next_count, queueSize),
+                    style = typo().labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun Members(
     members: List<RoomMember>,
@@ -1019,7 +1089,7 @@ private fun Surface(
 @Composable
 private fun SectionHeader(
     title: String,
-    count: Int,
+    count: Int?,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -1027,7 +1097,7 @@ private fun SectionHeader(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(title, style = typo().titleSmall, color = MaterialTheme.colorScheme.onBackground)
-        Box(
+        if (count != null) Box(
             Modifier
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))

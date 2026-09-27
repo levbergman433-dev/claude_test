@@ -37,10 +37,11 @@ fun NavGraphBuilder.homeScreenGraph(
             params = params,
         )
     }
-    composable<ListenTogetherDestination> {
+    composable<ListenTogetherDestination> { entry ->
         ListenTogetherScreen(
             navController = navController,
             innerPadding = innerPadding,
+            inviteCode = entry.toRoute<ListenTogetherDestination>().code,
         )
     }
     composable<ListenTogetherSettingsDestination> {

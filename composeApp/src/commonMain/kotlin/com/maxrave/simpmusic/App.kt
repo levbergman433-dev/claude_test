@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic
 
+import com.maxrave.simpmusic.ui.navigation.destination.home.ListenTogetherDestination
 import com.maxrave.simpmusic.ui.component.GlassMenuHost
 import com.maxrave.simpmusic.ui.component.GlassMenuOverlay
 import com.maxrave.simpmusic.ui.component.glassMenuHostSource
@@ -305,6 +306,13 @@ fun App(
                         data.getQueryParameter("id")?.let { albumId ->
                             navController.navigate(AlbumDestination(browseId = albumId))
                         }
+                    }
+
+                    // simpmusic://listen?code=ABCD1234  → Listen Together, joining that room
+                    // (the invite link the room screen shares)
+                    "listen" -> {
+                        val code = data.getQueryParameter("code")?.uppercase()?.filter { it.isLetterOrDigit() }
+                        navController.navigate(ListenTogetherDestination(code = code?.takeIf { it.isNotBlank() }))
                     }
 
                     // simpmusic://library                     → the Library tab

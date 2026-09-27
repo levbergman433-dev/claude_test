@@ -1,5 +1,10 @@
 package com.maxrave.simpmusic.ui.component
 
+import com.maxrave.domain.repository.ListenTogetherRepository
+import com.maxrave.domain.data.model.listentogether.RoomTrack
+import com.maxrave.simpmusic.ui.icon.Groups
+import simpmusic.composeapp.generated.resources.lt_suggest_to_room
+import simpmusic.composeapp.generated.resources.lt_suggestion_sent
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -1657,6 +1662,10 @@ fun NowPlayingBottomSheet(
     val appleSheet = LocalAppleGlass.current || glassSheetHost != null
     val sheetColors = rememberSurfaceDarkColors()
     val sheetDark = sheetColors.container.luminance() < 0.5f
+    // Listen Together: a guest in a room can put this song forward for the host to play.
+    val listenTogether = koinInject<ListenTogetherRepository>()
+    val room by listenTogether.room.collectAsStateWithLifecycle()
+    val suggestionSent = stringResource(Res.string.lt_suggestion_sent)
     // The rows, shared by the glass sheet and the modal one.
     val sheetBody: @Composable ColumnScope.() -> Unit = {
                     Spacer(modifier = Modifier.height(5.dp))
@@ -1918,6 +1927,25 @@ fun NowPlayingBottomSheet(
                             ) {
                                 changePlaybackSpeedPitch = true
                             }
+                        }
+                    }
+                    if (room.inRoom && !room.isHost && uiState.songUIState.videoId.isNotEmpty()) {
+                        ActionButton(
+                            icon = SimpIcons.Groups,
+                            text = Res.string.lt_suggest_to_room,
+                        ) {
+                            val song = uiState.songUIState
+                            listenTogether.suggestTrack(
+                                RoomTrack(
+                                    id = song.videoId,
+                                    title = song.title,
+                                    artist = song.listArtists.toListName().connectArtists(),
+                                    album = song.album?.name.orEmpty(),
+                                    thumbnail = song.thumbnails.orEmpty(),
+                                ),
+                            )
+                            viewModel.makeToast(suggestionSent)
+                            hideModalBottomSheet()
                         }
                     }
                     ActionButton(
