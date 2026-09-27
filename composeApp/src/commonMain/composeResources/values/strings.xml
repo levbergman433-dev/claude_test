@@ -410,7 +410,7 @@
     <string name="now_playing_style_spotify">Classic</string>
     <string name="now_playing_style_m3_expressive" translatable="false">Material 3 Expressive</string>
     <string name="now_playing_style_apple_music" translatable="false">Apple Music</string>
-    <string name="menu_style">Menu style</string>
+    <string name="menu_style">Menu &amp; sheet style</string>
     <string name="menu_style_liquid">Liquid glass (needs Liquid glass on)</string>
     <string name="menu_style_frosted">Frosted</string>
     <string name="adaptive_quality_weak_network">Lower quality on weak connection</string>

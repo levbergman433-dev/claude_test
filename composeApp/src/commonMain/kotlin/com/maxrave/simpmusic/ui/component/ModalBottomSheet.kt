@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.component
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutLinearInEasing
@@ -1433,11 +1434,17 @@ fun NowPlayingBottomSheet(
         rememberModalBottomSheetState(
             skipPartiallyExpanded = true,
         )
+    // Liquid glass: drawn in-window by the nearest GlassMenuOverlay, which plays its own slide-out.
+    val glassSheetHost = LocalGlassMenuHost.current
     val hideModalBottomSheet: () -> Unit =
         {
-            coroutineScope.launch {
-                modelBottomSheetState.hide()
+            if (glassSheetHost != null) {
                 onDismiss()
+            } else {
+                coroutineScope.launch {
+                    modelBottomSheetState.hide()
+                    onDismiss()
+                }
             }
         }
 
@@ -1647,64 +1654,11 @@ fun NowPlayingBottomSheet(
         )
     }
 
-    if (isBottomSheetVisible) {
-        ModalBottomSheet(
-            onDismissRequest = onDismiss,
-            sheetState = modelBottomSheetState,
-            containerColor = Color.Transparent,
-            contentColor = Color.Transparent,
-            dragHandle = null,
-            scrimColor = Color.Black.copy(alpha = .5f),
-            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
-        ) {
-            // Apple glass look: the sheet floats clear of the screen edges as one rounded pane of
-            // tinted glass — translucent body, a rim lit along the top that fades down the sides,
-            // and a sheen across the top rows — the same material as GlassDropdownMenu. A sheet is
-            // its own window, so like the menus it reproduces the material rather than the lens.
-            val appleSheet = LocalAppleGlass.current
-            val sheetColors = rememberSurfaceDarkColors()
-            val sheetDark = sheetColors.container.luminance() < 0.5f
-            Card(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .then(if (appleSheet) Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp) else Modifier),
-                shape = if (appleSheet) RoundedCornerShape(34.dp) else RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-                colors =
-                    CardDefaults.cardColors().copy(
-                        containerColor = if (appleSheet) sheetColors.container.copy(alpha = 0.84f) else sheetColors.container,
-                    ),
-                border =
-                    if (appleSheet) {
-                        BorderStroke(
-                            0.8.dp,
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.White.copy(alpha = if (sheetDark) 0.42f else 0.9f),
-                                    Color.White.copy(alpha = if (sheetDark) 0.06f else 0.35f),
-                                ),
-                            ),
-                        )
-                    } else {
-                        null
-                    },
-            ) {
-                val sheen = Color.White.copy(alpha = if (sheetDark) 0.07f else 0.25f)
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier =
-                        Modifier
-                            .then(
-                                if (appleSheet) {
-                                    Modifier.drawBehind {
-                                        drawRect(Brush.verticalGradient(listOf(sheen, Color.Transparent), endY = 90.dp.toPx()))
-                                    }
-                                } else {
-                                    Modifier
-                                },
-                            ).verticalScroll(rememberScrollState()),
-                ) {
+    val appleSheet = LocalAppleGlass.current || glassSheetHost != null
+    val sheetColors = rememberSurfaceDarkColors()
+    val sheetDark = sheetColors.container.luminance() < 0.5f
+    // The rows, shared by the glass sheet and the modal one.
+    val sheetBody: @Composable ColumnScope.() -> Unit = {
                     Spacer(modifier = Modifier.height(5.dp))
                     Card(
                         modifier =
@@ -1973,6 +1927,66 @@ fun NowPlayingBottomSheet(
                         viewModel.onUIEvent(NowPlayingBottomSheetUIEvent.Share)
                     }
                     EndOfModalBottomSheet()
+    }
+
+    if (isBottomSheetVisible && glassSheetHost != null) {
+        GlassSheet(onDismissRequest = onDismiss, content = sheetBody)
+    } else if (isBottomSheetVisible) {
+        ModalBottomSheet(
+            onDismissRequest = onDismiss,
+            sheetState = modelBottomSheetState,
+            containerColor = Color.Transparent,
+            contentColor = Color.Transparent,
+            dragHandle = null,
+            scrimColor = Color.Black.copy(alpha = .5f),
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+        ) {
+            // Apple glass look: the sheet floats clear of the screen edges as one rounded pane of
+            // tinted glass — translucent body, a rim lit along the top that fades down the sides,
+            // and a sheen across the top rows — the same material as GlassDropdownMenu. A sheet is
+            // its own window, so like the menus it reproduces the material rather than the lens.
+            Card(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .then(if (appleSheet) Modifier.padding(horizontal = 8.dp).padding(bottom = 8.dp) else Modifier),
+                shape = if (appleSheet) RoundedCornerShape(34.dp) else RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+                colors =
+                    CardDefaults.cardColors().copy(
+                        containerColor = if (appleSheet) sheetColors.container.copy(alpha = 0.84f) else sheetColors.container,
+                    ),
+                border =
+                    if (appleSheet) {
+                        BorderStroke(
+                            0.8.dp,
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = if (sheetDark) 0.42f else 0.9f),
+                                    Color.White.copy(alpha = if (sheetDark) 0.06f else 0.35f),
+                                ),
+                            ),
+                        )
+                    } else {
+                        null
+                    },
+            ) {
+                val sheen = Color.White.copy(alpha = if (sheetDark) 0.07f else 0.25f)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier =
+                        Modifier
+                            .then(
+                                if (appleSheet) {
+                                    Modifier.drawBehind {
+                                        drawRect(Brush.verticalGradient(listOf(sheen, Color.Transparent), endY = 90.dp.toPx()))
+                                    }
+                                } else {
+                                    Modifier
+                                },
+                            ).verticalScroll(rememberScrollState()),
+                ) {
+                    sheetBody()
                 }
             }
         }

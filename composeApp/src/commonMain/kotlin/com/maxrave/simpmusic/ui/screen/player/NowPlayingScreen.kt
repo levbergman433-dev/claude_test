@@ -2,6 +2,14 @@
 
 package com.maxrave.simpmusic.ui.screen.player
 
+import com.maxrave.simpmusic.ui.component.GlassMenuHost
+import com.maxrave.simpmusic.ui.component.GlassMenuOverlay
+import com.maxrave.simpmusic.ui.component.LocalGlassMenuHost
+import com.maxrave.simpmusic.expect.ui.rememberBackdrop
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
@@ -537,7 +545,14 @@ fun NowPlayingScreenContent(
         }
     }
 
-    if (showSheet) {
+    // The player is a window of its own (a bottom sheet), so the app's glass layer is not behind
+    // it. When glass sheets are on, it gets its own: the player content is recorded as a backdrop
+    // and a sheet opened from here is drawn over it as liquid glass.
+    val npBackdrop = rememberBackdrop(Color.Black)
+    val npGlassHost =
+        if (LocalGlassMenuHost.current != null) remember(npBackdrop) { GlassMenuHost(npBackdrop) } else null
+
+    if (showSheet) CompositionLocalProvider(LocalGlassMenuHost provides npGlassHost) {
         NowPlayingBottomSheet(
             onDismiss = {
                 showSheet = false
@@ -730,6 +745,8 @@ fun NowPlayingScreenContent(
                 mediaPlayerHandler.removeMediaItem(index)
             },
         )
+    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().then(if (npGlassHost != null) Modifier.layerBackdrop(npBackdrop) else Modifier)) {
     when (nowPlayingStyle) {
         DataStoreManager.NOW_PLAYING_STYLE_M3_EXPRESSIVE ->
             NowPlayingContentM3Expressive(
@@ -755,5 +772,9 @@ fun NowPlayingScreenContent(
                 state = state,
                 actions = actions,
             )
+    }
+    }
+    // Outside the recorded box, never inside it.
+    npGlassHost?.let { GlassMenuOverlay(host = it) }
     }
 }

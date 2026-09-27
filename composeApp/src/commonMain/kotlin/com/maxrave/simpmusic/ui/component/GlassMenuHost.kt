@@ -1,6 +1,27 @@
 package com.maxrave.simpmusic.ui.component
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.Velocity
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -64,7 +85,23 @@ class GlassMenuHost(
     internal fun hide(token: Any) {
         if (active?.token === token) active = null
     }
+
+    internal var activeSheet by mutableStateOf<ActiveGlassSheet?>(null)
+
+    internal fun showSheet(sheet: ActiveGlassSheet) {
+        activeSheet = sheet
+    }
+
+    internal fun hideSheet(token: Any) {
+        if (activeSheet?.token === token) activeSheet = null
+    }
 }
+
+internal class ActiveGlassSheet(
+    val token: Any,
+    val onDismissRequest: () -> Unit,
+    val content: @Composable ColumnScope.() -> Unit,
+)
 
 internal class ActiveGlassMenu(
     val token: Any,
@@ -79,9 +116,141 @@ val LocalGlassMenuHost = staticCompositionLocalOf<GlassMenuHost?> { null }
 
 private val GlassMenuShape = RoundedCornerShape(24.dp)
 
-/** Draws the open menu, if any. Place it at the app root, after the scaffold, outside the backdrop source. */
+/**
+ * Draws the open glass sheet and menu, if any. Place it at the root of the window, after
+ * everything else, outside the backdrop source.
+ */
 @Composable
 fun GlassMenuOverlay(host: GlassMenuHost) {
+    GlassSheetLayer(host)
+    GlassMenuLayer(host)
+}
+
+/**
+ * A bottom sheet as liquid glass, for the same reason menus are: a ModalBottomSheet is a window of
+ * its own and cannot refract the page. Registers with the nearest [GlassMenuHost]; only call it
+ * where [LocalGlassMenuHost] is non-null. [onDismissRequest] should simply stop showing the sheet —
+ * the overlay plays the slide-out itself.
+ */
+@Composable
+fun GlassSheet(
+    onDismissRequest: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val host = LocalGlassMenuHost.current ?: return
+    val latestContent by rememberUpdatedState(content)
+    val latestDismiss by rememberUpdatedState(onDismissRequest)
+    val token = remember { Any() }
+    DisposableEffect(host) {
+        host.showSheet(
+            ActiveGlassSheet(
+                token = token,
+                onDismissRequest = { latestDismiss() },
+                content = { latestContent() },
+            ),
+        )
+        onDispose { host.hideSheet(token) }
+    }
+}
+
+private val GlassSheetShape = RoundedCornerShape(34.dp)
+
+@Composable
+private fun GlassSheetLayer(host: GlassMenuHost) {
+    val target = host.activeSheet
+    // The sheet on screen, which outlives its registration by the length of the slide-out.
+    var shown by remember { mutableStateOf<ActiveGlassSheet?>(null) }
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(target) {
+        if (target != null) {
+            shown = target
+            progress.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = 420f))
+        } else if (shown != null) {
+            progress.animateTo(0f, tween(220))
+            shown = null
+        }
+    }
+    val sheet = shown ?: return
+    val scope = rememberCoroutineScope()
+    var dragY by remember(sheet.token) { mutableFloatStateOf(0f) }
+    var panelHeight by remember { mutableIntStateOf(0) }
+    PlatformBackHandler(enabled = target != null) { sheet.onDismissRequest() }
+
+    // Pull-down-to-close on top of the sheet's own scrolling: once the list is at its top, a
+    // further pull moves the whole sheet; releasing far or fast enough closes it.
+    val dragToDismiss =
+        remember(sheet.token) {
+            object : NestedScrollConnection {
+                override fun onPreScroll(
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    if (available.y < 0f && dragY > 0f) {
+                        val used = maxOf(available.y, -dragY)
+                        dragY += used
+                        return Offset(0f, used)
+                    }
+                    return Offset.Zero
+                }
+
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    if (available.y > 0f && source == NestedScrollSource.UserInput) {
+                        dragY += available.y
+                        return Offset(0f, available.y)
+                    }
+                    return Offset.Zero
+                }
+
+                override suspend fun onPreFling(available: Velocity): Velocity {
+                    if (dragY <= 0f) return Velocity.Zero
+                    if (dragY > panelHeight * 0.25f || available.y > 1800f) {
+                        sheet.onDismissRequest()
+                    } else {
+                        scope.launch { animate(dragY, 0f) { value, _ -> dragY = value } }
+                    }
+                    return available
+                }
+            }
+        }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = progress.value }
+                    .background(Color.Black.copy(alpha = 0.35f))
+                    .pointerInput(sheet.token) { detectTapGestures { sheet.onDismissRequest() } },
+        )
+        val maxSheetHeight = maxHeight * 0.88f
+        Column(
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 8.dp)
+                    .padding(bottom = 8.dp)
+                    .fillMaxWidth()
+                    .heightIn(max = maxSheetHeight)
+                    .onSizeChanged { panelHeight = it.height }
+                    .graphicsLayer {
+                        translationY = (1f - progress.value) * (panelHeight + 64.dp.toPx()) + dragY
+                    }.nestedScroll(dragToDismiss)
+                    .liquidGlass(host.backdrop, GlassSheetShape, interactive = false)
+                    .clip(GlassSheetShape)
+                    .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            content = sheet.content,
+        )
+    }
+}
+
+@Composable
+private fun GlassMenuLayer(host: GlassMenuHost) {
     val menu = host.active ?: return
     var origin by remember { mutableStateOf(Offset.Zero) }
     PlatformBackHandler(enabled = true) { menu.onDismissRequest() }

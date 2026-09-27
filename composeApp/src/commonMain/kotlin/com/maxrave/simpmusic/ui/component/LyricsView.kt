@@ -1699,7 +1699,9 @@ fun FullscreenLyricsSheet(
             },
         )
     }
-    if (showNowPlayingSheet) {
+    // This sheet opens over the full-screen lyrics, a window of its own: no glass host there, so
+    // it stays a modal sheet on top rather than being drawn in the window underneath.
+    if (showNowPlayingSheet) CompositionLocalProvider(LocalGlassMenuHost provides null) {
         NowPlayingBottomSheet(
             onDismiss = {
                 showNowPlayingSheet = false
