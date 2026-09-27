@@ -131,7 +131,8 @@ class SimpMusicApplication :
                 DiskCache
                     .Builder()
                     .directory(FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "image_cache")
-                    .maxSizeBytes(512L * 1024 * 1024)
+                    // Covers are small; 250 MB still holds thousands of them.
+                    .maxSizeBytes(250L * 1024 * 1024)
                     .build(),
             ).crossfade(true)
             .build()

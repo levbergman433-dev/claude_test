@@ -483,7 +483,11 @@ internal class DataStoreManagerImpl(
 
     override val maxSongCacheSize =
         settingsDataStore.data.map { preferences ->
-            preferences[MAX_SONG_CACHE_SIZE] ?: -1
+            // 500 MB when the user never picked a size. The old default was unlimited, so every song
+            // ever played stayed on disk (~8 MB each at high quality) — a gigabyte in a couple of days
+            // of listening. The cache evicts least-recently-played first, so recent and favourite
+            // songs still replay without the network. An explicit "∞" choice is stored and kept.
+            preferences[MAX_SONG_CACHE_SIZE] ?: DEFAULT_SONG_CACHE_MB
         }
 
     override suspend fun setMaxSongCacheSize(size: Int) {
@@ -1873,6 +1877,7 @@ internal class DataStoreManagerImpl(
 
         val SPONSOR_BLOCK_ENABLED = stringPreferencesKey("sponsor_block_enabled")
         val MAX_SONG_CACHE_SIZE = intPreferencesKey("maxSongCacheSize")
+        const val DEFAULT_SONG_CACHE_MB = 500
         val WATCH_VIDEO_INSTEAD_OF_PLAYING_AUDIO =
             stringPreferencesKey("watch_video_instead_of_playing_audio")
         val RADIO_AUDIO_ONLY = stringPreferencesKey("radio_audio_only")

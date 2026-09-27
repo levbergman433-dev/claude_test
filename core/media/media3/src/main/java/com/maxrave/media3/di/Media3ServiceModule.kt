@@ -133,7 +133,10 @@ private val mediaServiceModule =
             provideSimpleCache(
                 context = androidContext(),
                 cacheName = "spotifyCanvas",
-                cacheSize = -1,
+                // Was unlimited: every canvas and animated cover ever shown (the covers stream at
+                // 2-3 Mbps) stayed on disk. Least-recently-used ones go first past 200 MB; a dropped
+                // one just streams again next time.
+                cacheSize = 200,
                 databaseProvider = get<DatabaseProvider>(),
             )
         }
