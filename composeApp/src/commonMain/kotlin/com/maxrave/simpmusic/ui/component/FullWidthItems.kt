@@ -1,8 +1,11 @@
 package com.maxrave.simpmusic.ui.component
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.expandHorizontally
@@ -156,25 +159,32 @@ fun SongFullWidthItems(
         modifier =
         modifier,
     ) {
-        Crossfade(
-            offsetX.value >= maxOffset / 2,
-        ) { shouldShowAddToQueue ->
-            if (shouldShowAddToQueue) {
-                Box(
-                    modifier =
-                        Modifier
-                            .height(heightDp)
-                            .aspectRatio(1f)
-                            .padding(start = 15.dp)
-                            .align(Alignment.CenterStart),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        tint = contentColor,
-                        imageVector = SimpIcons.QueueMusic,
-                        contentDescription = stringResource(Res.string.add_to_queue),
-                    )
-                }
+        // The same 300 ms fade Crossfade drew, without a Crossfade per row: that built a transition
+        // and a saveable-state holder for every row as it scrolled in, for an icon that only exists
+        // while the row is being swiped. The threshold is derived, so dragging recomposes this
+        // once when it is crossed rather than on every frame of the drag.
+        val showAddToQueue by remember { derivedStateOf { offsetX.value >= maxOffset / 2 } }
+        val addToQueueAlpha by animateFloatAsState(
+            targetValue = if (showAddToQueue) 1f else 0f,
+            animationSpec = tween(),
+            label = "addToQueueHint",
+        )
+        if (addToQueueAlpha > 0f) {
+            Box(
+                modifier =
+                    Modifier
+                        .height(heightDp)
+                        .aspectRatio(1f)
+                        .padding(start = 15.dp)
+                        .align(Alignment.CenterStart)
+                        .graphicsLayer { alpha = addToQueueAlpha },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    tint = contentColor,
+                    imageVector = SimpIcons.QueueMusic,
+                    contentDescription = stringResource(Res.string.add_to_queue),
+                )
             }
         }
         val itemVideoId = track?.videoId ?: songEntity?.videoId ?: ""
@@ -274,7 +284,7 @@ fun SongFullWidthItems(
                     modifier = Modifier.size(48.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Crossfade(isPlaying) {
+                    RowCrossfade(isPlaying) {
                         if (it) {
                             PlayingAnimation()
                         } else if (index == null) {
@@ -432,7 +442,7 @@ fun SuggestItems(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(modifier = Modifier.size(40.dp)) {
-                Crossfade(isPlaying) {
+                RowCrossfade(isPlaying) {
                     if (it) {
                         PlayingAnimation()
                     } else {
@@ -793,4 +803,29 @@ private fun PlayingAnimation() {
             ),
         contentDescription = "Lottie animation",
     )
+}
+
+/**
+ * [Crossfade] for a two-state swap inside a list row: the same 300 ms fade, both sides drawn while
+ * it runs, but without Crossfade's transition and saveable-state holder being built for every row
+ * that scrolls in. Each side is only composed while it is at least partly visible.
+ */
+@Composable
+private fun RowCrossfade(
+    target: Boolean,
+    content: @Composable (Boolean) -> Unit,
+) {
+    val progress by animateFloatAsState(
+        targetValue = if (target) 1f else 0f,
+        animationSpec = tween(),
+        label = "rowCrossfade",
+    )
+    Box {
+        if (progress < 1f) {
+            Box(Modifier.graphicsLayer { alpha = 1f - progress }) { content(false) }
+        }
+        if (progress > 0f) {
+            Box(Modifier.graphicsLayer { alpha = progress }) { content(true) }
+        }
+    }
 }
