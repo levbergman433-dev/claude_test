@@ -144,15 +144,6 @@ fun NowPlayingContentM3Expressive(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
 ) {
-    // The timeline ticks ten times a second; read directly in this body, any field of it subscribed
-    // the whole player to every tick. These only change when their own answer does.
-    val timelineLoading by remember(state) { derivedStateOf { state.timelineState.loading } }
-    val timelineCrossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
-    val totalText by remember(state) { derivedStateOf { formatDuration(state.timelineState.total) } }
-    val elapsedText by remember(state) {
-        derivedStateOf { formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
-    }
-
     // === 1. Color system: full dark scheme derived from the artwork ===
     // startColor is animated by the shell from Color.Black (initial) to the palette color;
     // fall back to the app seed while it still sits on the initial black.
@@ -184,6 +175,19 @@ private fun NowPlayingM3ExpressiveLayout(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
 ) {
+    // The timeline ticks ten times a second; read directly in this body, any field of it subscribed
+    // the whole player to every tick. These only change when their own answer does.
+    val timelineLoading by remember(state) { derivedStateOf { state.timelineState.loading } }
+    val timelineCrossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
+    // Snapped to whole seconds (formatDuration shows no finer), so these change once a second.
+    // formatDuration itself reads a string resource, which cannot run inside derivedStateOf.
+    val totalMsSnapped by remember(state) { derivedStateOf { snapToSecond(state.timelineState.total) } }
+    val elapsedMsSnapped by remember(state) {
+        derivedStateOf { snapToSecond((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
+    }
+    val totalText = formatDuration(totalMsSnapped)
+    val elapsedText = formatDuration(elapsedMsSnapped)
+
     val screenInfo = getScreenSizeInfo()
     val localDensity = LocalDensity.current
     val colorScheme = MaterialTheme.colorScheme

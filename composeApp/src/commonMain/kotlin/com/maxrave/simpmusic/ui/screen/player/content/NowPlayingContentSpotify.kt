@@ -202,10 +202,14 @@ fun NowPlayingContentSpotify(
     // values only change when their own answer does.
     val timelineLoading by remember(state) { derivedStateOf { state.timelineState.loading } }
     val timelineCrossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
-    val totalText by remember(state) { derivedStateOf { formatDuration(state.timelineState.total) } }
-    val elapsedText by remember(state) {
-        derivedStateOf { formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
+    // Snapped to whole seconds (formatDuration shows no finer), so these change once a second.
+    // formatDuration itself reads a string resource, which cannot run inside derivedStateOf.
+    val totalMsSnapped by remember(state) { derivedStateOf { snapToSecond(state.timelineState.total) } }
+    val elapsedMsSnapped by remember(state) {
+        derivedStateOf { snapToSecond((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
     }
+    val totalText = formatDuration(totalMsSnapped)
+    val elapsedText = formatDuration(elapsedMsSnapped)
 
     var showShareLyricsSheet by rememberSaveable { mutableStateOf(false) }
 

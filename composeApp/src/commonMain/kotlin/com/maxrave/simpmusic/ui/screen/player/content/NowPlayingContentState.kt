@@ -149,3 +149,8 @@ class NowPlayingContentActions(
     /** Removes one queue entry. `index` is an absolute index into [NowPlayingContentState.artworkQueue]. */
     val onRemoveQueueItem: (index: Int) -> Unit,
 )
+/**
+ * [ms] rounded down to a whole second, or -1 for a negative (unknown) value. `formatDuration`
+ * renders both identically to the raw value, so a label built on this only changes once a second.
+ */
+internal fun snapToSecond(ms: Long): Long = if (ms < 0L) -1L else ms / 1000L * 1000L

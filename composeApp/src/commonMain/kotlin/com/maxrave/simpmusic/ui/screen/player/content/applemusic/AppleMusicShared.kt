@@ -101,6 +101,7 @@ import com.maxrave.simpmusic.ui.icon.VolumeDown
 import com.maxrave.simpmusic.ui.icon.VolumeUp
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentActions
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentState
+import com.maxrave.simpmusic.ui.screen.player.content.snapToSecond
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.UIEvent
 import org.jetbrains.compose.resources.stringResource
@@ -583,13 +584,17 @@ internal fun AppleMusicTimesRow(
             // No leading "-" when the length is unknown: "-NA:NA" reads as a negative amount of
             // nothing. formatDuration's own out-of-range string is the app's established way to
             // say "no value here".
-            formatDuration(elapsedMs) to (remainingMs?.let { "-" + formatDuration(it) } ?: formatDuration(-1L))
+            // Snapped to whole seconds (formatDuration shows no finer), so this changes once a
+            // second; formatting happens below because formatDuration reads a string resource.
+            snapToSecond(elapsedMs) to remainingMs?.let { snapToSecond(it) }
         }
     }
+    val elapsedText = formatDuration(times.first)
+    val remainingText = times.second?.let { "-" + formatDuration(it) } ?: formatDuration(-1L)
     val isCrossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = times.first,
+            text = elapsedText,
             style = typography.times,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Left,
@@ -674,7 +679,7 @@ internal fun AppleMusicTimesRow(
             }
         }
         Text(
-            text = times.second,
+            text = remainingText,
             style = typography.times,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Right,
