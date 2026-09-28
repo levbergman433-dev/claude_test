@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -134,11 +135,24 @@ import simpmusic.composeapp.generated.resources.now_playing_upper
  * overlay renders over the info area. The shell owns the auto-hide state machine.
  */
 @OptIn(ExperimentalFoundationApi::class)
+/** A restartable boundary, so state read inside [content] recomposes only this, not its caller. */
+@Composable
+private fun ExpressiveSeekBarScope(content: @Composable () -> Unit) = content()
+
 @Composable
 fun NowPlayingContentM3Expressive(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
 ) {
+    // The timeline ticks ten times a second; read directly in this body, any field of it subscribed
+    // the whole player to every tick. These only change when their own answer does.
+    val timelineLoading by remember(state) { derivedStateOf { state.timelineState.loading } }
+    val timelineCrossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
+    val totalText by remember(state) { derivedStateOf { formatDuration(state.timelineState.total) } }
+    val elapsedText by remember(state) {
+        derivedStateOf { formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
+    }
+
     // === 1. Color system: full dark scheme derived from the artwork ===
     // startColor is animated by the shell from Color.Black (initial) to the palette color;
     // fall back to the app seed while it still sits on the initial black.
@@ -486,23 +500,27 @@ private fun NowPlayingM3ExpressiveLayout(
                                                 actions.onToolbarVisibilityChange(!it && state.isExpanded && state.mainScrollState.value > 0)
                                             },
                                     ) {
-                                        WavySeekBar(
-                                            progressFraction = state.sliderValue / 100f,
-                                            isPlaying = state.controllerState.isPlaying,
-                                            // Classic swaps the slider color to the rainbow while
-                                            // crossfading (state.sliderTrackColor); tonal primary
-                                            // otherwise.
-                                            activeColor =
-                                                if (state.timelineState.isCrossfading) {
-                                                    state.sliderTrackColor
-                                                } else {
-                                                    colorScheme.primary
-                                                },
-                                            trackColor = colorScheme.secondaryContainer,
-                                            thumbColor = colorScheme.primary,
-                                            onSliderChange = actions.onSliderChange,
-                                            onSliderChangeFinished = actions.onSliderChangeFinished,
-                                        )
+                                        // Its own scope: the fraction changes on every tick, and read
+                                        // here it rebuilt the whole bottom panel each time.
+                                        ExpressiveSeekBarScope {
+                                            WavySeekBar(
+                                                progressFraction = state.sliderValue / 100f,
+                                                isPlaying = state.controllerState.isPlaying,
+                                                // Classic swaps the slider color to the rainbow while
+                                                // crossfading (state.sliderTrackColor); tonal primary
+                                                // otherwise.
+                                                activeColor =
+                                                    if (state.timelineState.isCrossfading) {
+                                                        state.sliderTrackColor
+                                                    } else {
+                                                        colorScheme.primary
+                                                    },
+                                                trackColor = colorScheme.secondaryContainer,
+                                                thumbColor = colorScheme.primary,
+                                                onSliderChange = actions.onSliderChange,
+                                                onSliderChangeFinished = actions.onSliderChangeFinished,
+                                            )
+                                        }
                                     }
                                     // Time row — same math and negative guard as Classic
                                     // (formatDuration renders any negative as NA:NA).
@@ -518,7 +536,7 @@ private fun NowPlayingM3ExpressiveLayout(
                                             .padding(horizontal = 20.dp),
                                     ) {
                                         Text(
-                                            text = formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()),
+                                            text = elapsedText,
                                             style = typo().bodyMedium,
                                             modifier = Modifier.weight(1f),
                                             textAlign = TextAlign.Left,
@@ -526,11 +544,11 @@ private fun NowPlayingM3ExpressiveLayout(
                                         // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
                                         // resumes from where it paused, so the sweep never jumps and nothing redraws per frame
                                         // while the label is hidden (see rememberLoopingPhase).
-                                        val crossfadeSweep by rememberLoopingPhase(active = state.timelineState.isCrossfading)
+                                        val crossfadeSweep by rememberLoopingPhase(active = timelineCrossfading)
                                         AnimatedVisibility(
                                             enter = fadeIn(),
                                             exit = fadeOut(),
-                                            visible = state.timelineState.isCrossfading,
+                                            visible = timelineCrossfading,
                                         ) {
                                             // Same effect as the desktop MiniPlayer label: a
                                             // highlight sweeping through the glyphs via a text
@@ -558,7 +576,7 @@ private fun NowPlayingM3ExpressiveLayout(
                                             )
                                         }
                                         Text(
-                                            text = formatDuration(state.timelineState.total),
+                                            text = totalText,
                                             style = typo().bodyMedium,
                                             modifier = Modifier.weight(1f),
                                             textAlign = TextAlign.Right,
@@ -572,7 +590,7 @@ private fun NowPlayingM3ExpressiveLayout(
                                     )
                                     ExpressiveTransportRow(
                                         controllerState = state.controllerState,
-                                        loading = state.timelineState.loading,
+                                        loading = timelineLoading,
                                         onUIEvent = actions.onUIEvent,
                                         modifier = Modifier.padding(horizontal = 20.dp),
                                     )

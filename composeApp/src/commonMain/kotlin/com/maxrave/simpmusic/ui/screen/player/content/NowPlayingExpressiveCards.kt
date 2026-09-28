@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -864,6 +865,8 @@ internal fun ExpressiveCollapsedToolbar(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
 ) {
+    // Derived so the toolbar only recomposes when loading flips, not on every position tick.
+    val timelineLoading by remember(state) { derivedStateOf { state.timelineState.loading } }
     val colorScheme = MaterialTheme.colorScheme
     val localDensity = LocalDensity.current
     AnimatedVisibility(
@@ -959,7 +962,7 @@ internal fun ExpressiveCollapsedToolbar(
                         actions.onUIEvent(UIEvent.ToggleLike)
                     }
                     Spacer(modifier = Modifier.width(15.dp))
-                    Crossfade(targetState = state.timelineState.loading, label = "") {
+                    Crossfade(targetState = timelineLoading, label = "") {
                         if (it) {
                             Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator(

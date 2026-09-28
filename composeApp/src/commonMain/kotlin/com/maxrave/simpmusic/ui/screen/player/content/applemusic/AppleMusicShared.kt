@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -527,6 +528,25 @@ internal fun AppleMusicThinSlider(
     }
 }
 
+/**
+ * The seek bar, in a scope of its own: the position it shows changes on every tick and every drag
+ * frame, and read in the bottom cluster it rebuilt the whole cluster — times, transport, volume and
+ * the tab pills — each time. Here only the bar recomposes.
+ */
+@Composable
+private fun AppleMusicProgressSlider(
+    state: NowPlayingContentState,
+    actions: NowPlayingContentActions,
+) {
+    AppleMusicThinSlider(
+        value = state.sliderValue / 100f,
+        activeColor = if (state.timelineState.isCrossfading) state.sliderTrackColor else AppleMusicTrackActive,
+        onValueChange = { actions.onSliderChange(it * 100f) },
+        onValueChangeFinished = actions.onSliderChangeFinished,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
 /** Elapsed time, the codec badge (hidden when unknown), and the remaining time as "-m:ss". */
 @Composable
 internal fun AppleMusicTimesRow(
@@ -539,22 +559,37 @@ internal fun AppleMusicTimesRow(
     // position poll only runs while isPlaying, so no later event arrives to correct it. Deriving
     // elapsed from total therefore zeroed BOTH numbers at once, which is why a restored queue read
     // 00:00 / -00:00: the played time was never actually unknown, TimeLine.current held it.
-    val knownTotal = state.timelineState.total.takeIf { it > 0L }
-    val elapsedMs =
-        if (knownTotal != null) {
-            // Still derived from the slider while the duration IS known, so this number tracks the
-            // finger while scrubbing instead of waiting for the player to report the seek back.
-            (knownTotal * (state.sliderValue / 100f)).roundToLong()
-        } else {
-            state.timelineState.current.coerceAtLeast(0L)
+    //
+    // Derived, so this row recomposes when the TEXT changes — about once a second — rather than on
+    // every 100 ms position tick and every slider frame, which is what reading the position here
+    // directly did.
+    val times by remember(state) {
+        derivedStateOf {
+            val knownTotal = state.timelineState.total.takeIf { it > 0L }
+            val elapsedMs =
+                if (knownTotal != null) {
+                    // Still derived from the slider while the duration IS known, so this number
+                    // tracks the finger while scrubbing instead of waiting for the player to report
+                    // the seek back.
+                    (knownTotal * (state.sliderValue / 100f)).roundToLong()
+                } else {
+                    state.timelineState.current.coerceAtLeast(0L)
+                }
+            // Clamp BEFORE formatDuration — it renders any negative as "NA:NA", and the remaining
+            // time must never show that at the end of a track whose length IS known. An UNKNOWN
+            // length is exactly what that string is for, so null deliberately takes the negative
+            // path below.
+            val remainingMs = knownTotal?.let { (it - elapsedMs).coerceAtLeast(0L) }
+            // No leading "-" when the length is unknown: "-NA:NA" reads as a negative amount of
+            // nothing. formatDuration's own out-of-range string is the app's established way to
+            // say "no value here".
+            formatDuration(elapsedMs) to (remainingMs?.let { "-" + formatDuration(it) } ?: formatDuration(-1L))
         }
-    // Clamp BEFORE formatDuration — it renders any negative as "NA:NA", and the remaining time
-    // must never show that at the end of a track whose length IS known. An UNKNOWN length is
-    // exactly what that string is for, so null deliberately takes the negative path below.
-    val remainingMs = knownTotal?.let { (it - elapsedMs).coerceAtLeast(0L) }
+    }
+    val isCrossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = formatDuration(elapsedMs),
+            text = times.first,
             style = typography.times,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Left,
@@ -572,14 +607,14 @@ internal fun AppleMusicTimesRow(
             // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
             // resumes from where it paused, so the sweep never jumps and nothing redraws per frame
             // while the label is hidden (see rememberLoopingPhase).
-            val crossfadeSweep by rememberLoopingPhase(active = state.timelineState.isCrossfading)
+            val crossfadeSweep by rememberLoopingPhase(active = isCrossfading)
             val codec = state.audioCodecLabel
             val crossfadeLabelAlpha by animateFloatAsState(
-                targetValue = if (state.timelineState.isCrossfading) 1f else 0f,
+                targetValue = if (isCrossfading) 1f else 0f,
                 label = "appleMusicCrossfadeLabelAlpha",
             )
             val codecBadgeAlpha by animateFloatAsState(
-                targetValue = if (!state.timelineState.isCrossfading && codec != null) 1f else 0f,
+                targetValue = if (!isCrossfading && codec != null) 1f else 0f,
                 label = "appleMusicCodecBadgeAlpha",
             )
             Box(modifier = Modifier.alpha(crossfadeLabelAlpha)) {
@@ -639,10 +674,7 @@ internal fun AppleMusicTimesRow(
             }
         }
         Text(
-            // No leading "-" when the length is unknown: "-NA:NA" reads as a negative amount of
-            // nothing. formatDuration's own out-of-range string is the app's established way to
-            // say "no value here".
-            text = remainingMs?.let { "-" + formatDuration(it) } ?: formatDuration(-1L),
+            text = times.second,
             style = typography.times,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Right,
@@ -884,13 +916,7 @@ internal fun AppleMusicBottomCluster(
             // otherwise the growing slider re-measures this whole column and the artwork above
             // it visibly jumps. It also gives the bar a real 18dp touch target instead of 7dp.
             Box(modifier = Modifier.fillMaxWidth().height(18.dp), contentAlignment = Alignment.Center) {
-                AppleMusicThinSlider(
-                    value = state.sliderValue / 100f,
-                    activeColor = if (state.timelineState.isCrossfading) state.sliderTrackColor else AppleMusicTrackActive,
-                    onValueChange = { actions.onSliderChange(it * 100f) },
-                    onValueChangeFinished = actions.onSliderChangeFinished,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                AppleMusicProgressSlider(state = state, actions = actions)
             }
             AppleMusicTimesRow(state = state, typography = typography, modifier = Modifier.padding(top = 8.dp))
             Spacer(modifier = Modifier.height(12.dp))

@@ -2,6 +2,7 @@
 
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.AnimatedVisibility
@@ -195,6 +196,16 @@ fun NowPlayingContentSpotify(
     val uriHandler = LocalUriHandler.current
 
     val isRepeatOne = state.controllerState.repeatState is RepeatState.One
+
+    // The timeline ticks ten times a second. Read directly in this body, any field of it — even one
+    // that rarely changes, like `loading` — subscribed the whole player to every tick. These derived
+    // values only change when their own answer does.
+    val timelineLoading by remember(state) { derivedStateOf { state.timelineState.loading } }
+    val timelineCrossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
+    val totalText by remember(state) { derivedStateOf { formatDuration(state.timelineState.total) } }
+    val elapsedText by remember(state) {
+        derivedStateOf { formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
+    }
 
     var showShareLyricsSheet by rememberSaveable { mutableStateOf(false) }
 
@@ -998,7 +1009,7 @@ fun NowPlayingContentSpotify(
                                                         .height(24.dp),
                                                 contentAlignment = Alignment.Center,
                                             ) {
-                                                Crossfade(state.timelineState.loading) {
+                                                Crossfade(timelineLoading) {
                                                     if (it) {
                                                         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                                                             LinearProgressIndicator(
@@ -1117,7 +1128,7 @@ fun NowPlayingContentSpotify(
                                                 .padding(horizontal = 20.dp),
                                         ) {
                                             Text(
-                                                text = formatDuration((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()),
+                                                text = elapsedText,
                                                 style = typo().bodyMedium,
                                                 modifier = Modifier.weight(1f),
                                                 textAlign = TextAlign.Left,
@@ -1125,11 +1136,11 @@ fun NowPlayingContentSpotify(
                                             // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
                                             // resumes from where it paused, so the sweep never jumps and nothing redraws per frame
                                             // while the label is hidden (see rememberLoopingPhase).
-                                            val crossfadeSweep by rememberLoopingPhase(active = state.timelineState.isCrossfading)
+                                            val crossfadeSweep by rememberLoopingPhase(active = timelineCrossfading)
                                             AnimatedVisibility(
                                                 enter = fadeIn(),
                                                 exit = fadeOut(),
-                                                visible = state.timelineState.isCrossfading,
+                                                visible = timelineCrossfading,
                                             ) {
                                                 // Same effect as the desktop MiniPlayer label: a
                                                 // highlight sweeping through the glyphs via a text
@@ -1158,7 +1169,7 @@ fun NowPlayingContentSpotify(
                                                 )
                                             }
                                             Text(
-                                                text = formatDuration(state.timelineState.total),
+                                                text = totalText,
                                                 style = typo().bodyMedium,
                                                 modifier = Modifier.weight(1f),
                                                 textAlign = TextAlign.Right,
@@ -1815,7 +1826,7 @@ fun NowPlayingContentSpotify(
                             actions.onUIEvent(UIEvent.ToggleLike)
                         }
                         Spacer(modifier = Modifier.width(15.dp))
-                        Crossfade(targetState = state.timelineState.loading, label = "") {
+                        Crossfade(targetState = timelineLoading, label = "") {
                             if (it) {
                                 Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                                     CircularProgressIndicator(
