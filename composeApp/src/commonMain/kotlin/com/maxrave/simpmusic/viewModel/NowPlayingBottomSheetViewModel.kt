@@ -72,7 +72,7 @@ class NowPlayingBottomSheetViewModel(
                     ),
             ),
         )
-    val uiState: StateFlow<NowPlayingBottomSheetUIState> get() = _uiState.asStateFlow()
+    val uiState: StateFlow<NowPlayingBottomSheetUIState> = _uiState.asStateFlow()
 
     private var getSongAsFlow: Job? = null
 

@@ -1564,11 +1564,12 @@ internal class DataStoreManagerImpl(
         }
     }
 
-    override val enableLiquidGlass: Flow<String>
-        get() =
-            settingsDataStore.data.map { preferences ->
-                preferences[LIQUID_GLASS] ?: FALSE
-            }
+    // A stored flow, not a getter: a getter built a new flow on every read, and the app shell and
+    // mini player read it on every recomposition, restarting their collectors each time.
+    override val enableLiquidGlass: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[LIQUID_GLASS] ?: FALSE
+        }
 
     override suspend fun setEnableLiquidGlass(enable: Boolean) {
         withContext(Dispatchers.IO) {

@@ -65,42 +65,42 @@ class LibraryViewModel(
     private val podcastRepository: PodcastRepository,
 ) : BaseViewModel() {
     private val _currentScreen: MutableStateFlow<LibraryChipType> = MutableStateFlow(LibraryChipType.YOUR_LIBRARY)
-    val currentScreen: StateFlow<LibraryChipType> get() = _currentScreen.asStateFlow()
+    val currentScreen: StateFlow<LibraryChipType> = _currentScreen.asStateFlow()
     private val _recentlyAdded: MutableStateFlow<LocalResource<List<RecentlyType>>> =
         MutableStateFlow(LocalResource.Loading())
-    val recentlyAdded: StateFlow<LocalResource<List<RecentlyType>>> get() = _recentlyAdded.asStateFlow()
+    val recentlyAdded: StateFlow<LocalResource<List<RecentlyType>>> = _recentlyAdded.asStateFlow()
 
     private val _yourLocalPlaylist: MutableStateFlow<LocalResource<List<LocalPlaylistEntity>>> =
         MutableStateFlow(LocalResource.Loading())
-    val yourLocalPlaylist: StateFlow<LocalResource<List<LocalPlaylistEntity>>> get() = _yourLocalPlaylist.asStateFlow()
+    val yourLocalPlaylist: StateFlow<LocalResource<List<LocalPlaylistEntity>>> = _yourLocalPlaylist.asStateFlow()
 
     private val _youTubePlaylist: MutableStateFlow<LocalResource<List<PlaylistsResult>>> =
         MutableStateFlow(LocalResource.Loading())
-    val youTubePlaylist: StateFlow<LocalResource<List<PlaylistsResult>>> get() = _youTubePlaylist.asStateFlow()
+    val youTubePlaylist: StateFlow<LocalResource<List<PlaylistsResult>>> = _youTubePlaylist.asStateFlow()
 
     private val _youTubeMixForYou: MutableStateFlow<LocalResource<List<PlaylistsResult>>> =
         MutableStateFlow(LocalResource.Loading())
-    val youTubeMixForYou: StateFlow<LocalResource<List<PlaylistsResult>>> get() = _youTubeMixForYou.asStateFlow()
+    val youTubeMixForYou: StateFlow<LocalResource<List<PlaylistsResult>>> = _youTubeMixForYou.asStateFlow()
 
     private val _favoritePlaylist: MutableStateFlow<LocalResource<List<PlaylistType>>> =
         MutableStateFlow(LocalResource.Loading())
-    val favoritePlaylist: StateFlow<LocalResource<List<PlaylistType>>> get() = _favoritePlaylist.asStateFlow()
+    val favoritePlaylist: StateFlow<LocalResource<List<PlaylistType>>> = _favoritePlaylist.asStateFlow()
 
     private val _favoritePodcasts: MutableStateFlow<LocalResource<List<PlaylistType>>> =
         MutableStateFlow(LocalResource.Loading())
-    val favoritePodcasts: StateFlow<LocalResource<List<PlaylistType>>> get() = _favoritePodcasts.asStateFlow()
+    val favoritePodcasts: StateFlow<LocalResource<List<PlaylistType>>> = _favoritePodcasts.asStateFlow()
 
     private val _downloadedPlaylist: MutableStateFlow<LocalResource<List<PlaylistType>>> =
         MutableStateFlow(LocalResource.Loading())
-    val downloadedPlaylist: StateFlow<LocalResource<List<PlaylistType>>> get() = _downloadedPlaylist.asStateFlow()
+    val downloadedPlaylist: StateFlow<LocalResource<List<PlaylistType>>> = _downloadedPlaylist.asStateFlow()
 
     private val _chartPlaylists: MutableStateFlow<LocalResource<List<ChartItem>>> =
         MutableStateFlow(LocalResource.Loading())
-    val chartPlaylists: StateFlow<LocalResource<List<ChartItem>>> get() = _chartPlaylists.asStateFlow()
+    val chartPlaylists: StateFlow<LocalResource<List<ChartItem>>> = _chartPlaylists.asStateFlow()
 
     private val _listCanvasSong: MutableStateFlow<LocalResource<List<SongEntity>>> =
         MutableStateFlow(LocalResource.Loading())
-    val listCanvasSong: StateFlow<LocalResource<List<SongEntity>>> get() = _listCanvasSong.asStateFlow()
+    val listCanvasSong: StateFlow<LocalResource<List<SongEntity>>> = _listCanvasSong.asStateFlow()
 
     /**
      * The months the Wrapped tab offers a recap for, newest first.
@@ -113,10 +113,10 @@ class LibraryViewModel(
      */
     private val _monthlyRecaps: MutableStateFlow<LocalResource<List<MonthlyRecapItem>>> =
         MutableStateFlow(LocalResource.Loading())
-    val monthlyRecaps: StateFlow<LocalResource<List<MonthlyRecapItem>>> get() = _monthlyRecaps.asStateFlow()
+    val monthlyRecaps: StateFlow<LocalResource<List<MonthlyRecapItem>>> = _monthlyRecaps.asStateFlow()
 
     private val _accountThumbnail: MutableStateFlow<String?> = MutableStateFlow(null)
-    val accountThumbnail: StateFlow<String?> get() = _accountThumbnail.asStateFlow()
+    val accountThumbnail: StateFlow<String?> = _accountThumbnail.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val youtubeLoggedIn = dataStoreManager.loggedIn.mapLatest { it == DataStoreManager.TRUE }

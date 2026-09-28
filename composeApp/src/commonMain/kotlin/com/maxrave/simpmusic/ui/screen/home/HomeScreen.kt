@@ -668,9 +668,10 @@ fun HomeScreen(
                         state = scrollState,
                         verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 20.dp),
                     ) {
-                        itemsIndexed(orderedHome, key = { _, item ->
-                            item.hashCode().toString() + (mainHomeThumbnail ?: "nothumb")
-                        }) { index, item ->
+                        // Keyed by position and title: the old key hashed the whole shelf — every
+                        // song, title and thumbnail in it — for each visible row on every scroll
+                        // frame. Position + title is still unique and stable while the feed loads.
+                        itemsIndexed(orderedHome, key = { index, item -> "$index:${item.title}" }) { index, item ->
                             Box {
                                 // Apple Music Home has a plain page, no artwork-tinted wash.
                                 if (index == 0 && !appleLayout) {

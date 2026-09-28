@@ -94,21 +94,21 @@ class SearchViewModel(
     private val homeRepository: HomeRepository,
 ) : BaseViewModel() {
     private val _searchScreenUIState = MutableStateFlow<SearchScreenUIState>(SearchScreenUIState.Empty)
-    val searchScreenUIState: StateFlow<SearchScreenUIState> get() = _searchScreenUIState.asStateFlow()
+    val searchScreenUIState: StateFlow<SearchScreenUIState> = _searchScreenUIState.asStateFlow()
 
     private val _searchScreenState = MutableStateFlow(SearchScreenState())
-    val searchScreenState: StateFlow<SearchScreenState> get() = _searchScreenState.asStateFlow()
+    val searchScreenState: StateFlow<SearchScreenState> = _searchScreenState.asStateFlow()
 
     private val _searchHistory: MutableStateFlow<List<String>> = MutableStateFlow(emptyList())
-    val searchHistory: StateFlow<List<String>> get() = _searchHistory.asStateFlow()
+    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
 
     /** Browse categories shown on the empty search screen, the way YouTube Music itself does. */
     private val _moodAndGenres: MutableStateFlow<Mood?> = MutableStateFlow(null)
-    val moodAndGenres: StateFlow<Mood?> get() = _moodAndGenres.asStateFlow()
+    val moodAndGenres: StateFlow<Mood?> = _moodAndGenres.asStateFlow()
 
     /** Cover art per category params, filled in as tiles scroll into view. */
     private val _moodArtwork: MutableStateFlow<Map<String, String>> = MutableStateFlow(emptyMap())
-    val moodArtwork: StateFlow<Map<String, String>> get() = _moodArtwork.asStateFlow()
+    val moodArtwork: StateFlow<Map<String, String>> = _moodArtwork.asStateFlow()
 
     private val requestedArtwork = mutableSetOf<String>()
 

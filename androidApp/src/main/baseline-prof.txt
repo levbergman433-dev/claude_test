@@ -1,0 +1,17 @@
+# Ahead-of-time compilation rules for the app's own code.
+#
+# The Compose, Media3, Coil and Ktor libraries ship their own profiles, which the bundled
+# profileinstaller applies even to a sideloaded APK. Without rules for the app itself, every screen,
+# view model and the playback handler start out interpreted and only reach full speed after the JIT
+# has seen them run for a while — which is exactly the first scroll through Home, the first open of
+# the player and the first track change. These rules compile them at install / first idle instead.
+HSPLcom/maxrave/simpmusic/**->**(**)**
+HSPLcom/maxrave/data/**->**(**)**
+HSPLcom/maxrave/domain/**->**(**)**
+HSPLcom/maxrave/media3/**->**(**)**
+HSPLcom/maxrave/common/**->**(**)**
+Lcom/maxrave/simpmusic/**;
+Lcom/maxrave/data/**;
+Lcom/maxrave/domain/**;
+Lcom/maxrave/media3/**;
+Lcom/maxrave/common/**;

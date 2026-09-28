@@ -45,7 +45,7 @@ class AnalyticsViewModel(
 ) : BaseViewModel() {
     private val _analyticsUIState: MutableStateFlow<AnalyticsUiState> =
         MutableStateFlow(AnalyticsUiState())
-    val analyticsUIState: StateFlow<AnalyticsUiState> get() = _analyticsUIState.asStateFlow()
+    val analyticsUIState: StateFlow<AnalyticsUiState> = _analyticsUIState.asStateFlow()
 
     init {
         getScrobblesCount()

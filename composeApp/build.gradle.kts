@@ -36,6 +36,11 @@ compose.resources {
     generateResClass = always
 }
 
+composeCompiler {
+    // Lets screens skip recomposition for unchanged songs, playlists and lists. See the file.
+    stabilityConfigurationFiles.add(project.layout.projectDirectory.file("compose-stability.conf"))
+}
+
 kotlin {
     compilerOptions {
         freeCompilerArgs.add("-Xwhen-guards")

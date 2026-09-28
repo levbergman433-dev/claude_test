@@ -92,6 +92,7 @@ import io.github.alexzhirkevich.compottie.Compottie
 import io.github.alexzhirkevich.compottie.LottieCompositionSpec
 import io.github.alexzhirkevich.compottie.rememberLottieComposition
 import io.github.alexzhirkevich.compottie.rememberLottiePainter
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
@@ -139,15 +140,15 @@ fun SongFullWidthItems(
     val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
     val songRepository: SongRepository = koinInject<SongRepository>()
-    val downloadState by songRepository
-        .getSongAsFlow(songEntity?.videoId ?: track?.videoId ?: "")
-        .mapNotNull { it?.downloadState }
-        .collectAsStateWithLifecycle(initialValue = DownloadState.STATE_NOT_DOWNLOADED)
-    val composition by rememberLottieComposition {
-        LottieCompositionSpec.JsonString(
-            Res.readBytes("files/audio_playing_animation.json").decodeToString(),
-        )
-    }
+    // Remembered per song: building the flow inline handed collectAsState a NEW flow on every
+    // recomposition, which cancelled and re-ran the database query for this row each time.
+    val rowVideoId = songEntity?.videoId ?: track?.videoId ?: ""
+    val downloadState by remember(rowVideoId) {
+        songRepository
+            .getSongAsFlow(rowVideoId)
+            .mapNotNull { it?.downloadState }
+            .distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = DownloadState.STATE_NOT_DOWNLOADED)
     val offsetX = remember { Animatable(initialValue = 0f) }
     var heightDp by remember { mutableStateOf(0.dp) }
 
@@ -275,14 +276,7 @@ fun SongFullWidthItems(
                 ) {
                     Crossfade(isPlaying) {
                         if (it) {
-                            Image(
-                                painter =
-                                    rememberLottiePainter(
-                                        composition = composition,
-                                        iterations = Compottie.IterateForever,
-                                    ),
-                                contentDescription = "Lottie animation",
-                            )
+                            PlayingAnimation()
                         } else if (index == null) {
                             val thumb = track?.thumbnails?.lastOrNull()?.url ?: songEntity?.thumbnails
                             AsyncImage(
@@ -422,11 +416,6 @@ fun SuggestItems(
 ) {
     val contentColor = if (forceDark) Color.White else MaterialTheme.colorScheme.onSurface
     val subtitleColor = if (forceDark) Color(0xC4FFFFFF) else MaterialTheme.colorScheme.onSurfaceVariant
-    val composition by rememberLottieComposition {
-        LottieCompositionSpec.JsonString(
-            Res.readBytes("files/audio_playing_animation.json").decodeToString(),
-        )
-    }
     Box(
         modifier =
             Modifier
@@ -445,14 +434,7 @@ fun SuggestItems(
             Box(modifier = Modifier.size(40.dp)) {
                 Crossfade(isPlaying) {
                     if (it) {
-                        Image(
-                            painter =
-                                rememberLottiePainter(
-                                    composition = composition,
-                                    iterations = Compottie.IterateForever,
-                                ),
-                            contentDescription = "Lottie animation",
-                        )
+                        PlayingAnimation()
                     } else {
                         val thumb = track.thumbnails?.lastOrNull()?.url
                         AsyncImage(
@@ -792,4 +774,23 @@ fun ArtistFullWidthItems(
             }
         }
     }
+}
+// The "now playing" bars. The JSON is read from resources once per process and parsed only for the
+// row that is actually playing — every row used to read and parse it as soon as it scrolled in.
+private var playingAnimationJson: String? = null
+
+@Composable
+private fun PlayingAnimation() {
+    val composition by rememberLottieComposition {
+        val json = playingAnimationJson ?: Res.readBytes("files/audio_playing_animation.json").decodeToString().also { playingAnimationJson = it }
+        LottieCompositionSpec.JsonString(json)
+    }
+    Image(
+        painter =
+            rememberLottiePainter(
+                composition = composition,
+                iterations = Compottie.IterateForever,
+            ),
+        contentDescription = "Lottie animation",
+    )
 }

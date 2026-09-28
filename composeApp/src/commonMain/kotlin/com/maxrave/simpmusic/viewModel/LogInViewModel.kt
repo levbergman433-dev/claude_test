@@ -20,10 +20,10 @@ class LogInViewModel(
     val spotifyStatus: StateFlow<Boolean> get() = _spotifyStatus
 
     private val _fullSpotifyCookies: MutableStateFlow<List<Pair<String, String?>>> = MutableStateFlow(emptyList())
-    val fullSpotifyCookies: StateFlow<List<Pair<String, String?>>> get() = _fullSpotifyCookies.asStateFlow()
+    val fullSpotifyCookies: StateFlow<List<Pair<String, String?>>> = _fullSpotifyCookies.asStateFlow()
 
     private val _fullYouTubeCookies: MutableStateFlow<List<Pair<String, String?>>> = MutableStateFlow(emptyList())
-    val fullYouTubeCookies: StateFlow<List<Pair<String, String?>>> get() = _fullYouTubeCookies.asStateFlow()
+    val fullYouTubeCookies: StateFlow<List<Pair<String, String?>>> = _fullYouTubeCookies.asStateFlow()
 
     fun saveSpotifySpdc(cookie: String) {
         viewModelScope.launch {
@@ -71,7 +71,7 @@ class LogInViewModel(
     }
 
     private val _lastfmState: MutableStateFlow<LastfmLoginState> = MutableStateFlow(LastfmLoginState.Idle)
-    val lastfmState: StateFlow<LastfmLoginState> get() = _lastfmState.asStateFlow()
+    val lastfmState: StateFlow<LastfmLoginState> = _lastfmState.asStateFlow()
 
     /**
      * True once a session key is stored, whoever put it there.

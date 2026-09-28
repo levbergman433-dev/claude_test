@@ -388,7 +388,9 @@ fun LibraryDynamicPlaylistScreen(
                         }
                     }
                 },
-                key = { it.hashCode() },
+                // The song id is the table's primary key, so it is unique here; hashing the whole
+                // row object for every visible item on every scroll frame is what it replaces.
+                key = { it.videoId },
             ) { song ->
                 SongFullWidthItems(
                     songEntity = song,

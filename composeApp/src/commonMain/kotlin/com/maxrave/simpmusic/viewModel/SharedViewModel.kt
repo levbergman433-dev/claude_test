@@ -2145,7 +2145,11 @@ class SharedViewModel(
 
     // Flow-based variant of [isUserLoggedIn] so composables can collect login state once
     // instead of calling runBlocking inside composition (used by NowPlayingScreenContent).
-    fun isUserLoggedInFlow(): Flow<Boolean> = dataStoreManager.cookie.map { it.isNotEmpty() }
+    // Built once: the player screen calls this on every recomposition, and a new mapped flow each
+    // time made it restart the collector each time.
+    private val userLoggedInFlow: Flow<Boolean> = dataStoreManager.cookie.map { it.isNotEmpty() }.distinctUntilChanged()
+
+    fun isUserLoggedInFlow(): Flow<Boolean> = userLoggedInFlow
 
     fun isCombineFavoriteAndYTLiked(): Boolean = runBlocking { dataStoreManager.combineLocalAndYouTubeLiked.first() == TRUE }
 }
