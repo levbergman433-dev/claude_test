@@ -10,6 +10,7 @@ import androidx.compose.runtime.produceState
 import com.maxrave.simpmusic.ui.component.TOP_BAR_DEFAULT
 import com.maxrave.simpmusic.ui.component.LocalTopBarStyle
 import com.maxrave.simpmusic.ui.navigation.destination.home.ListenTogetherDestination
+import com.maxrave.simpmusic.ui.screen.home.INVITE_ROOM_PARAM
 import com.maxrave.simpmusic.ui.component.GlassMenuHost
 import com.maxrave.simpmusic.ui.component.GlassMenuOverlay
 import com.maxrave.simpmusic.ui.component.glassMenuHostSource
@@ -271,7 +272,19 @@ fun App(
             // everything, and a page the link navigates to would open behind it — which looks
             // exactly like the link doing nothing. Close it first; a song link re-opens playback.
             isShowNowPlaylistScreen = false
-            if (data == "simpmusic://notification".toUri()) {
+            // A Listen Together invite rides on a YouTube Music link (see inviteMessage): join the
+            // room rather than playing the song — the room decides what plays.
+            val inviteCode =
+                // runCatching: an opaque link such as vnd.youtube:ID has no query and throws here.
+                runCatching { data.getQueryParameter(INVITE_ROOM_PARAM) }
+                    .getOrNull()
+                    ?.uppercase()
+                    ?.filter { it.isLetterOrDigit() }
+                    ?.takeIf { it.isNotBlank() }
+            if (inviteCode != null) {
+                viewModel.setIntent(null)
+                navController.navigate(ListenTogetherDestination(code = inviteCode))
+            } else if (data == "simpmusic://notification".toUri()) {
                 viewModel.setIntent(null)
                 navController.navigate(
                     NotificationDestination,

@@ -198,12 +198,12 @@ class ListenTogetherViewModel(
         private const val KEY_DISPLAY_NAME = "listen_together_display_name"
 
         /**
-         * The room code inside [text]: after `code=` in an invite link, else the last standalone
+         * The room code inside [text]: after `tunes_room=` (or the older `code=`) in an invite link, else the last standalone
          * 8-character run of letters and digits (the code at the end of a shared message), else
          * null when [text] is not longer than a code and should be read as typed.
          */
         fun extractRoomCode(text: String): String? {
-            Regex("""code=([A-Za-z0-9]{$ROOM_CODE_LENGTH})""").find(text)?.let { return it.groupValues[1].uppercase() }
+            Regex("""(?:code|room)=([A-Za-z0-9]{$ROOM_CODE_LENGTH})""").find(text)?.let { return it.groupValues[1].uppercase() }
             if (text.length <= ROOM_CODE_LENGTH) return null
             return Regex("""(?<![A-Za-z0-9])([A-Za-z0-9]{$ROOM_CODE_LENGTH})(?![A-Za-z0-9])""")
                 .findAll(text)

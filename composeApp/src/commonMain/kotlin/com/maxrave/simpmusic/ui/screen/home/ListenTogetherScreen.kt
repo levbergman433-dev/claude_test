@@ -220,7 +220,7 @@ fun ListenTogetherScreen(
         val copyCode: () -> Unit = { state.roomCode?.let { clipboard.setText(AnnotatedString(it)) } }
         val shareTitle = stringResource(Res.string.listen_together)
         val shareCode: () -> Unit = {
-            state.roomCode?.let { shareUrl(title = shareTitle, url = inviteMessage(it)) }
+            state.roomCode?.let { shareUrl(title = shareTitle, url = inviteMessage(it, state.currentTrack?.id)) }
         }
         val openSettings: () -> Unit = { navController.navigate(ListenTogetherSettingsDestination) }
 
@@ -485,7 +485,25 @@ private fun CreditFooter() {
  * tappable, so the code is always there to paste — the code field picks it out of the whole
  * message.
  */
-private fun inviteMessage(code: String) = "Listen with me on Tunes — room code $code\nsimpmusic://listen?code=$code"
+private fun inviteMessage(
+    code: String,
+    videoId: String?,
+): String {
+    // An https link, because chat apps (Discord included) only make http/https tappable — the old
+    // simpmusic:// link showed as plain text. It is a YouTube Music link to the room's song with the
+    // room code on it: with Tunes set to open YouTube links it opens the app and joins, and without
+    // it the friend still lands on the song. The code is spelled out as well, for pasting.
+    val link =
+        if (videoId.isNullOrBlank()) {
+            "https://music.youtube.com/watch?$INVITE_ROOM_PARAM=$code"
+        } else {
+            "https://music.youtube.com/watch?v=$videoId&$INVITE_ROOM_PARAM=$code"
+        }
+    return "Listen with me on Tunes 🎧\n$link\nRoom code: $code"
+}
+
+/** The query parameter an invite link carries its room code in. */
+const val INVITE_ROOM_PARAM = "tunes_room"
 
 // ───────────────────────────────── structure ─────────────────────────────────
 
