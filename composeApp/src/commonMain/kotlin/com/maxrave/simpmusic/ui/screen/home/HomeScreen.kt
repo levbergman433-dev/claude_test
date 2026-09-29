@@ -674,7 +674,7 @@ fun HomeScreen(
                         itemsIndexed(orderedHome, key = { index, item -> "$index:${item.title}" }) { index, item ->
                             Box {
                                 // Apple Music Home has a plain page, no artwork-tinted wash.
-                                if (index == 0 && !appleLayout) {
+                                if (index == 0 && !appleLayout && LocalPageBrush.current == null) {
                                     Box(
                                         modifier =
                                             Modifier

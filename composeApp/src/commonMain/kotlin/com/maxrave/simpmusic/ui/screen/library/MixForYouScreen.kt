@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.library
 
+import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -142,26 +143,31 @@ fun MixForYouScreen(
         // translation tracks the first row exactly and parks once it has passed; whatever remains
         // at the hand-off sits deep in the scrim tail, so the switch does not pop. Inside the haze
         // source on purpose: the blurred top app bar frosts the glow exactly as it frosts artwork.
-        Box(
-            Modifier
-                .graphicsLayer {
-                    translationY =
-                        if (gridState.firstVisibleItemIndex == 0) {
-                            -gridState.firstVisibleItemScrollOffset.toFloat()
-                        } else {
-                            -size.height
-                        }
-                }.fillMaxWidth()
-                .height(AmbientGlowHeight)
-                .angledGradientBackground(listOf(animatedColor, pageBackground), 25f),
-        ) {
+        // Skipped under a picture or gradient theme, like AmbientThemeGlow: it fades into the solid
+        // page colour, which there painted an opaque block over the top of the picture that ended
+        // in a hard edge where the glow stopped.
+        if (LocalPageBrush.current == null) {
             Box(
                 Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(artworkScrimBrush(pageBackground)),
-            )
+                    .graphicsLayer {
+                        translationY =
+                            if (gridState.firstVisibleItemIndex == 0) {
+                                -gridState.firstVisibleItemScrollOffset.toFloat()
+                            } else {
+                                -size.height
+                            }
+                    }.fillMaxWidth()
+                    .height(AmbientGlowHeight)
+                    .angledGradientBackground(listOf(animatedColor, pageBackground), 25f),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(artworkScrimBrush(pageBackground)),
+                )
+            }
         }
         GridLibraryPlaylist(
             navController,
