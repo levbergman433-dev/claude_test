@@ -8,3 +8,14 @@ import androidx.compose.runtime.Composable
  */
 @Composable
 expect fun ImmersiveSystemBars()
+
+/**
+ * While in composition, lets the app stay visible over the lock screen: press power to turn the
+ * screen off and on again, and this page is shown without unlocking. A no-op where there is none.
+ */
+@Composable
+expect fun ShowOverLockScreen()
+
+/** Whether the device shows time in 24-hour format. */
+@Composable
+expect fun rememberIs24HourClock(): Boolean

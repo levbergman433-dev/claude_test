@@ -1,5 +1,11 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,6 +18,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -21,64 +28,161 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.kyant.backdrop.highlight.Highlight
+import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.simpmusic.expect.ui.ImmersiveSystemBars
 import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
+import com.maxrave.simpmusic.expect.ui.ShowOverLockScreen
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
+import com.maxrave.simpmusic.expect.ui.rememberBackdrop
+import com.maxrave.simpmusic.expect.ui.rememberIs24HourClock
 import com.maxrave.simpmusic.extension.KeepScreenOn
 import com.maxrave.simpmusic.extension.formatDuration
+import com.maxrave.simpmusic.ui.component.liquidGlass
 import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.FastForward
 import com.maxrave.simpmusic.ui.icon.FastRewind
 import com.maxrave.simpmusic.ui.icon.Pause
 import com.maxrave.simpmusic.ui.icon.PlayArrow
 import com.maxrave.simpmusic.ui.icon.SimpIcons
+import com.maxrave.simpmusic.ui.screen.home.analytics.monthShortName
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicThinSlider
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_BOLD
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_GLASS
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_MINIMAL
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_THIN
+import com.maxrave.simpmusic.ui.theme.PersonalizationKeys
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.UIEvent
+import kotlinx.coroutines.delay
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import org.koin.compose.koinInject
 import kotlin.math.roundToLong
+import kotlin.random.Random
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 private val NightArtworkShape = RoundedCornerShape(10.dp)
 private val NightSubtle = Color.White.copy(alpha = 0.55f)
 
+// Burn-in protection: the whole page drifts within this box, one small step a minute, so no pixel
+// stays lit in the same place for hours.
+private const val SHIFT_RANGE_DP = 10
+private const val SHIFT_INTERVAL_MS = 60_000L
+
+// Auto-dim: how far the page fades once nobody has touched it for the chosen time.
+private const val DIMMED_ALPHA = 0.3f
+
 /**
- * The night-mode player: a pure black page with only the artwork, the track, a seek bar and the
- * three transport buttons — for a phone lying beside the bed or on a stand. Black pixels are off on
- * an OLED screen, the system bars are hidden, and the screen is kept awake while it is open.
+ * The night-mode (AOD) player: a pure black page with an optional clock, the artwork, the track, a
+ * seek bar and the three transport buttons — for a phone lying beside the bed or on a stand.
  *
- * It sits over the whole player, whichever style is chosen, and closes with the ✕ or back.
+ * While it is open the screen stays awake, the system bars are hidden, and (unless turned off in
+ * Settings) it stays visible over the lock screen and drifts slowly against burn-in. Auto-dim is off
+ * unless the user picks a delay. It sits over the whole player, whichever style is chosen, and
+ * closes with the ✕ or back.
  */
 @Composable
 internal fun NightModePlayer(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
     onClose: () -> Unit,
+    dataStoreManager: DataStoreManager = koinInject(),
 ) {
+    val clockPref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_CLOCK) }.collectAsStateWithLifecycle(null)
+    val clockStylePref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_CLOCK_STYLE) }.collectAsStateWithLifecycle(null)
+    val lockScreenPref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_LOCK_SCREEN) }.collectAsStateWithLifecycle(null)
+    val burnInPref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_BURN_IN) }.collectAsStateWithLifecycle(null)
+    val autoDimPref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_AUTO_DIM) }.collectAsStateWithLifecycle(null)
+    val showClock = clockPref != DataStoreManager.FALSE
+    val clockStyle = clockStylePref ?: AOD_CLOCK_GLASS
+    val burnInProtection = burnInPref != DataStoreManager.FALSE
+    val autoDimSeconds = autoDimPref?.toIntOrNull() ?: 0
+
     KeepScreenOn()
     ImmersiveSystemBars()
+    if (lockScreenPref != DataStoreManager.FALSE) ShowOverLockScreen()
     PlatformBackHandler(enabled = true, onBack = onClose)
+
+    // Burn-in drift, animated so the step is never a visible jump.
+    val shiftX = remember { Animatable(0f) }
+    val shiftY = remember { Animatable(0f) }
+    LaunchedEffect(burnInProtection) {
+        if (!burnInProtection) {
+            shiftX.animateTo(0f)
+            shiftY.animateTo(0f)
+            return@LaunchedEffect
+        }
+        while (true) {
+            delay(SHIFT_INTERVAL_MS)
+            val range = SHIFT_RANGE_DP.toFloat()
+            val nextX = Random.nextFloat() * 2f * range - range
+            val nextY = Random.nextFloat() * 2f * range - range
+            shiftX.animateTo(nextX, tween(4_000))
+            shiftY.animateTo(nextY, tween(4_000))
+        }
+    }
+
+    // Auto-dim: every touch bumps the counter, which restarts the wait.
+    var touches by remember { mutableIntStateOf(0) }
+    var dimmed by remember { mutableStateOf(false) }
+    LaunchedEffect(autoDimSeconds, touches) {
+        dimmed = false
+        if (autoDimSeconds <= 0) return@LaunchedEffect
+        delay(autoDimSeconds * 1_000L)
+        dimmed = true
+    }
+    val pageAlpha by animateFloatAsState(if (dimmed) DIMMED_ALPHA else 1f, tween(1_200), label = "aodDim")
+
+    val backdrop = rememberBackdrop(Color.Black)
+    val density = LocalDensity.current
 
     Box(
         modifier =
             Modifier
                 .fillMaxSize()
                 .background(Color.Black)
+                // Sees every touch without consuming it, so a tap both wakes a dimmed page and still
+                // reaches the button under the finger.
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent(PointerEventPass.Initial)
+                            touches++
+                        }
+                    }
+                }
                 // Swallows taps so nothing in the player underneath can be hit through the page.
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -86,69 +190,106 @@ internal fun NightModePlayer(
                     onClick = {},
                 ),
     ) {
-        IconButton(
-            onClick = onClose,
+        Box(
             modifier =
                 Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 28.dp, end = 16.dp)
-                    .size(48.dp),
+                    .fillMaxSize()
+                    .offset {
+                        with(density) { IntOffset(shiftX.value.dp.roundToPx(), shiftY.value.dp.roundToPx()) }
+                    }.graphicsLayer { alpha = pageAlpha },
         ) {
-            Icon(imageVector = SimpIcons.Close, contentDescription = "Close", tint = Color.White.copy(alpha = 0.8f))
+            // The page the clock's glass refracts. A sibling of the clock, never its parent.
+            Box(modifier = Modifier.matchParentSize().layerBackdrop(backdrop)) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(top = if (showClock) 72.dp else 0.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (showClock) Spacer(Modifier.height(if (clockStyle == AOD_CLOCK_MINIMAL) 48.dp else 120.dp))
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 40.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        NightTrack(state = state, actions = actions, compact = showClock, controlsVisible = !dimmed)
+                    }
+                }
+            }
+            if (showClock) {
+                NightClock(
+                    style = clockStyle,
+                    backdrop = backdrop,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp),
+                )
+            }
         }
 
-        Column(
+        AnimatedVisibility(
+            visible = !dimmed,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 20.dp, end = 12.dp),
+        ) {
+            IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) {
+                Icon(imageVector = SimpIcons.Close, contentDescription = "Close", tint = Color.White.copy(alpha = 0.8f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun NightTrack(
+    state: NowPlayingContentState,
+    actions: NowPlayingContentActions,
+    compact: Boolean,
+    controlsVisible: Boolean,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        AsyncImage(
+            model =
+                ImageRequest
+                    .Builder(LocalPlatformContext.current)
+                    .data(state.screenData.thumbnailURL)
+                    .crossfade(true)
+                    .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier =
                 Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .padding(horizontal = 40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            val artwork = state.screenData.thumbnailURL
-            AsyncImage(
-                model =
-                    ImageRequest
-                        .Builder(LocalPlatformContext.current)
-                        .data(artwork)
-                        .crossfade(true)
-                        .build(),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .widthIn(max = 300.dp)
-                        .fillMaxWidth(0.72f)
-                        .aspectRatio(1f)
-                        // A soft light around the cover, the one bright thing on the page.
-                        .shadow(
-                            elevation = 36.dp,
-                            shape = NightArtworkShape,
-                            ambientColor = Color.White.copy(alpha = 0.35f),
-                            spotColor = Color.White.copy(alpha = 0.45f),
-                        ).clip(NightArtworkShape),
-            )
-            Spacer(Modifier.height(36.dp))
-            Text(
-                text = state.screenData.nowPlayingTitle,
-                style = typo().titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = state.screenData.artistName,
-                style = typo().bodyMedium,
-                color = NightSubtle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(40.dp))
+                    // Smaller while the clock takes the top of the page.
+                    .widthIn(max = if (compact) 240.dp else 300.dp)
+                    .fillMaxWidth(if (compact) 0.62f else 0.72f)
+                    .aspectRatio(1f)
+                    // A soft light around the cover, the one bright thing on the page.
+                    .shadow(
+                        elevation = 36.dp,
+                        shape = NightArtworkShape,
+                        ambientColor = Color.White.copy(alpha = 0.35f),
+                        spotColor = Color.White.copy(alpha = 0.45f),
+                    ).clip(NightArtworkShape),
+        )
+        Spacer(Modifier.height(if (compact) 28.dp else 36.dp))
+        Text(
+            text = state.screenData.nowPlayingTitle,
+            style = typo().titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = state.screenData.artistName,
+            style = typo().bodyMedium,
+            color = NightSubtle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(if (compact) 28.dp else 40.dp))
+        // Faded rather than removed while dimmed, so the page does not reflow when it wakes.
+        val controlsAlpha by animateFloatAsState(if (controlsVisible) 1f else 0f, tween(600), label = "aodControls")
+        Column(modifier = Modifier.graphicsLayer { alpha = controlsAlpha }) {
             NightSeekBar(state, actions)
-            Spacer(Modifier.height(40.dp))
+            Spacer(Modifier.height(if (compact) 28.dp else 40.dp))
             NightTransport(state, actions)
         }
     }
@@ -231,3 +372,91 @@ private fun NightTransport(
         }
     }
 }
+
+/** The current local time, updated on each minute boundary rather than polled. */
+@OptIn(ExperimentalTime::class)
+@Composable
+private fun rememberMinuteClock(): LocalDateTime {
+    fun now() = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+    var time by remember { mutableStateOf(now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val current = now()
+            time = current
+            // Sleep to the start of the next minute, so the display changes on the minute.
+            val msIntoMinute = current.second * 1_000L + current.nanosecond / 1_000_000L
+            delay(60_000L - msIntoMinute + 50L)
+        }
+    }
+    return time
+}
+
+@Composable
+private fun NightClock(
+    style: String,
+    backdrop: com.maxrave.simpmusic.expect.ui.PlatformBackdrop,
+    modifier: Modifier = Modifier,
+) {
+    val time = rememberMinuteClock()
+    val is24Hour = rememberIs24HourClock()
+    val hour = if (is24Hour) time.hour else ((time.hour + 11) % 12) + 1
+    val clockText = (if (is24Hour) hour.toString().padStart(2, '0') else hour.toString()) + ":" + time.minute.toString().padStart(2, '0')
+    val dateText = "${dayName(time.dayOfWeek)}, ${time.day} ${monthShortName(time.month)}"
+
+    when (style) {
+        AOD_CLOCK_MINIMAL ->
+            Text(
+                text = "$clockText  ·  $dateText",
+                style = typo().titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
+                color = Color.White.copy(alpha = 0.85f),
+                modifier = modifier,
+            )
+
+        AOD_CLOCK_THIN, AOD_CLOCK_BOLD ->
+            Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = clockText,
+                    style =
+                        typo().titleLarge.copy(
+                            fontSize = if (style == AOD_CLOCK_THIN) 84.sp else 72.sp,
+                            lineHeight = if (style == AOD_CLOCK_THIN) 88.sp else 76.sp,
+                            fontWeight = if (style == AOD_CLOCK_THIN) FontWeight.ExtraLight else FontWeight.Bold,
+                        ),
+                    color = Color.White,
+                )
+                Text(text = dateText, style = typo().bodyMedium, color = NightSubtle)
+            }
+
+        else ->
+            // Liquid glass, the default: the same glass as the nav bar and the player buttons.
+            Column(
+                modifier =
+                    modifier
+                        .liquidGlass(
+                            backdrop = backdrop,
+                            shape = RoundedCornerShape(32.dp),
+                            interactive = false,
+                            highlight = Highlight(width = 1.dp),
+                        ).padding(horizontal = 28.dp, vertical = 14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = clockText,
+                    style = typo().titleLarge.copy(fontSize = 56.sp, lineHeight = 60.sp, fontWeight = FontWeight.Light),
+                    color = Color.White,
+                )
+                Text(text = dateText, style = typo().bodyMedium, color = Color.White.copy(alpha = 0.7f))
+            }
+    }
+}
+
+private fun dayName(day: DayOfWeek): String =
+    when (day) {
+        DayOfWeek.MONDAY -> "Mon"
+        DayOfWeek.TUESDAY -> "Tue"
+        DayOfWeek.WEDNESDAY -> "Wed"
+        DayOfWeek.THURSDAY -> "Thu"
+        DayOfWeek.FRIDAY -> "Fri"
+        DayOfWeek.SATURDAY -> "Sat"
+        DayOfWeek.SUNDAY -> "Sun"
+    }

@@ -990,4 +990,25 @@
     <string name="page_image_text_auto">Automatic</string>
     <string name="page_image_text_light">White</string>
     <string name="page_image_text_dark">Dark</string>
+    <string name="settings_section_theme">Theme</string>
+    <string name="settings_section_player">Player</string>
+    <string name="settings_section_night_mode">Night mode (AOD)</string>
+    <string name="settings_section_layout">Layout &amp; glass</string>
+    <string name="settings_search_hint">Search settings</string>
+    <string name="settings_search_empty">No settings match that</string>
+    <string name="aod_clock">Clock</string>
+    <string name="aod_clock_description">Show the time and date at the top of the night-mode player</string>
+    <string name="aod_clock_style">Clock style</string>
+    <string name="aod_clock_style_glass">Liquid glass</string>
+    <string name="aod_clock_style_thin">Large thin</string>
+    <string name="aod_clock_style_bold">Large bold</string>
+    <string name="aod_clock_style_minimal">Minimal</string>
+    <string name="aod_lock_screen">Show over the lock screen</string>
+    <string name="aod_lock_screen_description">Turn the screen off and on again and the night-mode player is still there, without unlocking</string>
+    <string name="aod_burn_in">Burn-in protection</string>
+    <string name="aod_burn_in_description">Moves the page by a few pixels every minute so nothing stays in one place on an OLED screen</string>
+    <string name="aod_auto_dim">Auto-dim</string>
+    <string name="aod_auto_dim_off">Off</string>
+    <string name="aod_auto_dim_seconds">After %1$d seconds</string>
+    <string name="aod_auto_dim_minute">After 1 minute</string>
 </resources>

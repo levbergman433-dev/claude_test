@@ -171,6 +171,30 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
 import com.maxrave.common.LIMIT_CACHE_SIZE
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_MINIMAL
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_BOLD
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_THIN
+import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_GLASS
+import simpmusic.composeapp.generated.resources.aod_auto_dim_minute
+import simpmusic.composeapp.generated.resources.aod_auto_dim_seconds
+import simpmusic.composeapp.generated.resources.aod_auto_dim_off
+import simpmusic.composeapp.generated.resources.aod_auto_dim
+import simpmusic.composeapp.generated.resources.aod_burn_in_description
+import simpmusic.composeapp.generated.resources.aod_burn_in
+import simpmusic.composeapp.generated.resources.aod_lock_screen_description
+import simpmusic.composeapp.generated.resources.aod_lock_screen
+import simpmusic.composeapp.generated.resources.aod_clock_style_minimal
+import simpmusic.composeapp.generated.resources.aod_clock_style_bold
+import simpmusic.composeapp.generated.resources.aod_clock_style_thin
+import simpmusic.composeapp.generated.resources.aod_clock_style_glass
+import simpmusic.composeapp.generated.resources.aod_clock_style
+import simpmusic.composeapp.generated.resources.aod_clock_description
+import simpmusic.composeapp.generated.resources.aod_clock
+import simpmusic.composeapp.generated.resources.settings_section_layout
+import simpmusic.composeapp.generated.resources.settings_section_night_mode
+import simpmusic.composeapp.generated.resources.settings_section_player
+import simpmusic.composeapp.generated.resources.settings_section_theme
+import androidx.compose.runtime.withFrameNanos
 import simpmusic.composeapp.generated.resources.page_image_text_dark
 import simpmusic.composeapp.generated.resources.page_image_text_light
 import simpmusic.composeapp.generated.resources.page_image_text_auto
@@ -702,6 +726,11 @@ fun SettingScreen(
     val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
     val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
     val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    val aodClockPref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_CLOCK) }.collectAsStateWithLifecycle(null)
+    val aodClockStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_CLOCK_STYLE) }.collectAsStateWithLifecycle(null)
+    val aodLockScreenPref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_LOCK_SCREEN) }.collectAsStateWithLifecycle(null)
+    val aodBurnInPref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_BURN_IN) }.collectAsStateWithLifecycle(null)
+    val aodAutoDimPref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_AUTO_DIM) }.collectAsStateWithLifecycle(null)
     val topBarStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.TOP_BAR_STYLE) }.collectAsStateWithLifecycle(null)
     val menuStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_STYLE) }.collectAsStateWithLifecycle(null)
     val menuButtonSizePref by remember { sharedViewModel.stringPref(PersonalizationKeys.MENU_BUTTON_SIZE) }.collectAsStateWithLifecycle(null)
@@ -792,8 +821,30 @@ fun SettingScreen(
     PlatformBackHandler(enabled = category != null) { category = null }
 
     val settingListState = rememberLazyListState()
-    // A new page starts at its top, not at the scroll offset of the previous one.
-    LaunchedEffect(category) { settingListState.scrollToItem(0) }
+    // Search across every category. While it holds text the page shows results instead of rows.
+    var settingsQuery by rememberSaveable { mutableStateOf("") }
+    fun isOpen(entry: SettingsCategory) = category == entry.name && settingsQuery.isBlank()
+    // Keys of the list's items in order, rebuilt each time the list's content is; a section's index
+    // in the list is its position here. Read by the section chips and by search results.
+    val sectionOrder = remember { mutableListOf<String>() }
+    // A section to scroll to once the page it belongs to is showing.
+    var pendingSection by remember { mutableStateOf<String?>(null) }
+    // A new page starts at its top, not at the scroll offset of the previous one — unless a search
+    // result or a chip opened it at a particular section.
+    LaunchedEffect(category) { if (pendingSection == null) settingListState.scrollToItem(0) }
+    LaunchedEffect(pendingSection) {
+        val target = pendingSection ?: return@LaunchedEffect
+        // The newly opened page's sections are only in the list after its next layout.
+        var index = -1
+        var frames = 0
+        while (index < 0 && frames < 10) {
+            withFrameNanos { }
+            index = sectionOrder.indexOf(target)
+            frames++
+        }
+        if (index >= 0) settingListState.animateScrollToItem(index)
+        pendingSection = null
+    }
     // Home's rule: transparent only while pixel-0 is on screen. The frost itself is kept LIGHT
     // (below) so frosting over the glow reads as a veil, not a lid.
     val isAtTop by remember {
@@ -825,13 +876,35 @@ fun SettingScreen(
                 .padding(horizontal = 16.dp)
                 .hazeSource(hazeState),
     ) {
+        sectionOrder.clear()
         // Item 0 is the top gap under the floating bar, plus the category list on the landing
         // page. It stays item 0 on every page so the ambient glow keeps tracking it.
-        item(key = "settings_top") {
+        sectionItem(sectionOrder, "settings_top") {
             Column {
                 Spacer(Modifier.height(64.dp))
                 Spacer(Modifier.height(16.dp))
-                if (category == null) {
+                SettingsSearchField(query = settingsQuery, onQueryChange = { settingsQuery = it })
+                Spacer(Modifier.height(12.dp))
+                if (settingsQuery.isNotBlank()) {
+                    SettingsSearchResults(
+                        query = settingsQuery,
+                        onOpenCategory = { entry ->
+                            settingsQuery = ""
+                            category = entry.name
+                        },
+                        onOpenSetting = { entry ->
+                            pendingSection = entry.section
+                            settingsQuery = ""
+                            category = entry.category.name
+                        },
+                    )
+                } else if (category != null) {
+                    SettingsSectionChips(
+                        sections = settingsSections.filter { it.category.name == category },
+                        onSelect = { pendingSection = it.key },
+                    )
+                }
+                if (category == null && settingsQuery.isBlank()) {
                     SettingsCategory.entries.forEachIndexed { index, entry ->
                         // Two groups, the way iOS Settings separates them: everyday preferences
                         // first, then housekeeping.
@@ -846,9 +919,9 @@ fun SettingScreen(
                 }
             }
         }
-        if (category == SettingsCategory.APPEARANCE.name) item(key = "user_interface") {
+        if (isOpen(SettingsCategory.APPEARANCE)) sectionItem(sectionOrder, "user_interface") {
             Column {
-                Text(text = stringResource(Res.string.user_interface), style = typo().labelMedium, color = MaterialTheme.colorScheme.onBackground)
+                SettingsSectionHeader(stringResource(Res.string.settings_section_theme))
                 val themeModeLabels =
                     listOf(
                         DataStoreManager.THEME_MODE_SYSTEM to stringResource(Res.string.theme_mode_system),
@@ -962,44 +1035,6 @@ fun SettingScreen(
                         },
                     )
                 }
-                // The Apple Music treatments ARE the blur — the frosted page behind the player, and
-                // the depth of field on the lyrics — and Modifier.blur is a documented no-op below
-                // Android 12, so on an older device they render as a flat, wrong-looking version of
-                // themselves. The requirement is spelled out on the option itself rather than left
-                // for the user to discover after switching.
-                val requiresAndroid12 = " (" + stringResource(Res.string.requires_android_12) + ")"
-                val nowPlayingStyleLabels =
-                    listOf(
-                        DataStoreManager.NOW_PLAYING_STYLE_SPOTIFY to stringResource(Res.string.now_playing_style_spotify),
-                        DataStoreManager.NOW_PLAYING_STYLE_M3_EXPRESSIVE to stringResource(Res.string.now_playing_style_m3_expressive),
-                        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC to
-                            stringResource(Res.string.now_playing_style_apple_music) + requiresAndroid12,
-                        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC_GLASS to
-                            stringResource(Res.string.now_playing_style_apple_music_glass) + requiresAndroid12,
-                    )
-                SettingItem(
-                    title = stringResource(Res.string.now_playing_style),
-                    subtitle = nowPlayingStyleLabels.firstOrNull { it.first == nowPlayingStyle }?.second ?: "",
-                    onClick = {
-                        viewModel.setAlertData(
-                            SettingAlertState(
-                                title = runBlocking { getString(Res.string.now_playing_style) },
-                                selectOne =
-                                    SettingAlertState.SelectData(
-                                        listSelect = nowPlayingStyleLabels.map { (it.first == nowPlayingStyle) to it.second },
-                                    ),
-                                confirm =
-                                    runBlocking { getString(Res.string.change) } to { state ->
-                                        val selected = state.selectOne?.getSelected()
-                                        nowPlayingStyleLabels.firstOrNull { it.second == selected }?.first?.let {
-                                            sharedViewModel.setNowPlayingStyle(it)
-                                        }
-                                    },
-                                dismiss = runBlocking { getString(Res.string.cancel) },
-                            ),
-                        )
-                    },
-                )
                 val fontLabels =
                     listOf(
                         DataStoreManager.FONT_INTER to stringResource(Res.string.font_inter),
@@ -1076,6 +1111,150 @@ fun SettingScreen(
                         onClick = { showColorPickerDialog = true },
                     )
                 }
+            }
+        }
+        if (isOpen(SettingsCategory.APPEARANCE)) sectionItem(sectionOrder, "player_look") {
+            Column {
+                SettingsSectionHeader(stringResource(Res.string.settings_section_player))
+                // The Apple Music treatments ARE the blur — the frosted page behind the player, and
+                // the depth of field on the lyrics — and Modifier.blur is a documented no-op below
+                // Android 12, so on an older device they render as a flat, wrong-looking version of
+                // themselves. The requirement is spelled out on the option itself rather than left
+                // for the user to discover after switching.
+                val requiresAndroid12 = " (" + stringResource(Res.string.requires_android_12) + ")"
+                val nowPlayingStyleLabels =
+                    listOf(
+                        DataStoreManager.NOW_PLAYING_STYLE_SPOTIFY to stringResource(Res.string.now_playing_style_spotify),
+                        DataStoreManager.NOW_PLAYING_STYLE_M3_EXPRESSIVE to stringResource(Res.string.now_playing_style_m3_expressive),
+                        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC to
+                            stringResource(Res.string.now_playing_style_apple_music) + requiresAndroid12,
+                        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC_GLASS to
+                            stringResource(Res.string.now_playing_style_apple_music_glass) + requiresAndroid12,
+                    )
+                SettingItem(
+                    title = stringResource(Res.string.now_playing_style),
+                    subtitle = nowPlayingStyleLabels.firstOrNull { it.first == nowPlayingStyle }?.second ?: "",
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.now_playing_style) },
+                                selectOne =
+                                    SettingAlertState.SelectData(
+                                        listSelect = nowPlayingStyleLabels.map { (it.first == nowPlayingStyle) to it.second },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        val selected = state.selectOne?.getSelected()
+                                        nowPlayingStyleLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            sharedViewModel.setNowPlayingStyle(it)
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        if (isOpen(SettingsCategory.APPEARANCE)) sectionItem(sectionOrder, "night_mode") {
+            Column {
+                SettingsSectionHeader(stringResource(Res.string.settings_section_night_mode))
+                val aodClockOn = aodClockPref != DataStoreManager.FALSE
+                SettingItem(
+                    title = stringResource(Res.string.aod_clock),
+                    subtitle = stringResource(Res.string.aod_clock_description),
+                    smallSubtitle = true,
+                    switch = (aodClockOn to { on -> sharedViewModel.setStringPref(PersonalizationKeys.AOD_CLOCK, if (on) DataStoreManager.TRUE else DataStoreManager.FALSE) }),
+                )
+                if (aodClockOn) {
+                    val clockStyleLabels =
+                        listOf(
+                            AOD_CLOCK_GLASS to stringResource(Res.string.aod_clock_style_glass),
+                            AOD_CLOCK_THIN to stringResource(Res.string.aod_clock_style_thin),
+                            AOD_CLOCK_BOLD to stringResource(Res.string.aod_clock_style_bold),
+                            AOD_CLOCK_MINIMAL to stringResource(Res.string.aod_clock_style_minimal),
+                        )
+                    val currentClockStyle = aodClockStylePref ?: AOD_CLOCK_GLASS
+                    SettingItem(
+                        title = stringResource(Res.string.aod_clock_style),
+                        subtitle = clockStyleLabels.firstOrNull { it.first == currentClockStyle }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.aod_clock_style) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = clockStyleLabels.map { (it.first == currentClockStyle) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            clockStyleLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                sharedViewModel.setStringPref(PersonalizationKeys.AOD_CLOCK_STYLE, it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                }
+                if (getPlatform() == Platform.Android) {
+                    SettingItem(
+                        title = stringResource(Res.string.aod_lock_screen),
+                        subtitle = stringResource(Res.string.aod_lock_screen_description),
+                        smallSubtitle = true,
+                        switch = (
+                            (aodLockScreenPref != DataStoreManager.FALSE) to
+                                { on -> sharedViewModel.setStringPref(PersonalizationKeys.AOD_LOCK_SCREEN, if (on) DataStoreManager.TRUE else DataStoreManager.FALSE) }
+                        ),
+                    )
+                }
+                SettingItem(
+                    title = stringResource(Res.string.aod_burn_in),
+                    subtitle = stringResource(Res.string.aod_burn_in_description),
+                    smallSubtitle = true,
+                    switch = (
+                        (aodBurnInPref != DataStoreManager.FALSE) to
+                            { on -> sharedViewModel.setStringPref(PersonalizationKeys.AOD_BURN_IN, if (on) DataStoreManager.TRUE else DataStoreManager.FALSE) }
+                    ),
+                )
+                val autoDimLabels =
+                    listOf(
+                        "0" to stringResource(Res.string.aod_auto_dim_off),
+                        "15" to stringResource(Res.string.aod_auto_dim_seconds, 15),
+                        "30" to stringResource(Res.string.aod_auto_dim_seconds, 30),
+                        "60" to stringResource(Res.string.aod_auto_dim_minute),
+                    )
+                val currentAutoDim = aodAutoDimPref ?: "0"
+                SettingItem(
+                    title = stringResource(Res.string.aod_auto_dim),
+                    subtitle = autoDimLabels.firstOrNull { it.first == currentAutoDim }?.second ?: "",
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.aod_auto_dim) },
+                                selectOne =
+                                    SettingAlertState.SelectData(
+                                        listSelect = autoDimLabels.map { (it.first == currentAutoDim) to it.second },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        val selected = state.selectOne?.getSelected()
+                                        autoDimLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            sharedViewModel.setStringPref(PersonalizationKeys.AOD_AUTO_DIM, it)
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+        if (isOpen(SettingsCategory.APPEARANCE)) sectionItem(sectionOrder, "layout") {
+            Column {
+                SettingsSectionHeader(stringResource(Res.string.settings_section_layout))
                 SettingItem(
                     title = stringResource(Res.string.translucent_bottom_navigation_bar),
                     subtitle = stringResource(Res.string.you_can_see_the_content_below_the_bottom_bar),
@@ -1234,7 +1413,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.APPEARANCE.name) item(key = "profile_badge") {
+        if (isOpen(SettingsCategory.APPEARANCE)) sectionItem(sectionOrder, "profile_badge") {
             Column {
                 Text(
                     text = stringResource(Res.string.profile_badge),
@@ -1374,7 +1553,7 @@ fun SettingScreen(
                 }
             }
         }
-        if (category == SettingsCategory.ACCOUNT.name) item(key = "content") {
+        if (isOpen(SettingsCategory.ACCOUNT)) sectionItem(sectionOrder, "content") {
             Column {
                 Text(
                     text = stringResource(Res.string.content),
@@ -1453,7 +1632,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.PLAYBACK.name) item(key = "quality") {
+        if (isOpen(SettingsCategory.PLAYBACK)) sectionItem(sectionOrder, "quality") {
             Column {
                 Text(
                     text = stringResource(Res.string.settings_quality_header),
@@ -1575,7 +1754,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.ACCOUNT.name) item(key = "content_more") {
+        if (isOpen(SettingsCategory.ACCOUNT)) sectionItem(sectionOrder, "content_more") {
             Column {
                 SettingItem(
                     title = stringResource(Res.string.sync_follow_to_youtube),
@@ -1622,7 +1801,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.ACCOUNT.name) item(key = "proxy") {
+        if (isOpen(SettingsCategory.ACCOUNT)) sectionItem(sectionOrder, "proxy") {
             Crossfade(usingProxy) { it ->
                 if (it) {
                     Column {
@@ -1786,7 +1965,7 @@ fun SettingScreen(
             }
         }
         if (getPlatform() == Platform.Android) {
-            if (category == SettingsCategory.PLAYBACK.name) item(key = "audio") {
+            if (isOpen(SettingsCategory.PLAYBACK)) sectionItem(sectionOrder, "audio") {
                 Column {
                     Text(
                         text = stringResource(Res.string.audio),
@@ -1807,7 +1986,7 @@ fun SettingScreen(
                 }
             }
         }
-        if (category == SettingsCategory.PLAYBACK.name) item(key = "playback") {
+        if (isOpen(SettingsCategory.PLAYBACK)) sectionItem(sectionOrder, "playback") {
             Column {
                 Text(
                     text = stringResource(Res.string.playback),
@@ -1881,7 +2060,7 @@ fun SettingScreen(
             }
         }
         // Crossfade Settings (all platforms)
-        if (category == SettingsCategory.PLAYBACK.name) item(key = "crossfade_settings") {
+        if (isOpen(SettingsCategory.PLAYBACK)) sectionItem(sectionOrder, "crossfade_settings") {
             Column {
                 SettingItem(
                     title = stringResource(Res.string.crossfade),
@@ -1992,7 +2171,7 @@ fun SettingScreen(
         // Deliberately not part of "storage" further down, which is Android-only: tracking and the
         // rows it leaves behind exist on Desktop just the same. The switch that produces the history
         // and the button that erases it belong together.
-        if (category == SettingsCategory.PLAYBACK.name) item(key = "performance") {
+        if (isOpen(SettingsCategory.PLAYBACK)) sectionItem(sectionOrder, "performance") {
             Column {
                 Text(
                     text = stringResource(Res.string.settings_performance_header),
@@ -2027,7 +2206,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.STORAGE.name) item(key = "listening_history") {
+        if (isOpen(SettingsCategory.STORAGE)) sectionItem(sectionOrder, "listening_history") {
             Column {
                 Text(
                     text = stringResource(Res.string.listening_history),
@@ -2059,7 +2238,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.LYRICS.name) item(key = "lyrics_display") {
+        if (isOpen(SettingsCategory.LYRICS)) sectionItem(sectionOrder, "lyrics_display") {
             Column {
                 Text(
                     text = stringResource(Res.string.settings_lyrics_display_header),
@@ -2183,7 +2362,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.LYRICS.name) item(key = "lyrics") {
+        if (isOpen(SettingsCategory.LYRICS)) sectionItem(sectionOrder, "lyrics") {
             Column {
                 Text(
                     text = stringResource(Res.string.lyrics),
@@ -2349,7 +2528,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.LYRICS.name) item(key = "AI") {
+        if (isOpen(SettingsCategory.LYRICS)) sectionItem(sectionOrder, "AI") {
             Column {
                 Text(
                     text = stringResource(Res.string.ai),
@@ -2528,7 +2707,7 @@ fun SettingScreen(
         // Android only lets a web link skip the chooser for apps the site owner verified, and only
         // Google can verify youtube.com, so shared YouTube Music links open the browser or YouTube
         // Music. The system does let the user allow them for this app by hand; this goes there.
-        if (category == SettingsCategory.SERVICES.name && supportsLinkHandlingSettings()) item(key = "links") {
+        if (isOpen(SettingsCategory.SERVICES) && supportsLinkHandlingSettings()) sectionItem(sectionOrder, "links") {
             Column {
                 Text(
                     text = stringResource(Res.string.open_links_header),
@@ -2544,7 +2723,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.SERVICES.name) item(key = "spotify") {
+        if (isOpen(SettingsCategory.SERVICES)) sectionItem(sectionOrder, "spotify") {
             Column {
                 Text(
                     text = stringResource(Res.string.spotify),
@@ -2599,7 +2778,7 @@ fun SettingScreen(
                 )
             }
         }
-        if (category == SettingsCategory.SERVICES.name) item(key = "discord") {
+        if (isOpen(SettingsCategory.SERVICES)) sectionItem(sectionOrder, "discord") {
             Column {
                 Text(
                     text = stringResource(Res.string.discord_integration),
@@ -2641,7 +2820,7 @@ fun SettingScreen(
         // Hidden entirely when the build carries no Last.fm credentials — a FOSS build, or a full
         // build whose local.properties has no key.
         if (viewModel.lastfmAvailable) {
-            if (category == SettingsCategory.SERVICES.name) item(key = "lastfm") {
+            if (isOpen(SettingsCategory.SERVICES)) sectionItem(sectionOrder, "lastfm") {
                 Column {
                     Text(
                         text = stringResource(Res.string.lastfm_integration),
@@ -2681,7 +2860,7 @@ fun SettingScreen(
                 }
             }
         }
-        if (category == SettingsCategory.SERVICES.name) item(key = "sponsor_block") {
+        if (isOpen(SettingsCategory.SERVICES)) sectionItem(sectionOrder, "sponsor_block") {
             Column {
                 Text(
                     text = stringResource(Res.string.sponsorBlock),
@@ -2759,7 +2938,7 @@ fun SettingScreen(
             }
         }
         if (getPlatform() == Platform.Android) {
-            if (category == SettingsCategory.STORAGE.name) item(key = "storage") {
+            if (isOpen(SettingsCategory.STORAGE)) sectionItem(sectionOrder, "storage") {
                 Column {
                     Text(
                         text = stringResource(Res.string.storage),
@@ -3070,7 +3249,7 @@ fun SettingScreen(
                 }
             }
         }
-        if (category == SettingsCategory.STORAGE.name) item(key = "backup") {
+        if (isOpen(SettingsCategory.STORAGE)) sectionItem(sectionOrder, "backup") {
             Column {
                 Text(
                     text = stringResource(Res.string.backup),
@@ -3239,7 +3418,7 @@ fun SettingScreen(
         }
         // Credits only, and nothing here is clickable: this build is not the upstream app, so it
         // must not offer upstream's update checker, links or donations.
-        if (category == SettingsCategory.ABOUT.name) item(key = "about_us") {
+        if (isOpen(SettingsCategory.ABOUT)) sectionItem(sectionOrder, "about_us") {
             Column {
                 Text(
                     text = stringResource(Res.string.settings_credits_header),
@@ -3257,7 +3436,7 @@ fun SettingScreen(
                 )
             }
         }
-        item(key = "end") {
+        sectionItem(sectionOrder, "end") {
             EndOfPage()
         }
     }
@@ -4039,7 +4218,7 @@ private fun ImportProgressDialog(
  * The pages Settings is split into. The landing page lists them; each page shows only the sections
  * tagged with it in [SettingScreen]. Order here is the order on the landing page.
  */
-private enum class SettingsCategory(
+internal enum class SettingsCategory(
     val title: StringResource,
     val icon: ImageVector,
 ) {

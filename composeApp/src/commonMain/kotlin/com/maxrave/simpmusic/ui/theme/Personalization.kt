@@ -41,6 +41,14 @@ object PersonalizationKeys {
     /** Text on the picture: "AUTO" (by its brightness), "LIGHT" (white) or "DARK". */
     const val PAGE_IMAGE_TEXT = "page_image_text"
 
+    // Night mode (AOD) player. Clock and lock screen and burn-in protection default to on (a
+    // missing value counts as "TRUE"); auto-dim defaults to off ("0" seconds).
+    const val AOD_CLOCK = "aod_clock"
+    const val AOD_CLOCK_STYLE = "aod_clock_style"
+    const val AOD_LOCK_SCREEN = "aod_lock_screen"
+    const val AOD_BURN_IN = "aod_burn_in"
+    const val AOD_AUTO_DIM = "aod_auto_dim"
+
     const val BADGE_ENABLED = "profile_badge_enabled"
     const val BADGE_NAME = "profile_badge_name"
     const val BADGE_NAME_COLOR = "profile_badge_name_color"
@@ -205,3 +213,8 @@ val LocalPageBrush = staticCompositionLocalOf<Brush?> { null }
  * the solid primary, which is seeded from the gradient's first colour.
  */
 val LocalAccentBrush = staticCompositionLocalOf<Brush?> { null }
+
+const val AOD_CLOCK_GLASS = "GLASS"
+const val AOD_CLOCK_THIN = "THIN"
+const val AOD_CLOCK_BOLD = "BOLD"
+const val AOD_CLOCK_MINIMAL = "MINIMAL"
