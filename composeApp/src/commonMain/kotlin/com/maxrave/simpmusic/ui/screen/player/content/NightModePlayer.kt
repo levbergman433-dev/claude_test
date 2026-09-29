@@ -13,7 +13,6 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -209,7 +208,8 @@ internal fun NightModePlayer(
                 Brush.radialGradient(
                     listOf(songColor, songColor.copy(alpha = 0.35f), Color.Transparent),
                     center = Offset(size.width / 2f, clockGlowY),
-                    radius = size.width * 0.6f,
+                    // Android's RadialGradient throws for a radius of 0, i.e. before first layout.
+                    radius = (size.width * 0.6f).coerceAtLeast(1f),
                 ),
             )
             drawContent()
@@ -380,7 +380,7 @@ private fun NightThemeBackground(
                             Brush.radialGradient(
                                 listOf(songColor.copy(alpha = 0.45f), songColor.copy(alpha = 0.12f), Color.Transparent),
                                 center = Offset(size.width / 2f, size.height * 0.52f),
-                                radius = size.maxDimension * 0.6f,
+                                radius = (size.maxDimension * 0.6f).coerceAtLeast(1f),
                             ),
                         )
                     },
@@ -591,7 +591,10 @@ private fun GlassText(
                         drawText(layout, color = Color.Black, blendMode = BlendMode.DstIn)
                     }.liquidGlass(
                         backdrop = backdrop,
-                        shape = RectangleShape,
+                        // Zero-radius rounded corners, not RectangleShape: the glass's lens effect only
+                        // accepts corner-based shapes and throws for anything else, which crashed the
+                        // app the moment the night-mode page opened with the glass clock.
+                        shape = RoundedCornerShape(0.dp),
                         interactive = false,
                         highlight = Highlight(width = 1.dp),
                     ),
