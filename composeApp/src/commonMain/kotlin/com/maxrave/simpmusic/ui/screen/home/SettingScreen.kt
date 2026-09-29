@@ -171,6 +171,15 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.eygraber.uri.toKmpUri
 import com.maxrave.common.LIMIT_CACHE_SIZE
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_MINIMAL
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_ARTWORK
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_AMBIENT
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_CLASSIC
+import simpmusic.composeapp.generated.resources.aod_theme_minimal
+import simpmusic.composeapp.generated.resources.aod_theme_artwork
+import simpmusic.composeapp.generated.resources.aod_theme_ambient
+import simpmusic.composeapp.generated.resources.aod_theme_classic
+import simpmusic.composeapp.generated.resources.aod_theme
 import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_MINIMAL
 import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_BOLD
 import com.maxrave.simpmusic.ui.theme.AOD_CLOCK_THIN
@@ -726,6 +735,7 @@ fun SettingScreen(
     val badgeIcon by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON) }.collectAsStateWithLifecycle(null)
     val badgeIconColor by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_ICON_COLOR) }.collectAsStateWithLifecycle(null)
     val badgeAvatar by remember { sharedViewModel.stringPref(PersonalizationKeys.BADGE_AVATAR) }.collectAsStateWithLifecycle(null)
+    val aodThemePref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_THEME) }.collectAsStateWithLifecycle(null)
     val aodClockPref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_CLOCK) }.collectAsStateWithLifecycle(null)
     val aodClockStylePref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_CLOCK_STYLE) }.collectAsStateWithLifecycle(null)
     val aodLockScreenPref by remember { sharedViewModel.stringPref(PersonalizationKeys.AOD_LOCK_SCREEN) }.collectAsStateWithLifecycle(null)
@@ -1159,6 +1169,37 @@ fun SettingScreen(
         if (isOpen(SettingsCategory.APPEARANCE)) sectionItem(sectionOrder, "night_mode") {
             Column {
                 SettingsSectionHeader(stringResource(Res.string.settings_section_night_mode))
+                val aodThemeLabels =
+                    listOf(
+                        AOD_THEME_CLASSIC to stringResource(Res.string.aod_theme_classic),
+                        AOD_THEME_AMBIENT to stringResource(Res.string.aod_theme_ambient),
+                        AOD_THEME_ARTWORK to stringResource(Res.string.aod_theme_artwork),
+                        AOD_THEME_MINIMAL to stringResource(Res.string.aod_theme_minimal),
+                    )
+                val currentAodTheme = aodThemePref ?: AOD_THEME_CLASSIC
+                SettingItem(
+                    title = stringResource(Res.string.aod_theme),
+                    subtitle = aodThemeLabels.firstOrNull { it.first == currentAodTheme }?.second ?: "",
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.aod_theme) },
+                                selectOne =
+                                    SettingAlertState.SelectData(
+                                        listSelect = aodThemeLabels.map { (it.first == currentAodTheme) to it.second },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        val selected = state.selectOne?.getSelected()
+                                        aodThemeLabels.firstOrNull { it.second == selected }?.first?.let {
+                                            sharedViewModel.setStringPref(PersonalizationKeys.AOD_THEME, it)
+                                        }
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
                 val aodClockOn = aodClockPref != DataStoreManager.FALSE
                 SettingItem(
                     title = stringResource(Res.string.aod_clock),

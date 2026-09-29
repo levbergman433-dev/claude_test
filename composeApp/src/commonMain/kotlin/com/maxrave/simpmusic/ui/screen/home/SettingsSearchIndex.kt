@@ -12,6 +12,7 @@ import simpmusic.composeapp.generated.resources.aod_auto_dim
 import simpmusic.composeapp.generated.resources.aod_burn_in
 import simpmusic.composeapp.generated.resources.aod_burn_in_description
 import simpmusic.composeapp.generated.resources.aod_clock
+import simpmusic.composeapp.generated.resources.aod_theme
 import simpmusic.composeapp.generated.resources.aod_clock_description
 import simpmusic.composeapp.generated.resources.aod_clock_style
 import simpmusic.composeapp.generated.resources.aod_lock_screen
@@ -206,6 +207,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.theme_color, null, SettingsCategory.APPEARANCE, "user_interface"),
         SettingsSearchEntry(Res.string.custom_color, null, SettingsCategory.APPEARANCE, "user_interface"),
         SettingsSearchEntry(Res.string.now_playing_style, null, SettingsCategory.APPEARANCE, "player_look"),
+        SettingsSearchEntry(Res.string.aod_theme, null, SettingsCategory.APPEARANCE, "night_mode"),
         SettingsSearchEntry(Res.string.aod_clock, Res.string.aod_clock_description, SettingsCategory.APPEARANCE, "night_mode"),
         SettingsSearchEntry(Res.string.aod_clock_style, null, SettingsCategory.APPEARANCE, "night_mode"),
         SettingsSearchEntry(Res.string.aod_lock_screen, Res.string.aod_lock_screen_description, SettingsCategory.APPEARANCE, "night_mode"),

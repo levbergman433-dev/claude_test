@@ -48,6 +48,7 @@ object PersonalizationKeys {
     const val AOD_LOCK_SCREEN = "aod_lock_screen"
     const val AOD_BURN_IN = "aod_burn_in"
     const val AOD_AUTO_DIM = "aod_auto_dim"
+    const val AOD_THEME = "aod_theme"
 
     const val BADGE_ENABLED = "profile_badge_enabled"
     const val BADGE_NAME = "profile_badge_name"
@@ -218,3 +219,8 @@ const val AOD_CLOCK_GLASS = "GLASS"
 const val AOD_CLOCK_THIN = "THIN"
 const val AOD_CLOCK_BOLD = "BOLD"
 const val AOD_CLOCK_MINIMAL = "MINIMAL"
+
+const val AOD_THEME_CLASSIC = "CLASSIC"
+const val AOD_THEME_AMBIENT = "AMBIENT"
+const val AOD_THEME_ARTWORK = "ARTWORK"
+const val AOD_THEME_MINIMAL = "MINIMAL"

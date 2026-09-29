@@ -1,6 +1,26 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
 import androidx.compose.animation.AnimatedVisibility
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_MINIMAL
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_ARTWORK
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_AMBIENT
+import com.maxrave.simpmusic.ui.theme.AOD_THEME_CLASSIC
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.blur
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -62,7 +82,6 @@ import com.maxrave.simpmusic.expect.ui.ImmersiveSystemBars
 import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
 import com.maxrave.simpmusic.expect.ui.ShowOverLockScreen
 import com.maxrave.simpmusic.expect.ui.layerBackdrop
-import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.expect.ui.rememberIs24HourClock
 import com.maxrave.simpmusic.extension.KeepScreenOn
 import com.maxrave.simpmusic.extension.formatDuration
@@ -125,6 +144,8 @@ internal fun NightModePlayer(
     val lockScreenPref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_LOCK_SCREEN) }.collectAsStateWithLifecycle(null)
     val burnInPref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_BURN_IN) }.collectAsStateWithLifecycle(null)
     val autoDimPref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_AUTO_DIM) }.collectAsStateWithLifecycle(null)
+    val themePref by remember { dataStoreManager.getString(PersonalizationKeys.AOD_THEME) }.collectAsStateWithLifecycle(null)
+    val theme = themePref ?: AOD_THEME_CLASSIC
     val showClock = clockPref != DataStoreManager.FALSE
     val clockStyle = clockStylePref ?: AOD_CLOCK_GLASS
     val burnInProtection = burnInPref != DataStoreManager.FALSE
@@ -165,8 +186,25 @@ internal fun NightModePlayer(
     }
     val pageAlpha by animateFloatAsState(if (dimmed) DIMMED_ALPHA else 1f, tween(1_200), label = "aodDim")
 
-    val backdrop = rememberBackdrop(Color.Black)
     val density = LocalDensity.current
+    // The song's colour (the palette's resolved target, not the colour mid-animation, so the
+    // backdrop is not rebuilt on every frame of a track change); a soft neutral before it resolves.
+    val songColor = state.startColor.targetValue.let { if (it.luminance() < 0.02f) Color(0xFF8E9AAF) else it }
+    // What the glass clock refracts. Only the recorded layer gets the glow — layerBackdrop draws the
+    // page itself untouched — so the digits pick up the song's colour while the page stays black.
+    val clockGlowY = with(density) { 150.dp.toPx() }
+    val backdrop =
+        rememberLayerBackdrop {
+            drawRect(Color.Black)
+            drawRect(
+                Brush.radialGradient(
+                    listOf(songColor, songColor.copy(alpha = 0.35f), Color.Transparent),
+                    center = Offset(size.width / 2f, clockGlowY),
+                    radius = size.width * 0.6f,
+                ),
+            )
+            drawContent()
+        }
 
     Box(
         modifier =
@@ -200,6 +238,7 @@ internal fun NightModePlayer(
         ) {
             // The page the clock's glass refracts. A sibling of the clock, never its parent.
             Box(modifier = Modifier.matchParentSize().layerBackdrop(backdrop)) {
+                NightThemeBackground(theme = theme, state = state, songColor = songColor)
                 Column(
                     modifier = Modifier.fillMaxSize().padding(top = if (showClock) 72.dp else 0.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -209,7 +248,13 @@ internal fun NightModePlayer(
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 40.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        NightTrack(state = state, actions = actions, compact = showClock, controlsVisible = !dimmed)
+                        NightTrack(
+                            state = state,
+                            actions = actions,
+                            compact = showClock,
+                            controlsVisible = !dimmed,
+                            showArtwork = theme != AOD_THEME_MINIMAL,
+                        )
                     }
                 }
             }
@@ -241,8 +286,10 @@ private fun NightTrack(
     actions: NowPlayingContentActions,
     compact: Boolean,
     controlsVisible: Boolean,
+    showArtwork: Boolean,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        if (showArtwork) {
         AsyncImage(
             model =
                 ImageRequest
@@ -267,9 +314,11 @@ private fun NightTrack(
                     ).clip(NightArtworkShape),
         )
         Spacer(Modifier.height(if (compact) 28.dp else 36.dp))
+        }
         Text(
             text = state.screenData.nowPlayingTitle,
-            style = typo().titleMedium.copy(fontSize = 20.sp, fontWeight = FontWeight.Medium),
+            // Minimal has no cover, so the title carries the page.
+            style = typo().titleMedium.copy(fontSize = if (showArtwork) 20.sp else 30.sp, fontWeight = FontWeight.Medium),
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -292,6 +341,53 @@ private fun NightTrack(
             Spacer(Modifier.height(if (compact) 28.dp else 40.dp))
             NightTransport(state, actions)
         }
+    }
+}
+
+/**
+ * The page behind the track, per AOD theme. Classic and Minimal are pure black (drawn by the
+ * parent); Ambient lays a soft glow of the song's colour behind the cover; Artwork fills the page
+ * with the cover, blurred where the platform can blur (Android 12+) and darkened either way. All of
+ * it is static — nothing here animates or redraws on its own.
+ */
+@Composable
+private fun NightThemeBackground(
+    theme: String,
+    state: NowPlayingContentState,
+    songColor: Color,
+) {
+    when (theme) {
+        AOD_THEME_AMBIENT ->
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().drawBehind {
+                        drawRect(
+                            Brush.radialGradient(
+                                listOf(songColor.copy(alpha = 0.45f), songColor.copy(alpha = 0.12f), Color.Transparent),
+                                center = Offset(size.width / 2f, size.height * 0.52f),
+                                radius = size.maxDimension * 0.6f,
+                            ),
+                        )
+                    },
+            )
+
+        AOD_THEME_ARTWORK ->
+            Box(modifier = Modifier.fillMaxSize()) {
+                AsyncImage(
+                    model =
+                        ImageRequest
+                            .Builder(LocalPlatformContext.current)
+                            .data(state.screenData.thumbnailURL)
+                            .crossfade(true)
+                            .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().blur(48.dp),
+                )
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.62f)))
+            }
+
+        else -> Unit
     }
 }
 
@@ -428,25 +524,54 @@ private fun NightClock(
             }
 
         else ->
-            // Liquid glass, the default: the same glass as the nav bar and the player buttons.
-            Column(
-                modifier =
-                    modifier
-                        .liquidGlass(
-                            backdrop = backdrop,
-                            shape = RoundedCornerShape(32.dp),
-                            interactive = false,
-                            highlight = Highlight(width = 1.dp),
-                        ).padding(horizontal = 28.dp, vertical = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
+            // Liquid glass, the default: the digits themselves are the glass — the same glass as the
+            // nav bar and the player buttons, cut to the shape of the time.
+            Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+                GlassText(
                     text = clockText,
-                    style = typo().titleLarge.copy(fontSize = 56.sp, lineHeight = 60.sp, fontWeight = FontWeight.Light),
-                    color = Color.White,
+                    style = typo().titleLarge.copy(fontSize = 92.sp, lineHeight = 96.sp, fontWeight = FontWeight.Black),
+                    backdrop = backdrop,
                 )
                 Text(text = dateText, style = typo().bodyMedium, color = Color.White.copy(alpha = 0.7f))
             }
+    }
+}
+
+/**
+ * [text] drawn as liquid glass: the glass surface is rendered over the text's box and then kept only
+ * where the glyphs are (DstIn in an offscreen layer), with a thin light rim so the edges read on a
+ * dark page.
+ */
+@Composable
+private fun GlassText(
+    text: String,
+    style: TextStyle,
+    backdrop: com.maxrave.simpmusic.expect.ui.PlatformBackdrop,
+) {
+    val measurer = rememberTextMeasurer()
+    val layout = remember(text, style) { measurer.measure(text, style) }
+    val density = LocalDensity.current
+    val boxSize = with(density) { DpSize(layout.size.width.toDp(), layout.size.height.toDp()) }
+    val rimWidth = with(density) { 1.2.dp.toPx() }
+    Box(modifier = Modifier.size(boxSize)) {
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawText(layout, color = Color.Black, blendMode = BlendMode.DstIn)
+                    }.liquidGlass(
+                        backdrop = backdrop,
+                        shape = RectangleShape,
+                        interactive = false,
+                        highlight = Highlight(width = 1.dp),
+                    ),
+        )
+        Canvas(modifier = Modifier.matchParentSize()) {
+            drawText(layout, color = Color.White.copy(alpha = 0.5f), drawStyle = Stroke(width = rimWidth))
+        }
     }
 }
 

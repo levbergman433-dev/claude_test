@@ -1011,4 +1011,9 @@
     <string name="aod_auto_dim_off">Off</string>
     <string name="aod_auto_dim_seconds">After %1$d seconds</string>
     <string name="aod_auto_dim_minute">After 1 minute</string>
+    <string name="aod_theme">AOD look</string>
+    <string name="aod_theme_classic">Classic</string>
+    <string name="aod_theme_ambient">Ambient glow</string>
+    <string name="aod_theme_artwork">Blurred artwork</string>
+    <string name="aod_theme_minimal">Minimal (no cover)</string>
 </resources>
