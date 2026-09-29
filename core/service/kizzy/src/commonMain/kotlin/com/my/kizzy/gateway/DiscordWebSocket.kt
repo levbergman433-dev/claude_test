@@ -52,9 +52,12 @@ private const val TAG = "DiscordWebSocket"
 
 open class DiscordWebSocket(
     private val token: String,
-    private val os: String = "Android",
-    private val browser: String = "Discord Android",
-    private val device: String = "Generic Android Device",
+    // Identifies as the desktop client, as upstream Kizzy does. Identified as "Discord Android", the
+    // activity was only shown while a desktop client of the same account was also connected:
+    // Discord does not display rich presence set from a mobile-client session on its own.
+    private val os: String = "Windows",
+    private val browser: String = "Discord Client",
+    private val device: String = "ktor",
 ) : CoroutineScope {
     private val gatewayUrl = "wss://gateway.discord.gg/?v=9&encoding=json"
     private var websocket: DefaultClientWebSocketSession? = null

@@ -31,9 +31,10 @@ import kotlinx.serialization.json.Json
  */
 open class KizzyRPC(
     private val token: String,
-    os: String = "Android",
-    browser: String = "Discord Android",
-    device: String = "Generic Android Device",
+    // The gateway identity: the desktop client, as upstream Kizzy uses. See DiscordWebSocket.
+    os: String = "Windows",
+    browser: String = "Discord Client",
+    device: String = "ktor",
     private val userAgent: String = "Discord-Android/314013;RNA",
     private val superPropertiesBase64: String? = null,
 ) {
@@ -130,13 +131,12 @@ open class KizzyRPC(
                             url = streamUrl,
                         ),
                     ),
-                // Not afk. Discord folds every signed-in connection into the one presence other
-                // people see, and an afk connection loses to any active one: with afk = true this
-                // activity disappeared whenever the Discord app or desktop client was in use, and
-                // only showed while the user was on the web client. `since` is the idle start
-                // time, so it is only meaningful for an idle/afk connection.
-                afk = false,
-                since = null,
+                // Afk, as upstream Kizzy sends it. This session identifies as a desktop client, and
+                // Discord holds back mobile push notifications while a desktop session is active;
+                // flagged afk it does not, so the phone keeps getting notifications while music
+                // plays.
+                afk = true,
+                since = since,
                 status = status ?: "online",
             )
         discordWebSocket.sendActivity(presence)
