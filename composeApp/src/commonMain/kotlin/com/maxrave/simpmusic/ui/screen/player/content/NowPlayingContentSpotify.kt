@@ -2,6 +2,7 @@
 
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.icon.Bedtime
 import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.Animatable
@@ -867,6 +868,13 @@ fun NowPlayingContentSpotify(
                         }
                     },
                     actions = {
+                        IconButton(onClick = { actions.onShowNightMode() }) {
+                            Icon(
+                                imageVector = SimpIcons.Bedtime,
+                                contentDescription = "Night mode",
+                                tint = Color.White,
+                            )
+                        }
                         IconButton(onClick = {
                             actions.onShowMoreSheet()
                         }) {

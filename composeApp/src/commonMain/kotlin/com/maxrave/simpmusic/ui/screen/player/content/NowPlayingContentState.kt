@@ -148,6 +148,8 @@ class NowPlayingContentActions(
     val onMoveQueueItem: (from: Int, to: Int) -> Unit,
     /** Removes one queue entry. `index` is an absolute index into [NowPlayingContentState.artworkQueue]. */
     val onRemoveQueueItem: (index: Int) -> Unit,
+    /** Opens the night-mode player — see [NightModePlayer]. */
+    val onShowNightMode: () -> Unit = {},
 )
 /**
  * [ms] rounded down to a whole second, or -1 for a negative (unknown) value. `formatDuration`

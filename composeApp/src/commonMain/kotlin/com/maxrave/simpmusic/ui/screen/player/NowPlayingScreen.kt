@@ -65,6 +65,7 @@ import com.maxrave.simpmusic.ui.icon.KeyboardArrowDown
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.player.FullscreenDestination
+import com.maxrave.simpmusic.ui.screen.player.content.NightModePlayer
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentActions
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentAppleMusic
 import com.maxrave.simpmusic.ui.screen.player.content.NowPlayingContentM3Expressive
@@ -342,6 +343,7 @@ fun NowPlayingScreenContent(
         mutableStateOf(false)
     }
 
+    var showNightMode by rememberSaveable { mutableStateOf(false) }
     var showQueueBottomSheet by rememberSaveable {
         mutableStateOf(false)
     }
@@ -753,6 +755,7 @@ fun NowPlayingScreenContent(
             onRemoveQueueItem = { index ->
                 mediaPlayerHandler.removeMediaItem(index)
             },
+            onShowNightMode = { showNightMode = true },
         )
     Box(modifier = Modifier.fillMaxSize()) {
     Box(modifier = Modifier.fillMaxSize().then(if (npGlassHost != null && npGlassHost.isOpen) Modifier.glassMenuHostSource(npGlassHost) else Modifier)) {
@@ -785,5 +788,9 @@ fun NowPlayingScreenContent(
     }
     // Outside the recorded box, never inside it.
     npGlassHost?.let { GlassMenuOverlay(host = it) }
+    // Over everything, whichever style is chosen.
+    if (showNightMode) {
+        NightModePlayer(state = state, actions = actions, onClose = { showNightMode = false })
+    }
     }
 }

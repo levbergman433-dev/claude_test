@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicGlyphButton
+import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicGlassCircle
+import com.maxrave.simpmusic.ui.icon.Bedtime
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -390,6 +393,20 @@ fun NowPlayingContentAppleMusic(
                             .clip(RoundedCornerShape(50))
                             .background(Color.White.copy(alpha = 0.35f)),
                 )
+            }
+            // Night mode, top right beside the grabber. MAIN only, for the same reason the desktop
+            // close button is: over Queue and Lyrics it would read as part of the list.
+            if (viewState == AppleMusicView.MAIN) {
+                Box(
+                    modifier =
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = with(localDensity) { WindowInsets.statusBars.getTop(localDensity).toDp() }, end = 16.dp),
+                ) {
+                    AppleMusicGlassCircle(size = 40.dp) {
+                        AppleMusicGlyphButton(icon = SimpIcons.Bedtime, onClick = { actions.onShowNightMode() })
+                    }
+                }
             }
         }
     }

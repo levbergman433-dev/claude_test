@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.ui.icon.Bedtime
 import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
@@ -365,6 +366,22 @@ private fun NowPlayingM3ExpressiveLayout(
                                     ).focusable(),
                         )
                     }
+                    IconButton(
+                        onClick = { actions.onShowNightMode() },
+                        shape = RoundedCornerShape(14.dp),
+                        colors =
+                            IconButtonDefaults.iconButtonColors(
+                                containerColor = colorScheme.surfaceContainerHigh,
+                                contentColor = colorScheme.onSurface,
+                            ),
+                        modifier = Modifier.size(44.dp),
+                    ) {
+                        Icon(
+                            imageVector = SimpIcons.Bedtime,
+                            contentDescription = "Night mode",
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
                     IconButton(
                         onClick = { actions.onShowMoreSheet() },
                         shape = RoundedCornerShape(14.dp),
