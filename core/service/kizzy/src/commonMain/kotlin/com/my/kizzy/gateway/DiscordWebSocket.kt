@@ -42,6 +42,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -74,6 +75,11 @@ open class DiscordWebSocket(
         }
 
     private var reconnectionJob: Job? = null
+
+    // The presence last sent, re-sent after a reconnect (a new gateway session starts with none)
+    // and refreshed periodically so it stays current in Discord's merged presence.
+    private var lastPresence: Presence? = null
+    private var presenceRefreshJob: Job? = null
     private var currentReconnectDelay = INITIAL_RECONNECT_DELAY
 
     override val coroutineContext: CoroutineContext
@@ -195,6 +201,9 @@ open class DiscordWebSocket(
                 resumeGatewayUrl = ready.resumeGatewayUrl + "/?v=9&encoding=json"
                 Logger.i(TAG, "Gateway READY: resume_gateway_url updated to $resumeGatewayUrl, session_id updated to $sessionId")
                 connected = true
+                // A fresh session carries no presence: put back what was showing before the drop,
+                // instead of leaving the profile blank until the next song.
+                resendLastPresence()
                 return
             }
 
@@ -203,6 +212,7 @@ open class DiscordWebSocket(
                 // otherwise sendActivity spin-waiters would block forever.
                 connected = true
                 Logger.i(TAG, "Gateway: Session Resumed")
+                resendLastPresence()
             }
 
             else -> {}
@@ -310,6 +320,11 @@ open class DiscordWebSocket(
         reconnectionJob?.cancel()
         heartbeatJob?.cancel()
         heartbeatJob = null
+        // Cancelled by hand: `coroutineContext` builds a new job on every read, so `this.cancel()`
+        // below does not reach coroutines already launched.
+        presenceRefreshJob?.cancel()
+        presenceRefreshJob = null
+        lastPresence = null
         this.cancel()
         resumeGatewayUrl = null
         sessionId = null
@@ -336,15 +351,44 @@ open class DiscordWebSocket(
             return
         }
         Logger.i(TAG, "Gateway: Sending $PRESENCE_UPDATE")
+        lastPresence = presence
         send(
             op = PRESENCE_UPDATE,
             d = presence,
         )
+        schedulePresenceRefresh()
+    }
+
+    private fun resendLastPresence() {
+        val presence = lastPresence ?: return
+        launch {
+            runCatching { send(op = PRESENCE_UPDATE, d = presence) }
+        }
+    }
+
+    /**
+     * Re-sends the current activity every few minutes while there is one. One small message; it keeps
+     * the activity from being dropped from the merged presence when another client of the same
+     * account reconnects or updates its own presence.
+     */
+    private fun schedulePresenceRefresh() {
+        presenceRefreshJob?.cancel()
+        if (lastPresence?.activities.isNullOrEmpty()) return
+        presenceRefreshJob =
+            launch {
+                while (true) {
+                    delay(PRESENCE_REFRESH_INTERVAL)
+                    val presence = lastPresence ?: break
+                    if (!isSocketConnectedToAccount()) continue
+                    runCatching { send(op = PRESENCE_UPDATE, d = presence) }
+                }
+            }
     }
 
     companion object {
         private val INITIAL_RECONNECT_DELAY = 1.seconds
         private val MAX_RECONNECT_DELAY = 60.seconds
+        private val PRESENCE_REFRESH_INTERVAL = 3.minutes
 
         // Discord gateway close codes signalling an unrecoverable auth/identify error. Reconnecting on
         // these would loop indefinitely with the same bad credentials (see issue #2157):

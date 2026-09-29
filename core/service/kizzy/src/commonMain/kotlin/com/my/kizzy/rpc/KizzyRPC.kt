@@ -130,8 +130,13 @@ open class KizzyRPC(
                             url = streamUrl,
                         ),
                     ),
-                afk = true,
-                since = since,
+                // Not afk. Discord folds every signed-in connection into the one presence other
+                // people see, and an afk connection loses to any active one: with afk = true this
+                // activity disappeared whenever the Discord app or desktop client was in use, and
+                // only showed while the user was on the web client. `since` is the idle start
+                // time, so it is only meaningful for an idle/afk connection.
+                afk = false,
+                since = null,
                 status = status ?: "online",
             )
         discordWebSocket.sendActivity(presence)
