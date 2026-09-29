@@ -51,7 +51,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -81,6 +80,7 @@ import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.simpmusic.expect.ui.ImmersiveSystemBars
 import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
 import com.maxrave.simpmusic.expect.ui.ShowOverLockScreen
+import com.maxrave.simpmusic.expect.ui.toImageBitmap
 import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import com.maxrave.simpmusic.expect.ui.rememberIs24HourClock
 import com.maxrave.simpmusic.extension.KeepScreenOn
@@ -102,6 +102,10 @@ import com.maxrave.simpmusic.ui.theme.PersonalizationKeys
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.UIEvent
 import kotlinx.coroutines.delay
+import androidx.compose.ui.input.pointer.PointerEventType
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -175,14 +179,19 @@ internal fun NightModePlayer(
         }
     }
 
-    // Auto-dim: every touch bumps the counter, which restarts the wait.
-    var touches by remember { mutableIntStateOf(0) }
+    // Auto-dim: each press restarts the wait. Presses arrive on a flow rather than as state, so a
+    // touch — or every move event of a drag on the seek bar — does not recompose the page; only the
+    // dimmed flag itself does, and only when it flips.
+    val presses = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     var dimmed by remember { mutableStateOf(false) }
-    LaunchedEffect(autoDimSeconds, touches) {
+    LaunchedEffect(autoDimSeconds) {
         dimmed = false
         if (autoDimSeconds <= 0) return@LaunchedEffect
-        delay(autoDimSeconds * 1_000L)
-        dimmed = true
+        presses.onStart { emit(Unit) }.collectLatest {
+            dimmed = false
+            delay(autoDimSeconds * 1_000L)
+            dimmed = true
+        }
     }
     val pageAlpha by animateFloatAsState(if (dimmed) DIMMED_ALPHA else 1f, tween(1_200), label = "aodDim")
 
@@ -213,11 +222,12 @@ internal fun NightModePlayer(
                 .background(Color.Black)
                 // Sees every touch without consuming it, so a tap both wakes a dimmed page and still
                 // reaches the button under the finger.
-                .pointerInput(Unit) {
+                .pointerInput(autoDimSeconds > 0) {
+                    if (autoDimSeconds <= 0) return@pointerInput
                     awaitPointerEventScope {
                         while (true) {
-                            awaitPointerEvent(PointerEventPass.Initial)
-                            touches++
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            if (event.type == PointerEventType.Press) presses.tryEmit(Unit)
                         }
                     }
                 }
@@ -236,10 +246,13 @@ internal fun NightModePlayer(
                         with(density) { IntOffset(shiftX.value.dp.roundToPx(), shiftY.value.dp.roundToPx()) }
                     }.graphicsLayer { alpha = pageAlpha },
         ) {
-            // The page the clock's glass refracts. A sibling of the clock, never its parent.
+            // What the clock's glass refracts: the static background only, never the track and seek
+            // bar. Recording the whole page made every position tick re-record it and re-render the
+            // glass, ten times a second for as long as the screen stayed on; this records once.
             Box(modifier = Modifier.matchParentSize().layerBackdrop(backdrop)) {
                 NightThemeBackground(theme = theme, state = state, songColor = songColor)
-                Column(
+            }
+            Column(
                     modifier = Modifier.fillMaxSize().padding(top = if (showClock) 72.dp else 0.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -257,7 +270,6 @@ internal fun NightModePlayer(
                         )
                     }
                 }
-            }
             if (showClock) {
                 NightClock(
                     style = clockStyle,
@@ -299,6 +311,9 @@ private fun NightTrack(
                     .build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            // The player underneath is not composed while this page is open, and it is what fed the
+            // artwork to the palette, so this does it instead: the glow follows a track change.
+            onSuccess = { actions.onArtworkBitmap(it.result.image.toImageBitmap()) },
             modifier =
                 Modifier
                     // Smaller while the clock takes the top of the page.
@@ -397,8 +412,20 @@ private fun NightSeekBar(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
 ) {
+    // Moves in whole seconds: the times beside it only show seconds, and at this size a once-a-second
+    // step looks the same as the ten-a-second position ticks while redrawing a tenth as often.
+    val barValue by remember(state) {
+        derivedStateOf {
+            val total = state.timelineState.total
+            if (total <= 0L) {
+                state.sliderValue / 100f
+            } else {
+                snapToSecond((total * (state.sliderValue / 100f)).roundToLong()).toFloat() / total
+            }
+        }
+    }
     AppleMusicThinSlider(
-        value = state.sliderValue / 100f,
+        value = barValue,
         activeColor = Color.White,
         onValueChange = { actions.onSliderChange(it * 100f) },
         onValueChangeFinished = actions.onSliderChangeFinished,

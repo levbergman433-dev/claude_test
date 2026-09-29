@@ -344,6 +344,12 @@ fun NowPlayingScreenContent(
     }
 
     var showNightMode by rememberSaveable { mutableStateOf(false) }
+    // The night-mode page moves its bar in whole seconds, so it gives back this screen's claim on
+    // the ten-a-second position tick while it is open (the count is shared, so this only lowers it).
+    DisposableEffect(showNightMode) {
+        if (showNightMode) mediaPlayerHandler.setFineProgressNeeded(false)
+        onDispose { if (showNightMode) mediaPlayerHandler.setFineProgressNeeded(true) }
+    }
     var showQueueBottomSheet by rememberSaveable {
         mutableStateOf(false)
     }
@@ -759,31 +765,36 @@ fun NowPlayingScreenContent(
         )
     Box(modifier = Modifier.fillMaxSize()) {
     Box(modifier = Modifier.fillMaxSize().then(if (npGlassHost != null && npGlassHost.isOpen) Modifier.glassMenuHostSource(npGlassHost) else Modifier)) {
-    when (nowPlayingStyle) {
-        DataStoreManager.NOW_PLAYING_STYLE_M3_EXPRESSIVE ->
-            NowPlayingContentM3Expressive(
-                state = state,
-                actions = actions,
-            )
+    // Not composed while the night-mode page covers it: an opaque page on top does not stop the
+    // player underneath from drawing — the canvas video kept decoding, and the artwork, marquees and
+    // glass kept redrawing, all night, behind a black screen.
+    if (!showNightMode) {
+        when (nowPlayingStyle) {
+            DataStoreManager.NOW_PLAYING_STYLE_M3_EXPRESSIVE ->
+                NowPlayingContentM3Expressive(
+                    state = state,
+                    actions = actions,
+                )
 
-        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC ->
-            NowPlayingContentAppleMusic(
-                state = state,
-                actions = actions,
-            )
+            DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC ->
+                NowPlayingContentAppleMusic(
+                    state = state,
+                    actions = actions,
+                )
 
-        DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC_GLASS ->
-            NowPlayingContentAppleMusic(
-                state = state,
-                actions = actions,
-                glass = true,
-            )
+            DataStoreManager.NOW_PLAYING_STYLE_APPLE_MUSIC_GLASS ->
+                NowPlayingContentAppleMusic(
+                    state = state,
+                    actions = actions,
+                    glass = true,
+                )
 
-        else ->
-            NowPlayingContentSpotify(
-                state = state,
-                actions = actions,
-            )
+            else ->
+                NowPlayingContentSpotify(
+                    state = state,
+                    actions = actions,
+                )
+        }
     }
     }
     // Outside the recorded box, never inside it.
