@@ -5,7 +5,6 @@ import com.maxrave.simpmusic.ui.theme.AOD_THEME_MINIMAL
 import com.maxrave.simpmusic.ui.theme.AOD_THEME_ARTWORK
 import com.maxrave.simpmusic.ui.theme.AOD_THEME_AMBIENT
 import com.maxrave.simpmusic.ui.theme.AOD_THEME_CLASSIC
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -13,11 +12,10 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.blur
 import androidx.compose.animation.core.Animatable
@@ -74,17 +72,14 @@ import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
-import com.kyant.backdrop.highlight.Highlight
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.simpmusic.expect.ui.ImmersiveSystemBars
 import com.maxrave.simpmusic.expect.ui.PlatformBackHandler
 import com.maxrave.simpmusic.expect.ui.ShowOverLockScreen
 import com.maxrave.simpmusic.expect.ui.toImageBitmap
-import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import com.maxrave.simpmusic.expect.ui.rememberIs24HourClock
 import com.maxrave.simpmusic.extension.KeepScreenOn
 import com.maxrave.simpmusic.extension.formatDuration
-import com.maxrave.simpmusic.ui.component.liquidGlass
 import com.maxrave.simpmusic.ui.icon.Close
 import com.maxrave.simpmusic.ui.icon.FastForward
 import com.maxrave.simpmusic.ui.icon.FastRewind
@@ -195,25 +190,9 @@ internal fun NightModePlayer(
     val pageAlpha by animateFloatAsState(if (dimmed) DIMMED_ALPHA else 1f, tween(1_200), label = "aodDim")
 
     val density = LocalDensity.current
-    // The song's colour (the palette's resolved target, not the colour mid-animation, so the
-    // backdrop is not rebuilt on every frame of a track change); a soft neutral before it resolves.
+    // The song's colour (the palette's resolved target, not the colour mid-animation, so the page is
+    // not redrawn on every frame of a track change); a soft neutral before it resolves.
     val songColor = state.startColor.targetValue.let { if (it.luminance() < 0.02f) Color(0xFF8E9AAF) else it }
-    // What the glass clock refracts. Only the recorded layer gets the glow — layerBackdrop draws the
-    // page itself untouched — so the digits pick up the song's colour while the page stays black.
-    val clockGlowY = with(density) { 150.dp.toPx() }
-    val backdrop =
-        rememberLayerBackdrop {
-            drawRect(Color.Black)
-            drawRect(
-                Brush.radialGradient(
-                    listOf(songColor, songColor.copy(alpha = 0.35f), Color.Transparent),
-                    center = Offset(size.width / 2f, clockGlowY),
-                    // Android's RadialGradient throws for a radius of 0, i.e. before first layout.
-                    radius = (size.width * 0.6f).coerceAtLeast(1f),
-                ),
-            )
-            drawContent()
-        }
 
     Box(
         modifier =
@@ -246,12 +225,7 @@ internal fun NightModePlayer(
                         with(density) { IntOffset(shiftX.value.dp.roundToPx(), shiftY.value.dp.roundToPx()) }
                     }.graphicsLayer { alpha = pageAlpha },
         ) {
-            // What the clock's glass refracts: the static background only, never the track and seek
-            // bar. Recording the whole page made every position tick re-record it and re-render the
-            // glass, ten times a second for as long as the screen stayed on; this records once.
-            Box(modifier = Modifier.matchParentSize().layerBackdrop(backdrop)) {
-                NightThemeBackground(theme = theme, state = state, songColor = songColor)
-            }
+            NightThemeBackground(theme = theme, state = state, songColor = songColor)
             Column(
                     modifier = Modifier.fillMaxSize().padding(top = if (showClock) 72.dp else 0.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -273,7 +247,7 @@ internal fun NightModePlayer(
             if (showClock) {
                 NightClock(
                     style = clockStyle,
-                    backdrop = backdrop,
+                    tint = songColor,
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp),
                 )
             }
@@ -517,7 +491,7 @@ private fun rememberMinuteClock(): LocalDateTime {
 @Composable
 private fun NightClock(
     style: String,
-    backdrop: com.maxrave.simpmusic.expect.ui.PlatformBackdrop,
+    tint: Color,
     modifier: Modifier = Modifier,
 ) {
     val time = rememberMinuteClock()
@@ -556,8 +530,8 @@ private fun NightClock(
             Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
                 GlassText(
                     text = clockText,
-                    style = typo().titleLarge.copy(fontSize = 92.sp, lineHeight = 96.sp, fontWeight = FontWeight.Black),
-                    backdrop = backdrop,
+                    style = typo().titleLarge.copy(fontSize = 96.sp, lineHeight = 100.sp, fontWeight = FontWeight.Black),
+                    tint = tint,
                 )
                 Text(text = dateText, style = typo().bodyMedium, color = Color.White.copy(alpha = 0.7f))
             }
@@ -565,43 +539,75 @@ private fun NightClock(
 }
 
 /**
- * [text] drawn as liquid glass: the glass surface is rendered over the text's box and then kept only
- * where the glyphs are (DstIn in an offscreen layer), with a thin light rim so the edges read on a
- * dark page.
+ * [text] drawn as liquid glass, glyph by glyph — no box behind it. A glass surface over a black page
+ * has nothing to refract and renders as a dark slab, so the glass is built from its parts instead,
+ * every layer drawn with the text as its own mask:
+ * - a soft glow of [tint] spilling out around the glyphs, the light the glass bends;
+ * - a translucent body, clear at the top and carrying the tint lower down, like thick glass;
+ * - a diagonal specular streak across all the digits at once, as one sheet of glass would catch it;
+ * - a rim lit from above and faintly from below, which is what reads as an edge on a dark page.
+ * One draw pass, redrawn only when the minute or the song colour changes.
  */
 @Composable
 private fun GlassText(
     text: String,
     style: TextStyle,
-    backdrop: com.maxrave.simpmusic.expect.ui.PlatformBackdrop,
+    tint: Color,
 ) {
     val measurer = rememberTextMeasurer()
     val layout = remember(text, style) { measurer.measure(text, style) }
     val density = LocalDensity.current
     val boxSize = with(density) { DpSize(layout.size.width.toDp(), layout.size.height.toDp()) }
-    val rimWidth = with(density) { 1.2.dp.toPx() }
-    Box(modifier = Modifier.size(boxSize)) {
-        Box(
-            modifier =
-                Modifier
-                    .matchParentSize()
-                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                    .drawWithContent {
-                        drawContent()
-                        drawText(layout, color = Color.Black, blendMode = BlendMode.DstIn)
-                    }.liquidGlass(
-                        backdrop = backdrop,
-                        // Zero-radius rounded corners, not RectangleShape: the glass's lens effect only
-                        // accepts corner-based shapes and throws for anything else, which crashed the
-                        // app the moment the night-mode page opened with the glass clock.
-                        shape = RoundedCornerShape(0.dp),
-                        interactive = false,
-                        highlight = Highlight(width = 1.dp),
-                    ),
+    val rimWidth = with(density) { 1.5.dp.toPx() }
+    val glowRadius = with(density) { 26.dp.toPx() }
+    Canvas(modifier = Modifier.size(boxSize)) {
+        val w = size.width
+        val h = size.height
+        // Glow: the shadow of a barely-there fill, so the light follows the glyph outlines.
+        drawText(
+            layout,
+            color = tint.copy(alpha = 0.18f),
+            shadow = Shadow(color = tint.copy(alpha = 0.75f), blurRadius = glowRadius),
         )
-        Canvas(modifier = Modifier.matchParentSize()) {
-            drawText(layout, color = Color.White.copy(alpha = 0.5f), drawStyle = Stroke(width = rimWidth))
-        }
+        // Body.
+        drawText(
+            layout,
+            brush =
+                Brush.verticalGradient(
+                    0f to Color.White.copy(alpha = 0.34f),
+                    0.5f to lerp(Color.White, tint, 0.55f).copy(alpha = 0.22f),
+                    1f to tint.copy(alpha = 0.30f),
+                    startY = 0f,
+                    endY = h,
+                ),
+        )
+        // Specular streak.
+        drawText(
+            layout,
+            brush =
+                Brush.linearGradient(
+                    0f to Color.Transparent,
+                    0.38f to Color.Transparent,
+                    0.46f to Color.White.copy(alpha = 0.40f),
+                    0.52f to Color.Transparent,
+                    1f to Color.Transparent,
+                    start = Offset(0f, 0f),
+                    end = Offset(w, h),
+                ),
+        )
+        // Rim.
+        drawText(
+            layout,
+            brush =
+                Brush.verticalGradient(
+                    0f to Color.White.copy(alpha = 0.95f),
+                    0.45f to Color.White.copy(alpha = 0.28f),
+                    1f to lerp(Color.White, tint, 0.4f).copy(alpha = 0.65f),
+                    startY = 0f,
+                    endY = h,
+                ),
+            drawStyle = Stroke(width = rimWidth),
+        )
     }
 }
 

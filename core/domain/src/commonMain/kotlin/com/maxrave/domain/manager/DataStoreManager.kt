@@ -575,6 +575,14 @@ interface DataStoreManager {
 
     suspend fun setRichPresenceEnabled(enabled: Boolean)
 
+    /**
+     * Whether the status session tells Discord it is in active use, so its activity wins over the
+     * Discord app's own session. Discord holds back phone notifications while it does.
+     */
+    val richPresencePriority: Flow<String>
+
+    suspend fun setRichPresencePriority(enabled: Boolean)
+
     /** Last.fm session key. Has no expiry — it stays valid until the user revokes it on last.fm. */
     val lastfmSessionKey: Flow<String>
 

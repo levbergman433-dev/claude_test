@@ -15,6 +15,8 @@ class DiscordRPC(
         durationMillis: Long,
         playbackSpeed: Float = 1.0f,
         song: SongEntity,
+        // Active session: shows even while the Discord app is open on the phone. See KizzyRPC.
+        activeSession: Boolean = true,
     ) = runCatching {
         val currentTime = Clock.System.now().toEpochMilliseconds()
 
@@ -41,6 +43,7 @@ class DiscordRPC(
             startTime = calculatedStartTime,
             endTime = currentTime + adjustedRemainingDuration,
             applicationId = APPLICATION_ID,
+            afk = !activeSession,
         )
     }
 

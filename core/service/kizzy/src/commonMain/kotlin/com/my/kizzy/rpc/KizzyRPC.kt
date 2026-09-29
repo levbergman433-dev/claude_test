@@ -85,6 +85,7 @@ open class KizzyRPC(
         applicationId: String? = null,
         status: String? = "online",
         since: Long? = null,
+        afk: Boolean = true,
     ) {
         if (!isRpcRunning()) {
             discordWebSocket.connect()
@@ -131,12 +132,14 @@ open class KizzyRPC(
                             url = streamUrl,
                         ),
                     ),
-                // Afk, as upstream Kizzy sends it. This session identifies as a desktop client, and
-                // Discord holds back mobile push notifications while a desktop session is active;
-                // flagged afk it does not, so the phone keeps getting notifications while music
-                // plays.
-                afk = true,
-                since = since,
+                // Discord shows one session's activities: the one in active use. Flagged afk (as
+                // upstream Kizzy sends it) this session loses to the Discord app whenever that is
+                // open on the phone, and the status only appears once a desktop or web client is
+                // running. Not afk it wins — at the cost that Discord, seeing an active desktop
+                // session, holds back phone notifications. The caller decides which matters more.
+                afk = afk,
+                // `since` is when the session went idle; an active one must not claim it did.
+                since = if (afk) since else null,
                 status = status ?: "online",
             )
         discordWebSocket.sendActivity(presence)

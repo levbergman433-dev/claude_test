@@ -1721,6 +1721,19 @@ internal class DataStoreManagerImpl(
         }
     }
 
+    override val richPresencePriority: Flow<String> =
+        settingsDataStore.data.map { preferences ->
+            preferences[RICH_PRESENCE_PRIORITY] ?: TRUE
+        }
+
+    override suspend fun setRichPresencePriority(enabled: Boolean) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[RICH_PRESENCE_PRIORITY] = if (enabled) TRUE else FALSE
+            }
+        }
+    }
+
     override val lastfmSessionKey: Flow<String> =
         settingsDataStore.data.map { preferences ->
             preferences[LASTFM_SESSION_KEY] ?: ""
@@ -1962,6 +1975,7 @@ internal class DataStoreManagerImpl(
 
         val DISCORD_TOKEN = stringPreferencesKey("discord_token")
         val RICH_PRESENCE = stringPreferencesKey("rich_presence")
+        val RICH_PRESENCE_PRIORITY = stringPreferencesKey("rich_presence_priority")
 
         val LASTFM_SESSION_KEY = stringPreferencesKey("lastfm_session_key")
         val LASTFM_USERNAME = stringPreferencesKey("lastfm_username")

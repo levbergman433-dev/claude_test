@@ -518,6 +518,8 @@ import simpmusic.composeapp.generated.resources.requires_android_12
 import simpmusic.composeapp.generated.resources.restore_your_data
 import simpmusic.composeapp.generated.resources.restore_your_saved_data
 import simpmusic.composeapp.generated.resources.rich_presence_info
+import simpmusic.composeapp.generated.resources.rich_presence_priority
+import simpmusic.composeapp.generated.resources.rich_presence_priority_info
 import simpmusic.composeapp.generated.resources.save
 import simpmusic.composeapp.generated.resources.save_all_your_playlist_data
 import simpmusic.composeapp.generated.resources.save_last_played
@@ -774,6 +776,7 @@ fun SettingScreen(
     val lastfmUsername by viewModel.lastfmUsername.collectAsStateWithLifecycle()
     val lastfmScrobbleEnabled by viewModel.lastfmScrobbleEnabled.collectAsStateWithLifecycle()
     val richPresenceEnabled by viewModel.richPresenceEnabled.collectAsStateWithLifecycle()
+    val richPresencePriority by viewModel.richPresencePriority.collectAsStateWithLifecycle()
     val keepServiceAlive by viewModel.keepServiceAlive.collectAsStateWithLifecycle()
 
     val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
@@ -2855,6 +2858,12 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.rich_presence_info),
                     switch = (richPresenceEnabled to { viewModel.setDiscordRichPresenceEnabled(it) }),
                     isEnable = discordLoggedIn,
+                )
+                SettingItem(
+                    title = stringResource(Res.string.rich_presence_priority),
+                    subtitle = stringResource(Res.string.rich_presence_priority_info),
+                    switch = (richPresencePriority to { viewModel.setRichPresencePriority(it) }),
+                    isEnable = discordLoggedIn && richPresenceEnabled,
                 )
             }
         }

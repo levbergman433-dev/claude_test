@@ -136,6 +136,8 @@ import simpmusic.composeapp.generated.resources.radio_audio_only_description
 import simpmusic.composeapp.generated.resources.restore_your_data
 import simpmusic.composeapp.generated.resources.restore_your_saved_data
 import simpmusic.composeapp.generated.resources.rich_presence_info
+import simpmusic.composeapp.generated.resources.rich_presence_priority
+import simpmusic.composeapp.generated.resources.rich_presence_priority_info
 import simpmusic.composeapp.generated.resources.save_all_your_playlist_data
 import simpmusic.composeapp.generated.resources.save_last_played
 import simpmusic.composeapp.generated.resources.save_last_played_track_and_queue
@@ -286,6 +288,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.enable_canvas, Res.string.canvas_info, SettingsCategory.SERVICES, "spotify"),
         SettingsSearchEntry(Res.string.enable_animated_artwork, Res.string.animated_artwork_info, SettingsCategory.SERVICES, "spotify"),
         SettingsSearchEntry(Res.string.enable_rich_presence, Res.string.rich_presence_info, SettingsCategory.SERVICES, "discord"),
+        SettingsSearchEntry(Res.string.rich_presence_priority, Res.string.rich_presence_priority_info, SettingsCategory.SERVICES, "discord"),
         SettingsSearchEntry(Res.string.enable_scrobbling, Res.string.scrobbling_info, SettingsCategory.SERVICES, "lastfm"),
         SettingsSearchEntry(Res.string.enable_sponsor_block, Res.string.skip_sponsor_part_of_video, SettingsCategory.SERVICES, "sponsor_block"),
         SettingsSearchEntry(Res.string.categories_sponsor_block, Res.string.what_segments_will_be_skipped, SettingsCategory.SERVICES, "sponsor_block"),

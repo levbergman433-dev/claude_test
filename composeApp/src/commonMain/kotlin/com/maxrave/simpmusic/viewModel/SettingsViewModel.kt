@@ -34,7 +34,10 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -606,6 +609,15 @@ class SettingsViewModel(
                 _richPresenceEnabled.value = enabled == DataStoreManager.TRUE
             }
         }
+    }
+
+    val richPresencePriority: StateFlow<Boolean> =
+        dataStoreManager.richPresencePriority
+            .map { it == DataStoreManager.TRUE }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
+    fun setRichPresencePriority(enabled: Boolean) {
+        viewModelScope.launch { dataStoreManager.setRichPresencePriority(enabled) }
     }
 
     fun setDiscordRichPresenceEnabled(enabled: Boolean) {

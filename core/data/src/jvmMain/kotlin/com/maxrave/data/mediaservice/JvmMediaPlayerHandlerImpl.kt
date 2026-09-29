@@ -581,8 +581,9 @@ class JvmMediaPlayerHandlerImpl(
                                                 // RPC (Fix 1). controlState.value is a safe field
                                                 // read from Dispatchers.IO, unlike player.isPlaying.
                                                 if (!controlState.value.isPlaying) return@collectLatest
+                                                val activeSession = dataStoreManager.richPresencePriority.first() == TRUE
                                                 discordRPC
-                                                    ?.updateSong(snap.progressMs, snap.durationMs, snap.speed, snap.song)
+                                                    ?.updateSong(snap.progressMs, snap.durationMs, snap.speed, snap.song, activeSession)
                                                     ?.onFailure { Logger.e(TAG, "Discord RPC update failed: ${it.message}") }
                                             }
                                         }
