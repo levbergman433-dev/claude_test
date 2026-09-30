@@ -155,21 +155,24 @@ internal class FrozenBackdrop : Backdrop {
 }
 
 /**
- * [frozen] as seen from a fixed [restPosition] in the window, wherever the glass actually is.
+ * The snapshot as seen from [position] in the window: one immutable backdrop per position and per
+ * snapshot, built by [rememberPlacedBackdrop].
  *
- * A coordinate-dependent backdrop makes the glass re-record itself — blur and lens over the whole
- * sheet — every time its layout position is reported, and that happens on every frame of the
- * slide-in and of a drag, and on any layout pass nearby (the player's ticking times). This one
- * says it does not depend on coordinates, so the glass is rendered once at rest and then simply
- * moved as a layer. While moving it carries the view from its resting place with it, which over a
- * 300 ms slide is not visible.
+ * The glass has to follow the sheet as it slides and is dragged — a backdrop that ignores where the
+ * glass is shows the page carried along with the sheet, which reads as the glass being stuck. But
+ * [FrozenBackdrop]'s way of following (coordinate-dependent) makes the glass re-render — blur and
+ * lens over the whole sheet — on every position report, and those arrive on every layout pass
+ * nearby even when nothing moved (the player's ticking times). Swapping in a new instance only
+ * when the position really changes, in whole pixels, re-renders exactly when the view behind the
+ * glass changes and never otherwise. A new instance also picks up a new snapshot for certain:
+ * replacing the modifier's backdrop always redraws it.
  */
 @Stable
-internal class PinnedBackdrop(
-    private val frozen: FrozenBackdrop,
+internal class PlacedBackdrop(
+    private val image: ImageBitmap,
+    private val origin: Offset,
+    private val position: Offset,
 ) : Backdrop {
-    var restPosition by mutableStateOf<Offset?>(null)
-
     override val isCoordinatesDependent: Boolean = false
 
     override fun DrawScope.drawBackdrop(
@@ -177,20 +180,28 @@ internal class PinnedBackdrop(
         coordinates: LayoutCoordinates?,
         layerBlock: (GraphicsLayerScope.() -> Unit)?,
     ) {
-        val snapshot = frozen.image ?: return
-        val position = restPosition ?: return
-        translate(frozen.origin.x - position.x, frozen.origin.y - position.y) {
-            drawImage(snapshot)
+        translate(origin.x - position.x, origin.y - position.y) {
+            drawImage(image)
         }
     }
 }
 
-/** Records where a glass surface sits at rest; place it before any modifier that moves the surface. */
-private fun Modifier.pinRest(backdrop: PinnedBackdrop): Modifier =
+@Composable
+private fun rememberPlacedBackdrop(
+    frozen: FrozenBackdrop,
+    position: Offset?,
+): Backdrop {
+    val image = frozen.image
+    return remember(image, position) {
+        if (image != null && position != null) PlacedBackdrop(image, frozen.origin, position) else frozen
+    }
+}
+
+/** Reports where the glass is, in whole pixels (sub-pixel jitter would re-render it for nothing). */
+private fun Modifier.trackGlassPosition(onPosition: (Offset) -> Unit): Modifier =
     onGloballyPositioned {
         val p = it.positionInWindow()
-        // Whole pixels: sub-pixel jitter from a relayout would otherwise re-render the glass.
-        backdrop.restPosition = Offset(p.x.roundToInt().toFloat(), p.y.roundToInt().toFloat())
+        onPosition(Offset(p.x.roundToInt().toFloat(), p.y.roundToInt().toFloat()))
     }
 
 /** Marks the backdrop source of [host]: records it for the glass and tracks where it sits. */
@@ -341,7 +352,9 @@ private fun GlassSheetLayer(host: GlassMenuHost) {
             }
         }
 
-    val pinned = remember(host) { PinnedBackdrop(host.frozen) }
+    // Where the glass is, INCLUDING the slide and the drag, so what it shows moves under it.
+    var glassAt by remember(sheet.token) { mutableStateOf<Offset?>(null) }
+    val glassBackdrop = rememberPlacedBackdrop(host.frozen, glassAt)
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier =
@@ -362,11 +375,11 @@ private fun GlassSheetLayer(host: GlassMenuHost) {
                     .fillMaxWidth()
                     .heightIn(max = maxSheetHeight)
                     .onSizeChanged { panelHeight = it.height }
-                    .pinRest(pinned)
                     .graphicsLayer {
                         translationY = (1f - progress.value) * (panelHeight + 64.dp.toPx()) + dragY
-                    }.nestedScroll(dragToDismiss)
-                    .liquidGlass(pinned, GlassSheetShape, interactive = false)
+                    }.trackGlassPosition { if (it != glassAt) glassAt = it }
+                    .nestedScroll(dragToDismiss)
+                    .liquidGlass(glassBackdrop, GlassSheetShape, interactive = false)
                     .clip(GlassSheetShape)
                     .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -394,7 +407,10 @@ private fun GlassMenuLayer(host: GlassMenuHost) {
                     .fillMaxSize()
                     .pointerInput(menu) { detectTapGestures { menu.onDismissRequest() } },
         )
-        val pinned = remember(menu.token) { PinnedBackdrop(host.frozen) }
+        // Where the menu sits once open. Taken before its grow-in scale, which is only 0.9 → 1 over
+        // a fraction of a second: re-rendering the glass for each step of it is not worth it.
+        var glassAt by remember(menu.token) { mutableStateOf<Offset?>(null) }
+        val glassBackdrop = rememberPlacedBackdrop(host.frozen, glassAt)
         val appear = remember(menu.token) { Animatable(0f) }
         LaunchedEffect(menu.token) { appear.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 700f)) }
         var opensUpward by remember(menu.token) { mutableStateOf(false) }
@@ -404,7 +420,7 @@ private fun GlassMenuLayer(host: GlassMenuHost) {
                 Column(
                     modifier =
                         menu.modifier
-                            .pinRest(pinned)
+                            .trackGlassPosition { if (it != glassAt) glassAt = it }
                             .graphicsLayer {
                                 val p = appear.value
                                 alpha = p.coerceIn(0f, 1f)
@@ -415,7 +431,7 @@ private fun GlassMenuLayer(host: GlassMenuHost) {
                                     TransformOrigin(if (alignedToEnd) 1f else 0f, if (opensUpward) 1f else 0f)
                             }.width(IntrinsicSize.Max)
                             .heightIn(max = 520.dp)
-                            .liquidGlass(pinned, GlassMenuShape, interactive = false)
+                            .liquidGlass(glassBackdrop, GlassMenuShape, interactive = false)
                             .clip(GlassMenuShape)
                             .verticalScroll(rememberScrollState())
                             .padding(vertical = 8.dp),
