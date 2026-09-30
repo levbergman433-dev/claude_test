@@ -7,7 +7,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.dp
 
 /**
  * Clips artwork to [shape] and lays the hairline edge Apple Music gives every cover over it.
@@ -19,8 +18,10 @@ import androidx.compose.ui.unit.dp
  */
 fun Modifier.artworkFrame(shape: Shape): Modifier =
     clip(shape).drawWithCache {
-        // Centred on the edge, so half of it is clipped away: the visible line is half this.
-        val stroke = Stroke(width = 1.5.dp.toPx())
+        // Centred on the edge, so half of it is clipped away: what shows is ONE physical pixel,
+        // Apple's hairline. A density-scaled width (0.75 dp showed as 2–3 px) read as a frame
+        // drawn round the small list covers rather than as their edge.
+        val stroke = Stroke(width = 2f)
         val outline = shape.createOutline(size, layoutDirection, this)
         onDrawWithContent {
             drawContent()
@@ -28,4 +29,4 @@ fun Modifier.artworkFrame(shape: Shape): Modifier =
         }
     }
 
-private val ArtworkEdge = Color(0x38808080)
+private val ArtworkEdge = Color(0x2E8C8C8C)
