@@ -561,10 +561,10 @@ fun NowPlayingScreenContent(
     }
 
     // The player is a window of its own (a bottom sheet), so the app's glass layer is not behind
-    // it. When glass sheets are on, it gets its own: while a sheet is open the player content is
-    // recorded as a backdrop (only then — the player redraws every frame under a canvas, and
-    // copying all of it into a second layer for nothing is pure cost) and the sheet is drawn over
-    // it as liquid glass.
+    // it. When glass sheets are on, it gets its own: as a sheet opens the player content is
+    // recorded as a backdrop for the few frames it takes to snapshot it (only then — the player
+    // redraws every frame under a canvas, and copying all of it into a second layer for nothing is
+    // pure cost) and the sheet is drawn over the snapshot as liquid glass.
     val npBackdrop = rememberBackdrop(Color.Black)
     val npGlassHost =
         if (LocalGlassMenuHost.current != null) remember(npBackdrop) { GlassMenuHost(npBackdrop) } else null
@@ -764,7 +764,7 @@ fun NowPlayingScreenContent(
             onShowNightMode = { showNightMode = true },
         )
     Box(modifier = Modifier.fillMaxSize()) {
-    Box(modifier = Modifier.fillMaxSize().then(if (npGlassHost != null && npGlassHost.isOpen) Modifier.glassMenuHostSource(npGlassHost) else Modifier)) {
+    Box(modifier = Modifier.fillMaxSize().then(if (npGlassHost != null && npGlassHost.capturing) Modifier.glassMenuHostSource(npGlassHost) else Modifier)) {
     // Not composed while the night-mode page covers it: an opaque page on top does not stop the
     // player underneath from drawing — the canvas video kept decoding, and the artwork, marquees and
     // glass kept redrawing, all night, behind a black screen.

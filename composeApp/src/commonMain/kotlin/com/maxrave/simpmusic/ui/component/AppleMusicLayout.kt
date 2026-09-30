@@ -327,8 +327,7 @@ fun AppleSongRow(
                 modifier =
                     Modifier
                         .size(48.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .border(0.5.dp, appleSeparatorColor(), RoundedCornerShape(5.dp)),
+                        .artworkFrame(RoundedCornerShape(5.dp)),
             )
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -427,10 +426,9 @@ fun AppleAlbumCard(
             modifier =
                 Modifier
                     .size(size)
-                    .clip(shape)
                     // Apple outlines artwork with a hairline so dark covers keep their edge on a
                     // black page.
-                    .border(0.5.dp, MaterialTheme.colorScheme.onBackground.copy(alpha = 0.14f), shape),
+                    .artworkFrame(shape),
         )
         Spacer(Modifier.height(7.dp))
         Text(

@@ -43,6 +43,7 @@ import coil3.request.crossfade
 import com.maxrave.domain.data.model.home.Content
 import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.home.chart.Chart
+import com.maxrave.simpmusic.ui.component.artworkFrame
 import com.maxrave.simpmusic.ui.component.AppleAlbumCard
 import com.maxrave.simpmusic.ui.component.AppleEdge
 import com.maxrave.simpmusic.ui.component.AppleTileGap
@@ -261,7 +262,7 @@ private fun AppleFeaturedCard(
                     Modifier
                         .fillMaxHeight(0.78f)
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(6.dp)),
+                        .artworkFrame(RoundedCornerShape(6.dp)),
             )
         }
     }

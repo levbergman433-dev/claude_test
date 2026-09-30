@@ -284,9 +284,7 @@ fun LibraryItem(
                                         modifier =
                                             Modifier
                                                 .fillMaxSize()
-                                                .clip(
-                                                    RoundedCornerShape(8.dp),
-                                                ),
+                                                .artworkFrame(RoundedCornerShape(8.dp)),
                                     )
                                     Column(
                                         Modifier

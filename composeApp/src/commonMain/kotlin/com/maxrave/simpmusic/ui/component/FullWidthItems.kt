@@ -305,7 +305,7 @@ fun SongFullWidthItems(
                                 modifier =
                                     Modifier
                                         .fillMaxSize()
-                                        .clip(RoundedCornerShape(4.dp)),
+                                        .artworkFrame(RoundedCornerShape(4.dp)),
                             )
                         } else {
                             Text(
@@ -464,7 +464,7 @@ fun SuggestItems(
                                 Modifier
                                     .wrapContentHeight()
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(4.dp)),
+                                    .artworkFrame(RoundedCornerShape(4.dp)),
                         )
                     }
                 }
@@ -618,7 +618,7 @@ fun PlaylistFullWidthItems(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(4.dp)),
+                            .artworkFrame(RoundedCornerShape(4.dp)),
                 )
             }
             Column(
@@ -740,7 +740,7 @@ fun ArtistFullWidthItems(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .clip(CircleShape),
+                            .artworkFrame(CircleShape),
                 )
             }
             Column(

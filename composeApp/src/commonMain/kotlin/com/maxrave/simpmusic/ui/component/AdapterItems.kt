@@ -178,9 +178,7 @@ fun HomeItem(
                     modifier =
                         Modifier
                             .size(36.dp)
-                            .clip(
-                                CircleShape,
-                            ),
+                            .artworkFrame(CircleShape),
                 )
             }
             Column(
@@ -549,9 +547,7 @@ fun HomeItemContentPlaylist(
                     Modifier
                         .size(thumbSize)
                         .aspectRatio(1f)
-                        .clip(
-                            RoundedCornerShape(10.dp),
-                        ),
+                        .artworkFrame(RoundedCornerShape(10.dp)),
             )
             Text(
                 text =
@@ -719,9 +715,7 @@ fun QuickPicksItem(
                     Modifier
                         .align(Alignment.CenterVertically)
                         .size(44.dp)
-                        .clip(
-                            RoundedCornerShape(10),
-                        ),
+                        .artworkFrame(RoundedCornerShape(10)),
             )
             Column(
                 Modifier
@@ -838,9 +832,7 @@ fun HomeItemSong(
                     Modifier
                         .align(Alignment.CenterHorizontally)
                         .size(160.dp)
-                        .clip(
-                            RoundedCornerShape(10.dp),
-                        ),
+                        .artworkFrame(RoundedCornerShape(10.dp)),
             )
             Text(
                 text = data.title,
@@ -937,9 +929,7 @@ fun HomeItemVideo(
                         .align(Alignment.CenterHorizontally)
                         .height(160.dp)
                         .aspectRatio(16f / 9f)
-                        .clip(
-                            RoundedCornerShape(10.dp),
-                        ),
+                        .artworkFrame(RoundedCornerShape(10.dp)),
             )
             Text(
                 text = data.title,
@@ -1022,9 +1012,7 @@ fun HomeItemArtist(
                     Modifier
                         .align(Alignment.CenterHorizontally)
                         .size(160.dp)
-                        .clip(
-                            CircleShape,
-                        ),
+                        .artworkFrame(CircleShape),
             )
             Text(
                 text = data.title,
@@ -1143,9 +1131,7 @@ fun ItemVideoChart(
                         .align(Alignment.CenterHorizontally)
                         .width(280.dp)
                         .height(160.dp)
-                        .clip(
-                            RoundedCornerShape(10),
-                        ),
+                        .artworkFrame(RoundedCornerShape(10)),
             )
             Row {
                 Text(
@@ -1253,9 +1239,7 @@ fun ItemArtistChart(
                     Modifier
                         .align(Alignment.CenterVertically)
                         .size(60.dp)
-                        .clip(
-                            CircleShape,
-                        ),
+                        .artworkFrame(CircleShape),
             )
             Column(
                 Modifier
@@ -1364,9 +1348,7 @@ fun ItemTrackChart(
                     Modifier
                         .align(Alignment.CenterVertically)
                         .size(50.dp)
-                        .clip(
-                            RoundedCornerShape(10),
-                        ),
+                        .artworkFrame(RoundedCornerShape(10)),
             )
             Column(
                 Modifier

@@ -38,9 +38,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -83,6 +89,7 @@ open class DiscordWebSocket(
     // and refreshed periodically so it stays current in Discord's merged presence.
     private var lastPresence: Presence? = null
     private var presenceRefreshJob: Job? = null
+    private var lastReclaimAt = 0L
     private var currentReconnectDelay = INITIAL_RECONNECT_DELAY
 
     override val coroutineContext: CoroutineContext
@@ -218,9 +225,49 @@ open class DiscordWebSocket(
                 resendLastPresence()
             }
 
+            "SESSIONS_REPLACE" -> reclaimPresenceIfLost(this.d)
+
             else -> {}
         }
     }
+
+    /**
+     * SESSIONS_REPLACE arrives whenever any session of the account changes — the Discord app coming
+     * to the foreground on the phone, going idle, updating its own presence. Discord then rebuilds the
+     * presence it shows (the "all" session) and can leave this session's activity out of it; that
+     * is why the status came and went. When the shown presence no longer carries the activity, send
+     * it again at once rather than waiting for the periodic refresh.
+     *
+     * Only when it is actually missing, and at most every few seconds: sending it produces a
+     * SESSIONS_REPLACE of its own, and an unconditional resend would answer itself forever.
+     */
+    @OptIn(ExperimentalTime::class)
+    private fun reclaimPresenceIfLost(data: JsonElement?) {
+        val activity = lastPresence?.activities?.firstOrNull() ?: return
+        val ourName = activity.name
+        val ourApp = activity.applicationId
+        val sessions = (data as? JsonArray)?.mapNotNull { it as? JsonObject } ?: return
+        val shown =
+            sessions.firstOrNull { it.stringField("session_id") == "all" }
+                ?: sessions.firstOrNull { it.stringField("session_id") == sessionId }
+                ?: return
+        val activities = (shown["activities"] as? JsonArray)?.mapNotNull { it as? JsonObject }.orEmpty()
+        // By application too: Discord may show an application's activity under the app's own name.
+        if (activities.any { it.stringField("name") == ourName || (ourApp != null && it.stringField("application_id") == ourApp) }) {
+            return
+        }
+        val now = Clock.System.now().toEpochMilliseconds()
+        if (now - lastReclaimAt < RECLAIM_MIN_GAP.inWholeMilliseconds) return
+        lastReclaimAt = now
+        Logger.i(TAG, "Gateway: activity missing from the shown presence, re-sending it")
+        launch {
+            // Let Discord settle the other session's change first, so this lands after it.
+            delay(RECLAIM_DELAY)
+            if (isSocketConnectedToAccount()) resendLastPresence()
+        }
+    }
+
+    private fun JsonObject.stringField(name: String): String? = (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
     private suspend inline fun handleInvalidSession() {
         Logger.w(TAG, "Gateway: Handling Invalid Session. Sending Identify after 150ms")
@@ -391,7 +438,9 @@ open class DiscordWebSocket(
     companion object {
         private val INITIAL_RECONNECT_DELAY = 1.seconds
         private val MAX_RECONNECT_DELAY = 60.seconds
-        private val PRESENCE_REFRESH_INTERVAL = 3.minutes
+        private val PRESENCE_REFRESH_INTERVAL = 2.minutes
+        private val RECLAIM_DELAY = 1500.milliseconds
+        private val RECLAIM_MIN_GAP = 10.seconds
 
         // Discord gateway close codes signalling an unrecoverable auth/identify error. Reconnecting on
         // these would loop indefinitely with the same bad credentials (see issue #2157):

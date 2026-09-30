@@ -57,7 +57,7 @@ fun FiveImagesComponent(
     // Rounded on the OUTSIDE of the block only. The tiles stay flush with each other on purpose —
     // rounding them individually would break the mosaic back into five separate cards, which is
     // the arrangement this component exists to avoid.
-    val clipped = modifier.clip(shape)
+    val clipped = modifier.artworkFrame(shape)
     if (landscape) LandscapeMosaic(clipped, images) else PortraitMosaic(clipped, images)
 }
 

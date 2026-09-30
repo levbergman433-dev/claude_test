@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen
 
+import com.maxrave.simpmusic.ui.component.artworkFrame
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.AnimatedContent
@@ -413,9 +414,7 @@ fun MiniPlayer(
                                     Modifier
                                         .size(40.dp)
                                         .align(Alignment.CenterVertically)
-                                        .clip(
-                                            RoundedCornerShape(4.dp),
-                                        ),
+                                        .artworkFrame(RoundedCornerShape(4.dp)),
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             AnimatedContent(
