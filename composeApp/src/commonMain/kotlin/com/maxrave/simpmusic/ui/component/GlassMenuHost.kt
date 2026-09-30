@@ -158,14 +158,12 @@ internal class FrozenBackdrop : Backdrop {
  * The snapshot as seen from [position] in the window: one immutable backdrop per position and per
  * snapshot, built by [rememberPlacedBackdrop].
  *
- * The glass has to follow the sheet as it slides and is dragged — a backdrop that ignores where the
- * glass is shows the page carried along with the sheet, which reads as the glass being stuck. But
- * [FrozenBackdrop]'s way of following (coordinate-dependent) makes the glass re-render — blur and
- * lens over the whole sheet — on every position report, and those arrive on every layout pass
- * nearby even when nothing moved (the player's ticking times). Swapping in a new instance only
- * when the position really changes, in whole pixels, re-renders exactly when the view behind the
- * glass changes and never otherwise. A new instance also picks up a new snapshot for certain:
- * replacing the modifier's backdrop always redraws it.
+ * [FrozenBackdrop] (coordinate-dependent) makes the glass re-render — blur and lens over the whole
+ * sheet — on every position report, and those arrive on every frame of a slide and on every layout
+ * pass nearby even when nothing moved (the player's ticking times). Callers pass the position the
+ * glass RESTS at, so the glass is rendered once and moved as a layer; a new instance is swapped in
+ * only when that position really changes, in whole pixels. A new instance also picks up a new
+ * snapshot for certain: replacing the modifier's backdrop always redraws it.
  */
 @Stable
 internal class PlacedBackdrop(
@@ -352,7 +350,11 @@ private fun GlassSheetLayer(host: GlassMenuHost) {
             }
         }
 
-    // Where the glass is, INCLUDING the slide and the drag, so what it shows moves under it.
+    // Where the glass sits at rest — taken before the slide/drag translation, so the glass is
+    // rendered once and then moved as a layer. Following the translation instead re-rendered the
+    // blur and lens over the whole sheet on every frame of the slide, which over the player (a
+    // canvas video and its own glass redrawing underneath) was enough to make it lag again. At
+    // rest the two positions are the same, so the settled sheet shows exactly what is behind it.
     var glassAt by remember(sheet.token) { mutableStateOf<Offset?>(null) }
     val glassBackdrop = rememberPlacedBackdrop(host.frozen, glassAt)
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -375,10 +377,10 @@ private fun GlassSheetLayer(host: GlassMenuHost) {
                     .fillMaxWidth()
                     .heightIn(max = maxSheetHeight)
                     .onSizeChanged { panelHeight = it.height }
+                    .trackGlassPosition { if (it != glassAt) glassAt = it }
                     .graphicsLayer {
                         translationY = (1f - progress.value) * (panelHeight + 64.dp.toPx()) + dragY
-                    }.trackGlassPosition { if (it != glassAt) glassAt = it }
-                    .nestedScroll(dragToDismiss)
+                    }.nestedScroll(dragToDismiss)
                     .liquidGlass(glassBackdrop, GlassSheetShape, interactive = false)
                     .clip(GlassSheetShape)
                     .verticalScroll(rememberScrollState()),
