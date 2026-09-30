@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.koin.core.component.inject
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.music_video
@@ -79,6 +80,21 @@ class HomeViewModel(
 
     private var quickPicksJob: Job? = null
 
+    init {
+        // Show the last picks straight away, from disk, instead of an empty shelf that pops in a
+        // second later once the related-songs requests return (and pushes Home down as it does).
+        // The fresh set replaces them as soon as it is built.
+        viewModelScope.launch {
+            val cached =
+                runCatching {
+                    dataStoreManager.getString(QUICK_PICKS_CACHE_KEY).first()?.let {
+                        quickPicksJson.decodeFromString<List<Track>>(it)
+                    }
+                }.getOrNull()
+            if (!cached.isNullOrEmpty() && _quickPicks.value.isEmpty()) _quickPicks.value = cached
+        }
+    }
+
     private fun loadQuickPicks() {
         if (_recentlyPlayed.value.isEmpty()) return
         // Already building: let that run instead of restarting it from scratch.
@@ -119,6 +135,9 @@ class HomeViewModel(
                     if (picks.isNotEmpty()) {
                         _quickPicks.value = picks
                         prefetchStreams(picks.map { it.videoId })
+                        runCatching {
+                            dataStoreManager.putString(QUICK_PICKS_CACHE_KEY, quickPicksJson.encodeToString(picks))
+                        }
                         return@launch
                     }
                     delay(QUICK_PICKS_RETRY_MS * (attempt + 1))
@@ -497,6 +516,8 @@ class HomeViewModel(
     }
 }
 
+private const val QUICK_PICKS_CACHE_KEY = "home_quick_picks_cache"
+private val quickPicksJson = Json { ignoreUnknownKeys = true }
 private const val QUICK_PICKS_SEEDS = 3
 private const val QUICK_PICKS_COUNT = 20
 private const val QUICK_PICKS_ATTEMPTS = 3
