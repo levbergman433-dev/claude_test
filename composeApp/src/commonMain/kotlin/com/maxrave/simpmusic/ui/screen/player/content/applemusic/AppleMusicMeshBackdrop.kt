@@ -14,7 +14,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -24,12 +23,13 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import com.maxrave.simpmusic.expect.ui.toReadableBitmap
 import com.maxrave.simpmusic.extension.smoothScrimBrush
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
@@ -47,8 +47,8 @@ import kotlin.random.Random
  *  - every row but row 0 is shifted sideways by a seeded amount, and mirrored half the time. A flip
  *    alone reads as a reflection on a cover with a face or a logo in it; the shift breaks that
  *    without putting any two colours side by side that were not neighbours in the artwork;
- *  - the grid is resampled to MESH_TEX with smoothstep, which is what makes it smooth. The blur only
- *    takes the last of the edge off.
+ *  - the grid is resampled to MESH_TEX with smoothstep, which is what makes it smooth, then blurred
+ *    once on the CPU, which takes the last of the edge off.
  * Proportions survive on purpose: a cover that is mostly black leaves a mostly black page.
  */
 
@@ -122,12 +122,11 @@ internal fun AppleMusicMeshBackdrop(
         modifier =
             modifier
                 .fillMaxSize()
-                // Outside the blur, so it is an opaque floor the blur cannot thin out — the page is a
-                // sheet over the rest of the app and every pixel of it has to be opaque.
-                .background(MeshFallback)
-                // The default edge treatment clamps; Unbounded would fade alpha in from every edge and
-                // let the page underneath show through down the sides.
-                .blur(MESH_BLUR),
+                // An opaque floor: the page is a sheet over the rest of the app and every pixel of it
+                // has to be opaque. No Modifier.blur here: a RenderEffect is re-run over the whole
+                // screen on every frame the window draws, and this page redraws every frame while a
+                // word-synced line sweeps. The texture carries the blur instead (meshOf).
+                .background(MeshFallback),
     ) {
         val seamY = seam.toPx().coerceIn(0f, size.height)
         shown?.let { drawMesh(it, seamY, alpha = 1f) }
@@ -210,7 +209,7 @@ private fun meshOf(
     val topPixels = topRow.sumOf { count[it].toLong() }.coerceAtLeast(1L)
     val topLuminance =
         (topRow.sumOf { 0.2126 * red[it] + 0.7152 * green[it] + 0.0722 * blue[it] } / topPixels / 255.0).toFloat().coerceIn(0f, 1f)
-    val texels = grid.rotatedBelowSeam(cols, rows, seed).resampled(cols, rows, MESH_TEX)
+    val texels = grid.rotatedBelowSeam(cols, rows, seed).resampled(cols, rows, MESH_TEX).blurred(MESH_TEX, MESH_BLUR_SIGMA)
 
     val image = ImageBitmap(MESH_TEX, MESH_TEX)
     val canvas = Canvas(image)
@@ -272,6 +271,43 @@ private fun IntArray.resampled(
     return out
 }
 
+// A Gaussian blur over the texture, edges clamped as Modifier.blur's default treatment clamps them.
+// Done once per artwork, where the GPU would otherwise redo it every frame.
+private fun IntArray.blurred(
+    size: Int,
+    sigma: Float,
+): IntArray {
+    val radius = ceil(sigma * 3f).toInt()
+    val kernel = FloatArray(2 * radius + 1) { i -> (i - radius).toFloat().let { exp(-(it * it) / (2f * sigma * sigma)) } }
+    val total = kernel.sum()
+    for (i in kernel.indices) kernel[i] /= total
+    val channels = Array(3) { c -> FloatArray(size * size) { i -> ((this[i] shr (16 - 8 * c)) and 0xFF).toFloat() } }
+    val pass = FloatArray(size * size)
+    for (channel in channels) {
+        for (y in 0 until size) {
+            for (x in 0 until size) {
+                var sum = 0f
+                for (k in -radius..radius) sum += channel[y * size + (x + k).coerceIn(0, size - 1)] * kernel[k + radius]
+                pass[y * size + x] = sum
+            }
+        }
+        for (y in 0 until size) {
+            for (x in 0 until size) {
+                var sum = 0f
+                for (k in -radius..radius) sum += pass[(y + k).coerceIn(0, size - 1) * size + x] * kernel[k + radius]
+                channel[y * size + x] = sum
+            }
+        }
+    }
+    return IntArray(size * size) { i ->
+        argb(
+            channels[0][i].roundToInt().coerceIn(0, 255),
+            channels[1][i].roundToInt().coerceIn(0, 255),
+            channels[2][i].roundToInt().coerceIn(0, 255),
+        )
+    }
+}
+
 private fun smoothstep(t: Float): Float {
     val x = t.coerceIn(0f, 1f)
     return x * x * (3f - 2f * x)
@@ -327,8 +363,11 @@ private fun Int.lifted(): Int {
 /** How many cells across the mesh is: enough that a cover's layout survives, few enough that nothing recognisable does. */
 private const val MESH_GRID = 6
 
-/** What the grid is smoothed to before the GPU stretches it. */
-private const val MESH_TEX = 32
+/**
+ * What the grid is smoothed and blurred to before the GPU stretches it: about 11px per texel across
+ * a phone, fine enough that bilinear stretching leaves no crease without a blur on top.
+ */
+private const val MESH_TEX = 96
 
 /** What the artwork is read at before it is averaged — a whole multiple of [MESH_GRID]. */
 private const val MESH_SOURCE_PX = 120
@@ -339,9 +378,10 @@ private const val MESH_FLOOR = 0.045f
 /** How long the page takes to change colour on a skip: long enough to read as a change, not a cut. */
 private const val MESH_FADE_MS = 900
 
-// The owner asked for the page to be visibly smooth, and at 44dp no cell edge survives even on a
-// cover with hard colour blocks.
-private val MESH_BLUR = 44.dp
+// The owner asked for the page to be visibly smooth, and a 44dp blur left no cell edge even on a
+// cover with hard colour blocks. 44dp is a sigma of about 25dp (Skia takes 0.577 × radius), which
+// across a ~411dp phone is 2 texels of the old 32-texel grid: 6 of this one.
+private const val MESH_BLUR_SIGMA = 6f
 
 /** Drawn only until an artwork has been read. */
 private val MeshFallback = Color(0xFF121212)
