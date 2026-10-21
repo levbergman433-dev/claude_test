@@ -1022,7 +1022,9 @@ if (getPlatform() == Platform.Android) {
     - Artwork: the 1 px `artworkFrame` edge.
     - Rich-presence priority setting.
     - Quick-picks cache.
-  - **Not ported, so still upstream-only:** the system-equalizer option and the login-sync QR.
+  - **Upstream Settings rows are ported by hand.** Our `SettingScreen` is our own layout (category pages with `sectionItem` keys), so taking upstream's copy is not an option. A new upstream setting therefore needs three things added by hand: its row, its `SettingsSearchEntry`, and its `SettingsSectionInfo` when it is a new section. Two examples, both ported on 2026-10-21:
+    - Equalizer type (built-in or system): PLAYBACK › `audio`.
+    - Devices (login sync by QR code): ACCOUNT › `login_sync`.
 
 ## 🔄 CLAUDE.md Auto-Update Rule (MANDATORY)
 
