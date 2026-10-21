@@ -71,7 +71,7 @@ jobs:
             "$BT/zipalign" -f -p 4 "$apk" aligned.apk
             "$BT/apksigner" sign --ks signing.jks --ks-key-alias simpmusic \
               --ks-pass "pass:$KS_PASS" --key-pass "pass:$KS_PASS" \
-              --out "signed/SimpMusic-$name.apk" aligned.apk
+              --out "signed/Tunes-$name.apk" aligned.apk
           done
           rm -f signing.jks aligned.apk
           ls -la signed
@@ -79,5 +79,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: SimpMusic-apk
+          name: Tunes-apk
           path: signed/*.apk
