@@ -1,10 +1,13 @@
 package com.maxrave.data.parser
 
+import com.maxrave.data.mapping.toYouTubeWatchEndpoint
 import com.maxrave.domain.data.model.home.Content
 import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.searchResult.songs.Album
 import com.maxrave.domain.data.model.searchResult.songs.Artist
+import com.maxrave.domain.data.model.streams.YouTubeWatchEndpoint
 import com.maxrave.kotlinytmusicscraper.models.ArtistItem
+import com.maxrave.kotlinytmusicscraper.models.BrowseEndpoint
 import com.maxrave.kotlinytmusicscraper.models.MusicResponsiveListItemRenderer
 import com.maxrave.kotlinytmusicscraper.models.MusicTwoRowItemRenderer
 import com.maxrave.kotlinytmusicscraper.models.PlaylistItem
@@ -61,9 +64,7 @@ internal fun parseMixedContent(
                 }
             } else {
                 val results1 = row.musicCarouselShelfRenderer
-                Logger.w("parse_mixed_content", results1.toString())
                 val contentList = results1?.contents
-                Logger.w("parse_mixed_content", results1?.contents?.size.toString())
                 val title =
                     results1
                         ?.header
@@ -73,10 +74,7 @@ internal fun parseMixedContent(
                         ?.get(0)
                         ?.text
                         ?: ""
-                Logger.w("parse_mixed_content", title)
-                if (title == "Your daily discover") {
-                    Logger.w("parse_mixed_content", list.toString())
-                }
+                Logger.d("parse_mixed_content", "$title: ${contentList?.size ?: 0} items")
                 val subtitle =
                     results1
                         ?.header
@@ -104,11 +102,31 @@ internal fun parseMixedContent(
                         ?.navigationEndpoint
                         ?.browseEndpoint
                         ?.browseId
+                val moreEndpoint =
+                    results1
+                        ?.header
+                        ?.musicCarouselShelfBasicHeaderRenderer
+                        ?.moreContentButton
+                        ?.buttonRenderer
+                        ?.navigationEndpoint
+                        ?.browseEndpoint
+                        ?.toMoreEndpoint()
+                // The same button is "Play all" when it carries a watch endpoint instead of a browse one.
+                val playAllEndpoint =
+                    results1
+                        ?.header
+                        ?.musicCarouselShelfBasicHeaderRenderer
+                        ?.moreContentButton
+                        ?.buttonRenderer
+                        ?.navigationEndpoint
+                        ?.watchEndpoint
+                        ?.toYouTubeWatchEndpoint()
                 val listContent = mutableListOf<Content?>()
                 if (!contentList.isNullOrEmpty()) {
                     for (result1 in contentList) {
                         val musicTwoRowItemRenderer = result1.musicTwoRowItemRenderer
                         if (musicTwoRowItemRenderer != null) {
+                            val addedBefore = listContent.size
                             //                        if (pageType == null) {
 //                            if (result1.musicTwoRowItemRenderer!!.navigationEndpoint.watchEndpoint?.playlistId != null && result1.musicTwoRowItemRenderer!!.navigationEndpoint.watchEndpoint?.videoId == null){
 //                                val content = parseWatchPlaylist(result1.musicTwoRowItemRenderer!!)
@@ -192,7 +210,6 @@ internal fun parseMixedContent(
                                             it.printStackTrace()
                                         }
                                 }
-                                Logger.w("Song", ytItem.toString())
                                 if (ytItem != null) {
                                     listContent.add(
                                         Content(
@@ -227,7 +244,6 @@ internal fun parseMixedContent(
                             } else if (musicTwoRowItemRenderer.isVideo) {
                                 val ytItem =
                                     ArtistPage.fromMusicTwoRowItemRenderer(musicTwoRowItemRenderer) as VideoItem?
-                                Logger.w("Video", ytItem.toString())
                                 val artists =
                                     ytItem
                                         ?.artists
@@ -278,13 +294,13 @@ internal fun parseMixedContent(
                                             durationSeconds = ytItem.duration,
                                             radio = null,
                                             videoType = ytItem.musicVideoType,
+                                            isLive = musicTwoRowItemRenderer.isLive,
                                         ),
                                     )
                                 }
                             } else if (musicTwoRowItemRenderer.isArtist || musicTwoRowItemRenderer.isUserChannel) {
                                 val ytItem =
                                     RelatedPage.fromMusicTwoRowItemRenderer(musicTwoRowItemRenderer) as ArtistItem?
-                                Logger.w("Artists", ytItem.toString())
                                 if (ytItem != null) {
                                     listContent.add(
                                         Content(
@@ -469,6 +485,12 @@ internal fun parseMixedContent(
                             } else {
                                 continue
                             }
+                            // Each branch above builds the card its own way; the play target is the same
+                            // field for all of them, so it is attached once, here, to what was just added.
+                            if (listContent.size > addedBefore) {
+                                listContent[listContent.lastIndex] =
+                                    listContent.last()?.copy(playEndpoint = musicTwoRowItemRenderer.playEndpoint())
+                            }
                         } else if (result1.musicResponsiveListItemRenderer != null) {
                             Logger.w(
                                 "parse Song flat",
@@ -549,10 +571,12 @@ internal fun parseMixedContent(
                             subtitle = subtitle,
                             thumbnail = thumbnail,
                             channelId = if (artistChannelId?.contains("UC") == true) artistChannelId else null,
+                            moreEndpoint = moreEndpoint,
+                            itemsPerColumn = results1?.numItemsPerColumn?.toIntOrNull(),
+                            playAllEndpoint = playAllEndpoint,
                         ),
                     )
                 }
-                Logger.w("parse_mixed_content", list.toString())
             }
         }
     }
@@ -771,8 +795,17 @@ internal fun parseNewRelease(
                         videoId = null,
                         views = null,
                         radio = null,
+                        // The album's own track list (OLAK…), so its card can play without opening.
+                        playEndpoint = it.playlistId.takeIf { id -> id.isNotEmpty() }?.let { id -> YouTubeWatchEndpoint(playlistId = id) },
                     )
                 },
+            // YouTube still hangs FEmusic_new_releases_albums on this shelf, but that page has answered
+            // 4xx since at least 2026-05-29 (ArchiveTune added a fallback for it that day) and 404s for
+            // every client as of 2026-09-19, so a More there only opens an error. Any other target stays.
+            moreEndpoint =
+                explore.releasedMoreEndpoint
+                    ?.takeUnless { it.browseId == "FEmusic_new_releases_albums" }
+                    ?.toMoreEndpoint(),
         ),
     )
     result.add(
@@ -829,7 +862,28 @@ internal fun parseNewRelease(
                         radio = null,
                     )
                 },
+            moreEndpoint = explore.musicVideoMoreEndpoint?.toMoreEndpoint(),
         ),
     )
+    // Signed out, FEmusic_new_releases carries only its video shelf, so "New releases" comes back
+    // empty; a section with nothing in it only draws a bare title.
+    result.removeAll { it.contents.isEmpty() }
     return result
 }
+
+// The card's own play button target: a song's radio, a playlist, or an album's track list.
+private fun MusicTwoRowItemRenderer.playEndpoint(): YouTubeWatchEndpoint? =
+    thumbnailOverlay
+        ?.musicItemThumbnailOverlayRenderer
+        ?.content
+        ?.musicPlayButtonRenderer
+        ?.playNavigationEndpoint
+        ?.let { it.watchEndpoint ?: it.watchPlaylistEndpoint }
+        ?.toYouTubeWatchEndpoint()
+
+private fun BrowseEndpoint.toMoreEndpoint() =
+    HomeItem.MoreEndpoint(
+        browseId = browseId,
+        params = params,
+        pageType = browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType,
+    )

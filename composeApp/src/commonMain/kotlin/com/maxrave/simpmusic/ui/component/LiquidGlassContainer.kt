@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,11 +100,11 @@ fun Modifier.liquidGlass(
     return this.drawInteractiveGlass(
         isDark = isDark,
         backdrop = backdrop,
-        // No layer: nothing samples this surface's luminance (it is fixed at 0.5 below), so
+        // No layer: nothing samples this surface luminance (it is fixed at 0.5 below), so
         // recording the backdrop a second time into a private layer on every frame was pure GPU
         // overhead — one extra render pass per glass button per frame.
         layer = null,
-        luminanceAnimation = 0.5f,
+        luminance = { 0.5f },
         shape = shape,
         interaction = if (interactive) interaction else null,
         pressedScale = pressedScale,
@@ -116,7 +117,7 @@ fun Modifier.liquidGlass(
 /**
  * Overload of [liquidGlass] for surfaces that sample their own background luminance
  * (e.g. the MiniPlayer and the bottom bar capsule): the caller owns the [layer] the
- * glass records into and drives [luminanceAnimation], so the glass keeps adapting to
+ * glass records into and drives [luminance], so the glass keeps adapting to
  * the content behind it — unlike the [liquidGlass] above, which uses a fixed
  * mid-luminance.
  *
@@ -128,7 +129,7 @@ fun Modifier.liquidGlass(
 fun Modifier.liquidGlass(
     backdrop: PlatformBackdrop,
     layer: GraphicsLayer,
-    luminanceAnimation: Float,
+    luminance: State<Float>,
     shape: Shape = CircleShape,
     interactive: Boolean = true,
     blurScale: Float = 1f,
@@ -141,7 +142,7 @@ fun Modifier.liquidGlass(
         isDark = isDark,
         backdrop = backdrop,
         layer = layer,
-        luminanceAnimation = luminanceAnimation,
+        luminance = { luminance.value },
         shape = shape,
         interaction = if (interactive) interaction else null,
         // MiniPlayer (the only caller of this layer + luminance overload) is a wide surface, so the
@@ -269,8 +270,8 @@ private val AppleGlassHighlight =
  * [layer], when given, receives a copy of the backdrop every frame so the caller can sample its
  * luminance (see [rememberBackdropLuminance]); pass null when nobody reads it.
  *
- * [luminanceAnimation] keeps the brightness/contrast curve of the original
- * wrapper (the bottom navigation bar animates it; static surfaces pass `0.5f`).
+ * [luminance] is read during drawing, so adapting the tint does not recompose the surface.
+ * [layer] is only needed for surfaces that sample their background.
  *
  * [blurScale] multiplies the luminance-driven blur radius and [minScrim]/[maxScrim]
  * are the ends of the darkening ramp. The defaults are the values this surface has
@@ -290,7 +291,7 @@ fun Modifier.drawInteractiveGlass(
     isDark: Boolean,
     backdrop: Backdrop,
     layer: GraphicsLayer?,
-    luminanceAnimation: Float,
+    luminance: () -> Float,
     shape: Shape,
     interaction: GlassInteraction?,
     pressedScale: Float = 1.12f,
@@ -323,7 +324,7 @@ fun Modifier.drawInteractiveGlass(
                     null
                 },
             effects = {
-                val l = (luminanceAnimation * 2f - 1f).let { sign(it) * it * it }
+                val l = (luminance() * 2f - 1f).let { sign(it) * it * it }
                 val press = interaction?.pressProgress ?: 0f
                 val baseBlur =
                     if (l > 0f) {
@@ -369,7 +370,7 @@ fun Modifier.drawInteractiveGlass(
             onDrawSurface = {
                 // Stay "đục đen": darken more as the background brightens so the glass never washes
                 // out to white (shared by the bottom bar capsule, search FAB and detail-screen pills).
-                val ramp = ((luminanceAnimation - 0.3f) / 0.5f).coerceIn(0f, 1f)
+                val ramp = ((luminance() - 0.3f) / 0.5f).coerceIn(0f, 1f)
                 val darken =
                     if (appleStyle) {
                         lerp(minScrim * 0.6f, maxScrim * 0.6f, ramp)

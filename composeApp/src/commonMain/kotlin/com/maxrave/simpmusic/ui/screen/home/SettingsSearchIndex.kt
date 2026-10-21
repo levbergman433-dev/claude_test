@@ -1,5 +1,10 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.app_log_description
+import simpmusic.composeapp.generated.resources.app_log
+import simpmusic.composeapp.generated.resources.lyrics_offset_message
+import simpmusic.composeapp.generated.resources.lyrics_offset
+import simpmusic.composeapp.generated.resources.preferred_audio_language
 import org.jetbrains.compose.resources.StringResource
 import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.adaptive_quality_weak_network
@@ -235,6 +240,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.youtube_account, Res.string.manage_your_youtube_accounts, SettingsCategory.ACCOUNT, "content"),
         SettingsSearchEntry(Res.string.language, null, SettingsCategory.ACCOUNT, "content"),
         SettingsSearchEntry(Res.string.content_country, null, SettingsCategory.ACCOUNT, "content"),
+        SettingsSearchEntry(Res.string.preferred_audio_language, null, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.quality, null, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.download_quality, null, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.video_quality, null, SettingsCategory.PLAYBACK, "quality"),
@@ -274,6 +280,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.lyrics_style, null, SettingsCategory.LYRICS, "lyrics_display"),
         SettingsSearchEntry(Res.string.lyrics_romanization, null, SettingsCategory.LYRICS, "lyrics_display"),
         SettingsSearchEntry(Res.string.main_lyrics_provider, null, SettingsCategory.LYRICS, "lyrics"),
+        SettingsSearchEntry(Res.string.lyrics_offset, Res.string.lyrics_offset_message, SettingsCategory.LYRICS, "lyrics"),
         SettingsSearchEntry(Res.string.translation_language, null, SettingsCategory.LYRICS, "lyrics"),
         SettingsSearchEntry(Res.string.youtube_subtitle_language, null, SettingsCategory.LYRICS, "lyrics"),
         SettingsSearchEntry(Res.string.help_build_lyrics_database, Res.string.help_build_lyrics_database_description, SettingsCategory.LYRICS, "lyrics"),
@@ -307,6 +314,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.import_data, Res.string.import_playlists_from_other_apps, SettingsCategory.STORAGE, "backup"),
         SettingsSearchEntry(Res.string.credits_simpmusic_title, Res.string.credits_simpmusic_subtitle, SettingsCategory.ABOUT, "about_us"),
         SettingsSearchEntry(Res.string.credits_maiker_title, Res.string.credits_maiker_subtitle, SettingsCategory.ABOUT, "about_us"),
+        SettingsSearchEntry(Res.string.app_log, Res.string.app_log_description, SettingsCategory.ABOUT, "developer_option"),
     )
 
 internal val settingsSections: List<SettingsSectionInfo> =

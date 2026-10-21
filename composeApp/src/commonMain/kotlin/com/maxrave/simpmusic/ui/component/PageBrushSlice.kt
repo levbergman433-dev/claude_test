@@ -1,8 +1,8 @@
 package com.maxrave.simpmusic.ui.component
 
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import com.maxrave.simpmusic.extension.ultraThinBarStyle
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.HazeState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.background
@@ -59,7 +59,6 @@ val LocalTopBarStyle = staticCompositionLocalOf { TOP_BAR_DEFAULT }
  * (the page colour or gradient slice the bar has always had); the other styles replace it once the
  * page has scrolled: a frosted blur of what is underneath, a translucent dim, or nothing at all.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun Modifier.topBarSurface(
     atTop: Boolean,
@@ -70,7 +69,7 @@ fun Modifier.topBarSurface(
     if (style == TOP_BAR_DEFAULT) return this.then(default)
     if (atTop) return this
     return when (style) {
-        TOP_BAR_BLUR -> this.hazeEffect(hazeState, style = HazeMaterials.ultraThin()) { blurEnabled = true }
+        TOP_BAR_BLUR -> this.hazeBlur(HazeInput.Sources(hazeState), ultraThinBarStyle())
         TOP_BAR_DIM -> this.background(MaterialTheme.colorScheme.background.copy(alpha = 0.72f))
         TOP_BAR_TRANSPARENT -> this
         else -> this.then(default)

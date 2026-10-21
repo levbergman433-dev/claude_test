@@ -31,6 +31,7 @@ import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.viewModel.base.BaseViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,8 +102,6 @@ class SettingsViewModel(
     val skipSilent: StateFlow<String?> = _skipSilent
     private var _savedPlaybackState: MutableStateFlow<String?> = MutableStateFlow(null)
     val savedPlaybackState: StateFlow<String?> = _savedPlaybackState
-    private var _saveRecentSongAndQueue: MutableStateFlow<String?> = MutableStateFlow(null)
-    val saveRecentSongAndQueue: StateFlow<String?> = _saveRecentSongAndQueue
     private var _lastCheckForUpdate: MutableStateFlow<String?> = MutableStateFlow(null)
     val lastCheckForUpdate: StateFlow<String?> = _lastCheckForUpdate
     private var _sponsorBlockEnabled: MutableStateFlow<String?> = MutableStateFlow(null)
@@ -132,8 +131,6 @@ class SettingsViewModel(
     val thumbCacheSize: StateFlow<Long?> = _thumbCacheSize
     private var _canvasCacheSize: MutableStateFlow<Long?> = MutableStateFlow(null)
     val canvasCacheSize: StateFlow<Long?> = _canvasCacheSize
-    private var _translucentBottomBar: MutableStateFlow<String?> = MutableStateFlow(null)
-    val translucentBottomBar: StateFlow<String?> = _translucentBottomBar
     private var _usingProxy = MutableStateFlow(false)
     val usingProxy: StateFlow<Boolean> = _usingProxy
     private var _proxyType = MutableStateFlow(DataStoreManager.ProxyType.PROXY_TYPE_HTTP)
@@ -174,6 +171,10 @@ class SettingsViewModel(
     val autoDownloadLikedSongs: StateFlow<Boolean> = _autoDownloadLikedSongs
     private val _youtubeSubtitleLanguage = MutableStateFlow<String>("")
     val youtubeSubtitleLanguage: StateFlow<String> = _youtubeSubtitleLanguage
+    private val _lyricsOffsetMs = MutableStateFlow<Int>(0)
+    val lyricsOffsetMs: StateFlow<Int> = _lyricsOffsetMs
+    private val _preferredAudioLanguage = MutableStateFlow("")
+    val preferredAudioLanguage: StateFlow<String> = _preferredAudioLanguage
 
     private var _helpBuildLyricsDatabase: MutableStateFlow<Boolean> = MutableStateFlow(false)
     val helpBuildLyricsDatabase: StateFlow<Boolean> = _helpBuildLyricsDatabase
@@ -210,9 +211,6 @@ class SettingsViewModel(
 
     private val _lastfmScrobbleEnabled = MutableStateFlow(false)
     val lastfmScrobbleEnabled: StateFlow<Boolean> = _lastfmScrobbleEnabled
-
-    private val _keepServiceAlive = MutableStateFlow<Boolean>(false)
-    val keepServiceAlive: StateFlow<Boolean> = _keepServiceAlive
 
     private val _keepYouTubePlaylistOffline = MutableStateFlow<Boolean>(false)
     val keepYouTubePlaylistOffline: StateFlow<Boolean> = _keepYouTubePlaylistOffline
@@ -264,6 +262,7 @@ class SettingsViewModel(
 
     init {
         getYoutubeSubtitleLanguage()
+        getPreferredAudioLanguage()
         getHelpBuildLyricsDatabase()
         viewModelScope.launch {
             enableLiquidGlass.collect {
@@ -273,6 +272,8 @@ class SettingsViewModel(
             }
         }
     }
+
+    fun getAudioSessionId() = mediaPlayerHandler.player.audioSessionId
 
     fun getData() {
         getLocation()
@@ -286,13 +287,13 @@ class SettingsViewModel(
         getSkipSilent()
         getSavedPlaybackState()
         getSendBackToGoogle()
-        getSaveRecentSongAndQueue()
         getLastCheckForUpdate()
         getSponsorBlockEnabled()
         getSponsorBlockCategories()
         getTranslationLanguage()
         getYoutubeSubtitleLanguage()
         getLyricsProvider()
+        getLyricsOffsetMs()
         getUseTranslation()
         getPlayVideoInsteadOfAudio()
         getRadioAudioOnly()
@@ -306,7 +307,6 @@ class SettingsViewModel(
         getAMAnimatedArtwork()
         getUsingProxy()
         getCanvasCache()
-        getTranslucentBottomBar()
         getAutoCheckUpdate()
         getAIProvider()
         getAIApiKey()
@@ -329,7 +329,6 @@ class SettingsViewModel(
         getDiscordRichPresenceEnabled()
         getLastfmSession()
         getLastfmScrobbleEnabled()
-        getKeepServiceAlive()
         getKeepYouTubePlaylistOffline()
         getCombineLocalAndYouTubeLiked()
         getDownloadQuality()
@@ -442,21 +441,6 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStoreManager.setCombineLocalAndYouTubeLiked(combine)
             getCombineLocalAndYouTubeLiked()
-        }
-    }
-
-    private fun getKeepServiceAlive() {
-        viewModelScope.launch {
-            dataStoreManager.keepServiceAlive.collect { keepServiceAlive ->
-                _keepServiceAlive.value = keepServiceAlive == DataStoreManager.TRUE
-            }
-        }
-    }
-
-    fun setKeepServiceAlive(keepServiceAlive: Boolean) {
-        viewModelScope.launch {
-            dataStoreManager.setKeepServiceAlive(keepServiceAlive)
-            getKeepServiceAlive()
         }
     }
 
@@ -846,7 +830,6 @@ class SettingsViewModel(
             dataStoreManager.aiApiKey.collect { aiApiKey ->
                 if (aiApiKey.isNotEmpty()) {
                     _isHasApiKey.value = true
-                    log("getAIApiKey: $aiApiKey")
                 } else {
                     _isHasApiKey.value = false
                 }
@@ -1006,21 +989,6 @@ class SettingsViewModel(
         }
     }
 
-    fun getTranslucentBottomBar() {
-        viewModelScope.launch {
-            dataStoreManager.translucentBottomBar.collect { translucentBottomBar ->
-                _translucentBottomBar.emit(translucentBottomBar)
-            }
-        }
-    }
-
-    fun setTranslucentBottomBar(translucentBottomBar: Boolean) {
-        viewModelScope.launch {
-            dataStoreManager.setTranslucentBottomBar(translucentBottomBar)
-            getTranslucentBottomBar()
-        }
-    }
-
     fun getThumbCacheSize(context: PlatformContext) {
         viewModelScope.launch {
             val diskCache = SingletonImageLoader.get(context).diskCache
@@ -1055,6 +1023,23 @@ class SettingsViewModel(
         }
     }
 
+    private fun getLyricsOffsetMs() {
+        viewModelScope.launch {
+            dataStoreManager.lyricsOffsetMs.collect { offsetMs ->
+                _lyricsOffsetMs.emit(offsetMs)
+            }
+        }
+    }
+
+    // Deliberately does NOT re-call its getter the way the settings around it do: that getter
+    // collects forever, so calling it again on every write leaves another collector running for the
+    // life of the ViewModel. The one started in init already publishes this value.
+    fun setLyricsOffsetMs(offsetMs: Int) {
+        viewModelScope.launch {
+            dataStoreManager.setLyricsOffsetMs(offsetMs)
+        }
+    }
+
     fun getUseTranslation() {
         viewModelScope.launch {
             dataStoreManager.enableTranslateLyric.collect { useTranslation ->
@@ -1085,21 +1070,33 @@ class SettingsViewModel(
         }
     }
 
+    private var japaneseDictionaryWaiter: Job? = null
+
     /**
      * Fetches the Japanese romanization dictionary if this platform needs one and does not have
      * it yet. Called from the settings screen every time a saved selection includes Japanese, so
-     * a FAILED attempt is retried by simply confirming the dialog again; READY and an already
-     * running download make this a no-op. Progress and outcome live in [japaneseDictionaryState],
-     * which the romanization row's subtitle watches.
+     * a FAILED attempt is retried by simply confirming the dialog again; READY makes this a no-op.
+     * A download already running — the repository starts one by itself when it finds Japanese
+     * selected and the pack missing — is joined rather than skipped, so its outcome still gets a
+     * toast. Progress and outcome live in [japaneseDictionaryState], which the romanization row's
+     * subtitle watches. The download runs in the repository's own scope, so leaving Settings
+     * mid-way only loses the toast below, not the download.
      */
     fun downloadJapaneseDictionaryIfNeeded() {
-        val state = japaneseDictionaryState.value
-        if (state == RomanizationDictionaryState.READY || state == RomanizationDictionaryState.DOWNLOADING) return
-        viewModelScope.launch {
-            lyricsRomanizerRepository.downloadJapaneseDictionary()
-            // The repository settles the state before returning, so reading it back here is the
-            // completion signal — no separate callback needed for the two toasts.
-            when (japaneseDictionaryState.value) {
+        if (japaneseDictionaryState.value == RomanizationDictionaryState.READY) return
+        // Saving the dialog again mid-download (say, to add Korean) would otherwise queue a
+        // second waiter and show the same toast twice. Checked against DOWNLOADING as well: a
+        // waiter outlives its download by the moment it takes to show the toast, and a save in
+        // that moment, after a failure, is a real retry.
+        if (japaneseDictionaryWaiter?.isActive == true &&
+            japaneseDictionaryState.value == RomanizationDictionaryState.DOWNLOADING
+        ) {
+            return
+        }
+        japaneseDictionaryWaiter = viewModelScope.launch {
+            // The state the download settled on, as the repository saw it end. Reading
+            // japaneseDictionaryState back afterwards could already show the next attempt.
+            when (lyricsRomanizerRepository.downloadJapaneseDictionary()) {
                 RomanizationDictionaryState.READY ->
                     makeToast(getString(Res.string.romanization_japanese_dict_ready))
                 RomanizationDictionaryState.FAILED ->
@@ -1129,14 +1126,6 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataStoreManager.setLocation(location)
             getLocation()
-        }
-    }
-
-    fun getSaveRecentSongAndQueue() {
-        viewModelScope.launch {
-            dataStoreManager.saveRecentSongAndQueue.collect { saved ->
-                _saveRecentSongAndQueue.emit(saved)
-            }
         }
     }
 
@@ -1322,6 +1311,9 @@ class SettingsViewModel(
                 makeToast(getString(Res.string.error))
                 return@launch
             }
+            // The taste reading in Library was written from the history just wiped; left behind, it
+            // would keep describing a listener the app no longer has any record of.
+            dataStoreManager.setTasteProfile(null)
             makeToast(formatString(Res.string.clear_listening_history_done, removed))
             // Only the database slice of the storage bar moved; getData() would also restart every
             // collecting getter it owns.
@@ -1444,13 +1436,6 @@ class SettingsViewModel(
         }
     }
 
-    fun setSaveLastPlayed(b: Boolean) {
-        viewModelScope.launch {
-            dataStoreManager.setSaveRecentSongAndQueue(b)
-            getSaveRecentSongAndQueue()
-        }
-    }
-
     fun getPlayerCacheLimit() {
         viewModelScope.launch {
             dataStoreManager.maxSongCacheSize.collect {
@@ -1471,11 +1456,12 @@ class SettingsViewModel(
     val googleAccounts: StateFlow<LocalResource<List<GoogleAccountEntity>>> = _googleAccounts
 
     fun getAllGoogleAccount() {
-        Logger.w("getAllGoogleAccount", "getAllGoogleAccount: Go to function")
+        Logger.d("getAllGoogleAccount", "getAllGoogleAccount: Go to function")
         viewModelScope.launch {
             _googleAccounts.emit(LocalResource.Loading())
             accountRepository.getGoogleAccounts().collectLatest { accounts ->
-                Logger.w("getAllGoogleAccount", "getAllGoogleAccount: $accounts")
+                // Counts only: every account row carries the session cookie.
+                Logger.d("getAllGoogleAccount", "getAllGoogleAccount: ${accounts?.size ?: 0} saved account(s)")
                 if (!accounts.isNullOrEmpty()) {
                     _googleAccounts.emit(LocalResource.Success(accounts))
                 } else {
@@ -1484,7 +1470,7 @@ class SettingsViewModel(
                             .getAccountInfo(
                                 dataStoreManager.cookie.first(),
                             ).collect {
-                                Logger.w("getAllGoogleAccount", "getAllGoogleAccount: $it")
+                                Logger.d("getAllGoogleAccount", "getAllGoogleAccount: ${it.size} account(s) from YouTube")
                                 if (it.isNotEmpty()) {
                                     dataStoreManager.putString("AccountName", it.first().name)
                                     dataStoreManager.putString(
@@ -1508,14 +1494,16 @@ class SettingsViewModel(
                                                         ?.url ?: "",
                                                 cache = accountRepository.getYouTubeCookie(),
                                                 pageId = it.first().pageId,
+                                                authUser = it.first().authUser,
                                                 isUsed = true,
                                             ),
                                         ).singleOrNull()
                                         ?.let { account ->
-                                            Logger.w("getAllGoogleAccount", "inserted: $account")
+                                            Logger.d("getAllGoogleAccount", "inserted: $account")
                                         }
                                     getAllGoogleAccount()
                                 } else {
+                                    Logger.w("Auth", "YouTube: marked signed in, but the saved cookie returned no account — likely signed out or expired")
                                     _googleAccounts.emit(LocalResource.Success(emptyList()))
                                 }
                             }
@@ -1533,6 +1521,7 @@ class SettingsViewModel(
     ): Boolean {
         val currentCookie = dataStoreManager.cookie.first()
         val currentPageId = dataStoreManager.pageId.first()
+        val currentAuthUser = dataStoreManager.authUser.first()
         val currentLoggedIn = dataStoreManager.loggedIn.first() == DataStoreManager.TRUE
         try {
             runBlocking {
@@ -1546,14 +1535,14 @@ class SettingsViewModel(
                 ?.takeIf {
                     it.isNotEmpty()
                 }?.let { accountInfoList ->
-                    Logger.d("getAllGoogleAccount", "addAccount: $accountInfoList")
+                    Logger.d("getAllGoogleAccount", "addAccount: ${accountInfoList.size} account(s)")
                     accountRepository.getGoogleAccounts().lastOrNull()?.forEach {
-                        Logger.d("getAllGoogleAccount", "set used: $it start")
+                        Logger.d("getAllGoogleAccount", "set used: start")
                         accountRepository
                             .updateGoogleAccountUsed(it.email, false)
                             .singleOrNull()
                             ?.let {
-                                Logger.w("getAllGoogleAccount", "set used: $it")
+                                Logger.d("getAllGoogleAccount", "set used: $it")
                             }
                     }
                     dataStoreManager.putString("AccountName", accountInfoList.first().name)
@@ -1587,30 +1576,32 @@ class SettingsViewModel(
                                     isUsed = index == 0,
                                     netscapeCookie = cookieItem,
                                     pageId = account.pageId,
+                                    authUser = account.authUser,
                                 ),
                             ).firstOrNull()
                             ?.let {
-                                log("addAccount: $it", LogLevel.WARN)
+                                log("addAccount: inserted $it")
                             }
                     }
                     dataStoreManager.setLoggedIn(true)
-                    dataStoreManager.setCookie(cookie, accountInfoList.first().pageId)
+                    dataStoreManager.setCookie(cookie, accountInfoList.first().pageId, accountInfoList.first().authUser)
+                    Logger.i("Auth", "YouTube: signed in, ${accountInfoList.size} account(s) on this cookie")
                     getAllGoogleAccount()
                     getLoggedIn()
                     true
                 } ?: run {
-                Logger.w("getAllGoogleAccount", "addAccount: Account info is null")
+                Logger.w("Auth", "YouTube: sign-in failed, YouTube returned no account for this cookie")
                 runBlocking {
-                    dataStoreManager.setCookie(currentCookie, currentPageId)
+                    dataStoreManager.setCookie(currentCookie, currentPageId, currentAuthUser)
                     dataStoreManager.setLoggedIn(currentLoggedIn)
                 }
                 false
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Logger.e("getAllGoogleAccount", "addAccount: ${e.message}")
+            Logger.e("Auth", "YouTube: sign-in failed: ${e.message}")
             runBlocking {
-                dataStoreManager.setCookie(currentCookie, currentPageId)
+                dataStoreManager.setCookie(currentCookie, currentPageId, currentAuthUser)
                 dataStoreManager.setLoggedIn(currentLoggedIn)
             }
             return false
@@ -1625,7 +1616,7 @@ class SettingsViewModel(
                         .updateGoogleAccountUsed(it.email, false)
                         .singleOrNull()
                         ?.let {
-                            Logger.w("getAllGoogleAccount", "set used: $it")
+                            Logger.d("getAllGoogleAccount", "set used: $it")
                         }
                 }
                 dataStoreManager.putString("AccountName", acc.name)
@@ -1634,13 +1625,14 @@ class SettingsViewModel(
                     .updateGoogleAccountUsed(acc.email, true)
                     .singleOrNull()
                     ?.let {
-                        Logger.w("getAllGoogleAccount", "set used: $it")
+                        Logger.d("getAllGoogleAccount", "set used: $it")
                     }
                 acc.netscapeCookie?.let { commonRepository.writeTextToFile(it, (getFileDir() + "/ytdlp-cookie.txt")) }.let {
                     Logger.d("getAllGoogleAccount", "addAccount: write cookie file: $it")
                 }
-                dataStoreManager.setCookie(acc.cache ?: "", acc.pageId)
+                dataStoreManager.setCookie(acc.cache ?: "", acc.pageId, acc.authUser)
                 dataStoreManager.setLoggedIn(true)
+                Logger.i("Auth", "YouTube: switched account")
                 delay(500)
                 getAllGoogleAccount()
                 getLoggedIn()
@@ -1650,13 +1642,14 @@ class SettingsViewModel(
                         .updateGoogleAccountUsed(it.email, false)
                         .singleOrNull()
                         ?.let {
-                            Logger.w("getAllGoogleAccount", "set used: $it")
+                            Logger.d("getAllGoogleAccount", "set used: $it")
                         }
                 }
                 dataStoreManager.putString("AccountName", "")
                 dataStoreManager.putString("AccountThumbUrl", "")
                 dataStoreManager.setLoggedIn(false)
                 dataStoreManager.setCookie("", null)
+                Logger.i("Auth", "YouTube: signed out")
                 // Mirroring follows needs a session to write to, so signing out clears the flag
                 // here rather than from the Settings row — same teardown as setSpotifyLogIn and
                 // logOutDiscord. Only this branch: acc != null is switching account, not logout.
@@ -1677,6 +1670,7 @@ class SettingsViewModel(
             dataStoreManager.putString("AccountThumbUrl", "")
             dataStoreManager.setLoggedIn(false)
             dataStoreManager.setCookie("", null)
+            Logger.i("Auth", "YouTube: signed out of all accounts")
             dataStoreManager.setSyncFollowToYouTube(false)
             delay(500)
             getAllGoogleAccount()
@@ -1737,6 +1731,15 @@ class SettingsViewModel(
         }
     }
 
+    private var _equalizerType: MutableStateFlow<String> = MutableStateFlow(DataStoreManager.EQUALIZER_TYPE_BUILT_IN)
+    val equalizerType: StateFlow<String> = _equalizerType
+
+    fun setEqualizerType(type: String) {
+        viewModelScope.launch {
+            dataStoreManager.setEqualizerType(type)
+        }
+    }
+
     private var _equalizerBands: MutableStateFlow<List<Float>> = MutableStateFlow(List(EQUALIZER_BAND_COUNT) { 0f })
     val equalizerBands: StateFlow<List<Float>> = _equalizerBands
 
@@ -1754,7 +1757,7 @@ class SettingsViewModel(
      * equalizer block itself, which asks on its own so it keeps working if it is ever hosted
      * anywhere else. Both land on this same view model, and the collectors live in
      * [viewModelScope] rather than in a composition — so without this, toggling the switch off and
-     * on left another four behind every time, each re-reading the preference file for a value
+     * on left another five behind every time, each re-reading the preference file for a value
      * three others were already publishing.
      */
     private var equalizerCollectorsStarted = false
@@ -1767,6 +1770,9 @@ class SettingsViewModel(
                 dataStoreManager.equalizerEnabled.collect {
                     _equalizerEnabled.emit(it == DataStoreManager.TRUE)
                 }
+            }
+            launch {
+                dataStoreManager.equalizerType.collect { _equalizerType.emit(it) }
             }
             launch {
                 dataStoreManager.equalizerBands.collect { stored ->
@@ -2054,6 +2060,22 @@ class SettingsViewModel(
         }
     }
 
+    private fun getPreferredAudioLanguage() {
+        viewModelScope.launch {
+            dataStoreManager.preferredAudioLanguage.collect { language ->
+                _preferredAudioLanguage.emit(language)
+            }
+        }
+    }
+
+    // Does not re-call the getter, for the same reason as setLyricsOffsetMs: the collector started
+    // in init already publishes every write.
+    fun setPreferredAudioLanguage(language: String) {
+        viewModelScope.launch {
+            dataStoreManager.setPreferredAudioLanguage(language)
+        }
+    }
+
     fun getHelpBuildLyricsDatabase() {
         viewModelScope.launch {
             dataStoreManager.helpBuildLyricsDatabase.collect { helpBuildLyricsDatabase ->
@@ -2122,6 +2144,9 @@ expect suspend fun restoreNative(
     uri: Uri,
     getData: () -> Unit = {},
 )
+
+/** Reads the whole of a file the user picked: a content Uri on Android, a plain path on Desktop. */
+expect suspend fun readPickedFile(uri: Uri): ByteArray
 
 expect suspend fun backupNative(
     commonRepository: CommonRepository,

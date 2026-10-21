@@ -88,13 +88,10 @@ import com.maxrave.simpmusic.ui.icon.MoreVert
 import com.maxrave.simpmusic.ui.icon.PushPin
 import com.maxrave.simpmusic.ui.icon.QueueMusic
 import com.maxrave.simpmusic.ui.icon.SimpIcons
+import com.maxrave.simpmusic.ui.icon.SkipNext
 import com.maxrave.simpmusic.ui.theme.LocalForceDarkText
 import com.maxrave.simpmusic.ui.theme.seed
 import com.maxrave.simpmusic.ui.theme.typo
-import io.github.alexzhirkevich.compottie.Compottie
-import io.github.alexzhirkevich.compottie.LottieCompositionSpec
-import io.github.alexzhirkevich.compottie.rememberLottieComposition
-import io.github.alexzhirkevich.compottie.rememberLottiePainter
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
@@ -105,6 +102,7 @@ import simpmusic.composeapp.generated.resources.Res
 import simpmusic.composeapp.generated.resources.add_to_queue
 import simpmusic.composeapp.generated.resources.album
 import simpmusic.composeapp.generated.resources.artists
+import simpmusic.composeapp.generated.resources.play_next
 import simpmusic.composeapp.generated.resources.playlist
 import simpmusic.composeapp.generated.resources.podcasts
 import simpmusic.composeapp.generated.resources.radio
@@ -170,6 +168,9 @@ fun SongFullWidthItems(
             label = "addToQueueHint",
         )
         if (addToQueueAlpha > 0f) {
+            // Where Add to queue is blocked the swipe plays the song next instead
+            // (SharedViewModel.addListToQueue), so the icon shows what will happen.
+            val playsNext = rememberAddToQueueBlock() != null
             Box(
                 modifier =
                     Modifier
@@ -182,8 +183,9 @@ fun SongFullWidthItems(
             ) {
                 Icon(
                     tint = contentColor,
-                    imageVector = SimpIcons.QueueMusic,
-                    contentDescription = stringResource(Res.string.add_to_queue),
+                    imageVector = if (playsNext) SimpIcons.SkipNext else SimpIcons.QueueMusic,
+                    contentDescription =
+                        stringResource(if (playsNext) Res.string.play_next else Res.string.add_to_queue),
                 )
             }
         }
@@ -286,7 +288,9 @@ fun SongFullWidthItems(
                 ) {
                     RowCrossfade(isPlaying) {
                         if (it) {
-                            PlayingAnimation()
+                            AudioPlayingIndicator(
+                                modifier = Modifier.fillMaxSize(),
+                            )
                         } else if (index == null) {
                             val thumb = track?.thumbnails?.lastOrNull()?.url ?: songEntity?.thumbnails
                             AsyncImage(
@@ -444,7 +448,9 @@ fun SuggestItems(
             Box(modifier = Modifier.size(40.dp)) {
                 RowCrossfade(isPlaying) {
                     if (it) {
-                        PlayingAnimation()
+                        AudioPlayingIndicator(
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     } else {
                         val thumb = track.thumbnails?.lastOrNull()?.url
                         AsyncImage(
@@ -784,25 +790,6 @@ fun ArtistFullWidthItems(
             }
         }
     }
-}
-// The "now playing" bars. The JSON is read from resources once per process and parsed only for the
-// row that is actually playing — every row used to read and parse it as soon as it scrolled in.
-private var playingAnimationJson: String? = null
-
-@Composable
-private fun PlayingAnimation() {
-    val composition by rememberLottieComposition {
-        val json = playingAnimationJson ?: Res.readBytes("files/audio_playing_animation.json").decodeToString().also { playingAnimationJson = it }
-        LottieCompositionSpec.JsonString(json)
-    }
-    Image(
-        painter =
-            rememberLottiePainter(
-                composition = composition,
-                iterations = Compottie.IterateForever,
-            ),
-        contentDescription = "Lottie animation",
-    )
 }
 
 /**

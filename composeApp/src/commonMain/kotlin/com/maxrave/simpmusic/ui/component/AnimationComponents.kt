@@ -3,6 +3,7 @@ package com.maxrave.simpmusic.ui.component
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -48,28 +49,31 @@ fun InfiniteBorderAnimationView(
     oneCircleDurationMillis: Int = 3000,
     content: @Composable () -> Unit,
 ) {
-    val scaleAnimationValue by animateFloatAsState(
-        if (isAnimated) 1f else 0f,
-        tween(800),
-    )
-    // Spins only while the border is (or is still fading) visible. An infinite transition here kept
-    // every chip redrawing at the display refresh rate even with the border scaled to nothing.
-    val spin by rememberLoopingPhase(
-        active = isAnimated || scaleAnimationValue > 0f,
-        periodMillis = oneCircleDurationMillis,
-    )
-    val degrees = 90f + spin * 360f
-    Surface(
-        modifier =
+    val visibility = updateTransition(isAnimated, label = "Border visibility")
+    val borderScale = visibility.animateFloat(
+        transitionSpec = { tween(800) },
+        label = "Border scale",
+    ) { visible -> if (visible) 1f else 0f }
+    // Keep the exit animation, then remove both the frame loop and its offscreen layer.
+    val animatedBorder =
+        if (visibility.currentState || visibility.targetState) {
+            val infiniteTransition = rememberInfiniteTransition(label = "Infinite Color Animation")
+            val degrees = infiniteTransition.animateFloat(
+                initialValue = 90f,
+                targetValue = 450f,
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(durationMillis = oneCircleDurationMillis, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart,
+                    ),
+                label = "Infinite Colors",
+            )
             Modifier
-                .clip(
-                    shape,
-                ).padding(borderWidth)
                 .graphicsLayer {
                     compositingStrategy = CompositingStrategy.Offscreen
                 }.drawBehind {
-                    scale(scale = scaleAnimationValue) {
-                        rotate(degrees = degrees) {
+                    scale(scale = borderScale.value) {
+                        rotate(degrees = degrees.value) {
                             drawCircle(
                                 brush = brush,
                                 radius = size.width,
@@ -77,7 +81,18 @@ fun InfiniteBorderAnimationView(
                             )
                         }
                     }
-                }.animateContentSize(),
+                }
+        } else {
+            Modifier
+        }
+    Surface(
+        modifier =
+            Modifier
+                .clip(
+                    shape,
+                ).padding(borderWidth)
+                .then(animatedBorder)
+                .animateContentSize(),
         color = backgroundColor,
         shape = shape,
     ) {

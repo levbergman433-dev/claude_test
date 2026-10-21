@@ -7,6 +7,7 @@ import com.maxrave.kotlinytmusicscraper.models.SongItem
 import com.maxrave.kotlinytmusicscraper.models.WatchEndpoint
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.ANDROID_VR
+import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.ANDROID
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.IOS
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.TVHTML5
 import com.maxrave.kotlinytmusicscraper.models.YouTubeClient.Companion.WEB_REMIX
@@ -33,7 +34,9 @@ import com.maxrave.ktorext.getEngine
 import com.maxrave.logger.Logger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.ProxyConfig
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.HttpRedirect
+import io.ktor.client.plugins.HttpResponseValidator
 import io.ktor.client.plugins.compression.ContentEncoding
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -56,6 +59,7 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
 import io.ktor.http.contentType
 import io.ktor.http.userAgent
@@ -132,6 +136,12 @@ class Ytmusic {
 
     var pageId: String? = null
 
+    // Index of the Google account inside the browser session the cookie came from
+    // (the `authuser` query param on youtube.com). A brand channel's pageId is only
+    // valid together with the authuser that owns it; sending 0 for a channel of the
+    // second signed-in account makes YouTube answer as if not logged in.
+    var authUser: Int = 0
+
     // TIDAL credentials. Empty until CommonRepositoryImpl pushes the values fetched from the
     // remote config (cached in DataStore). Deliberately NOT hard-coded in source — while
     // empty, TIDAL metadata lookups fail silently until the first successful fetch.
@@ -142,6 +152,7 @@ class Ytmusic {
 
     var proxy: ProxyConfig? = null
         set(value) {
+            if (field == value) return
             field = value
             httpClient.close()
             httpClient = createClient()
@@ -162,6 +173,18 @@ class Ytmusic {
             if (Logger.isVerbose) {
                 install(CurlLogger) {
                     logger = { Logger.d(TAG, it) }
+                }
+            }
+            // Every rejected sign-in on this client lands in the app log in one place. Host and path
+            // only: the query and headers carry the cookie and the account.
+            HttpResponseValidator {
+                handleResponseExceptionWithRequest { cause, request ->
+                    val status =
+                        (cause as? ClientRequestException)?.response?.status
+                            ?: return@handleResponseExceptionWithRequest
+                    if (status == HttpStatusCode.Unauthorized || status == HttpStatusCode.Forbidden) {
+                        Logger.w("Auth", "YouTube: ${request.url.host}${request.url.encodedPath} answered ${status.value}")
+                    }
                 }
             }
             install(HttpRedirect) {
@@ -220,7 +243,7 @@ class Ytmusic {
             append("X-Goog-Api-Format-Version", "1")
             append("X-YouTube-Client-Name", "${client.xClientName ?: 1}")
             append("X-YouTube-Client-Version", client.clientVersion)
-            append("X-Goog-Authuser", "0")
+            append("X-Goog-Authuser", authUser.toString())
             pageId?.let {
                 append("X-Goog-Pageid", it)
             }
@@ -280,6 +303,8 @@ class Ytmusic {
                 ),
             )
         }
+
+    fun getLiveHlsUrl(videoId: String): String? = extractor.liveHlsUrl(videoId)
 
     fun mergeAudioVideoDownload(filePath: String): DownloadProgress = extractor.mergeAudioVideoDownload(filePath)
 
@@ -388,6 +413,42 @@ class Ytmusic {
 //    -H 'x-goog-api-key: AIzaSyDyT5W0Jh49F30Pqqtyfdf7pDLFKLJoAnw' \
 //    -H 'x-user-agent: grpc-web-javascript/0.1' \
 //    --data-raw '["O43z0dpjhgX20SCx4KAo"]'
+
+    /**
+     * The player request a live broadcast is resolved with, made as the YouTube Android app: its HLS
+     * playlist plays on without a PoToken. Measured 2026-10-01 on two live stations — every other
+     * client stops somewhere:
+     *  - WEB_REMIX, WEB, web_safari, MWEB: the playlists load, every segment is refused (403).
+     *  - IOS 21.26.4, TVHTML5: no HLS at all.
+     *  - ANDROID_VR 1.65.10: plays, then every segment past ~30 s is refused while the playlist
+     *    keeps refreshing — mpv sits on "loading" for good.
+     *  - ANDROID 21.26.364: 130 s straight, segments 200 throughout.
+     * The client takes no cookies, so the session is left out, and so is its visitorData: see
+     * [anonymousVisitorData].
+     *
+     * @param anonymousVisitorData a visitor id fetched without the session, so a request that carries
+     * no cookie is not tied to the signed-in account either. The ANDROID_VR client this replaced was
+     * refused outright (LOGIN_REQUIRED) with the session's own visitor id; ANDROID takes either.
+     */
+    suspend fun liveStreamPlayer(
+        videoId: String,
+        anonymousVisitorData: String,
+    ) = httpClient.post("https://www.youtube.com/youtubei/v1/player") {
+            contentType(ContentType.Application.Json)
+            header(HttpHeaders.UserAgent, ANDROID.userAgent)
+            header("X-YouTube-Client-Name", "${ANDROID.xClientName}")
+            header("X-YouTube-Client-Version", ANDROID.clientVersion)
+            header("X-Goog-Visitor-Id", anonymousVisitorData)
+            setBody(
+                PlayerBody(
+                    context = ANDROID.toContext(locale, anonymousVisitorData),
+                    videoId = videoId,
+                    playlistId = null,
+                    cpn = null,
+                ),
+            )
+            parameter("prettyPrint", false)
+        }
 
     suspend fun noLogInPlayer(
         videoId: String,
@@ -692,6 +753,11 @@ class Ytmusic {
         httpClient.get("https://f-droid.org/api/v1/packages/com.maxrave.simpmusic") {
             contentType(ContentType.Application.Json)
         }
+
+    suspend fun fdroidMetadata() =
+        httpClient.get(
+            "https://raw.githubusercontent.com/f-droid/fdroiddata/master/metadata/com.maxrave.simpmusic.yml",
+        )
 
     suspend fun playlist(playlistId: String) =
         httpClient.post("browse") {
@@ -1316,10 +1382,10 @@ class Ytmusic {
      * ContentNegotiation will not auto-deserialize the body. We read it as text and parse
      * it explicitly with [normalJson] (which ignores unknown keys for forward-compat).
      */
-    suspend fun getTidalRemoteConfig(): RemoteConfig {
+    suspend fun getTidalRemoteConfig(dev: Boolean = false): RemoteConfig {
         val text =
             httpClient
-                .get(TIDAL_REMOTE_CONFIG_URL) {
+                .get(if (dev) REMOTE_CONFIG_DEV_URL else TIDAL_REMOTE_CONFIG_URL) {
                     accept(ContentType.Application.Json)
                 }.bodyAsText()
         return normalJson.decodeFromString(RemoteConfig.serializer(), text)
@@ -1334,6 +1400,10 @@ class Ytmusic {
         // kept in a separate repo (simpmusic-files) so the main repo stays credential-free.
         const val TIDAL_REMOTE_CONFIG_URL =
             "https://raw.githubusercontent.com/maxrave-dev/simpmusic-files/refs/heads/main/remote-config.json"
+
+        // Read by dev builds only, so a banner can be tried out without any real user seeing it.
+        const val REMOTE_CONFIG_DEV_URL =
+            "https://raw.githubusercontent.com/maxrave-dev/simpmusic-files/refs/heads/main/remote-config-dev.json"
     }
 }
 

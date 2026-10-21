@@ -60,6 +60,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -80,6 +81,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -93,14 +95,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.eygraber.uri.Uri
 import com.kmpalette.loader.rememberNetworkLoader
 import com.kmpalette.rememberDominantColorState
 import com.maxrave.common.CHART_SUPPORTED_COUNTRY
@@ -109,18 +116,24 @@ import com.maxrave.domain.data.entities.SongEntity
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.data.model.home.HomeItem
 import com.maxrave.domain.data.model.home.chart.Chart
+import com.maxrave.domain.data.model.intent.GenericIntent
 import com.maxrave.domain.data.model.mood.Mood
 import com.maxrave.domain.extension.now
+import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.domain.mediaservice.handler.PlaylistType
 import com.maxrave.domain.mediaservice.handler.QueueData
 import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.openUrl
+import com.maxrave.simpmusic.expect.ui.HorizontalScrollBar
 import com.maxrave.simpmusic.extension.angledGradientBackground
 import com.maxrave.simpmusic.extension.artworkScrimBrush
+import com.maxrave.simpmusic.extension.getScreenSizeInfo
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.rgbFactor
+import com.maxrave.simpmusic.extension.ultraThinBarStyle
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.component.AppleRecentlyPlayedShelf
 import com.maxrave.simpmusic.ui.component.AppleShelfHeader
@@ -133,19 +146,26 @@ import com.maxrave.simpmusic.ui.component.Chip
 import com.maxrave.simpmusic.ui.component.DropdownButton
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.FootgunsStarDialog
+import com.maxrave.simpmusic.ui.component.HomeDiscoverSection
 import com.maxrave.simpmusic.ui.component.HomeItem
 import com.maxrave.simpmusic.ui.component.HomeItemContentPlaylist
 import com.maxrave.simpmusic.ui.component.HomeShimmer
 import com.maxrave.simpmusic.ui.component.ItemArtistChart
 import com.maxrave.simpmusic.ui.component.ListenTogetherIconButton
+import com.maxrave.simpmusic.ui.component.LocalAppDialogOpen
+import com.maxrave.simpmusic.ui.component.LocalNowPlayingOpen
+import com.maxrave.simpmusic.ui.component.LocalUserStarted
 import com.maxrave.simpmusic.ui.component.MoodMomentAndGenreHomeItem
 import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
 import com.maxrave.simpmusic.ui.component.OfflineErrorState
+import com.maxrave.simpmusic.ui.component.PromoBanner
+import com.maxrave.simpmusic.ui.component.PromoBannerData
 import com.maxrave.simpmusic.ui.component.QuickPicksItem
 import com.maxrave.simpmusic.ui.component.ReviewDialog
 import com.maxrave.simpmusic.ui.component.RippleIconButton
 import com.maxrave.simpmusic.ui.component.ShareSavedLyricsDialog
 import com.maxrave.simpmusic.ui.component.largeTitleStyle
+import com.maxrave.simpmusic.ui.component.homeCardAspectRatio
 import com.maxrave.simpmusic.ui.component.rememberHolderPainter
 import com.maxrave.simpmusic.ui.icon.Groups
 import com.maxrave.simpmusic.ui.icon.History
@@ -161,6 +181,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.home.RecentlySongsDestina
 import com.maxrave.simpmusic.ui.navigation.destination.home.SettingsDestination
 import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
+import com.maxrave.simpmusic.ui.navigation.destination.list.PodcastDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.PlaylistDestination
 import com.maxrave.simpmusic.ui.navigation.destination.login.LoginDestination
 import com.maxrave.simpmusic.ui.screen.library.LibraryDynamicPlaylistType
@@ -170,6 +191,8 @@ import com.maxrave.simpmusic.ui.theme.LocalPageBrush
 import com.maxrave.simpmusic.ui.component.pageBrushSlice
 import com.maxrave.simpmusic.ui.theme.desktopPanelDark
 import com.maxrave.simpmusic.ui.theme.typo
+import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.eligiblePromos
 import com.maxrave.simpmusic.viewModel.FOOTGUNS_STAR_KEY
 import com.maxrave.simpmusic.viewModel.HomeViewModel
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_COMMUTE
@@ -184,14 +207,15 @@ import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_SLEEP
 import com.maxrave.simpmusic.viewModel.HomeViewModel.Companion.HOME_PARAMS_WORKOUT
 import com.maxrave.simpmusic.viewModel.ListState
 import com.maxrave.simpmusic.viewModel.SharedViewModel
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import dev.chrisbanes.haze.rememberHazeState
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.http.Url
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -219,6 +243,7 @@ import simpmusic.composeapp.generated.resources.listen_together
 import simpmusic.composeapp.generated.resources.log_in_warning
 import simpmusic.composeapp.generated.resources.notification
 import simpmusic.composeapp.generated.resources.party
+import simpmusic.composeapp.generated.resources.play_all
 import simpmusic.composeapp.generated.resources.quick_picks
 import simpmusic.composeapp.generated.resources.recently
 import simpmusic.composeapp.generated.resources.recently_played
@@ -236,6 +261,11 @@ import simpmusic.composeapp.generated.resources.workout
 // DataStore key for blog-promo one-shot dialog. Bump the suffix (v2, v3, …) to re-promote.
 private const val BLOG_PROMO_KEY = "blog_promo_v1_seen"
 
+// Launch banner timing: how long Home's own launch dialogs get to settle, and how long the screen must
+// stay free of other dialogs before the banner draws.
+private const val PROMO_SETTLE_MS = 1_000L
+private const val PROMO_CLEAR_MS = 400L
+
 private val listOfHomeChip =
     listOf(
         Res.string.all,
@@ -251,7 +281,7 @@ private val listOfHomeChip =
         Res.string.focus,
     )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @ExperimentalFoundationApi
 @Composable
 fun HomeScreen(
@@ -336,6 +366,18 @@ fun HomeScreen(
     val openAppTime by sharedViewModel.openAppTime.collectAsStateWithLifecycle()
     val shareLyricsPermissions by sharedViewModel.shareSavedLyrics.collectAsStateWithLifecycle()
 
+    // Launch banner inputs. App.kt's own dialogs, its Now Playing sheet and whether the user has
+    // started using the app come down from App.kt; Home's dialogs are read where the banner is drawn.
+    val appDialogOpen = LocalAppDialogOpen.current
+    val nowPlayingOpen = LocalNowPlayingOpen.current
+    val userStarted by rememberUpdatedState(LocalUserStarted.current)
+    // Home's own lifecycle: RESUMED only while it is the screen in front (not mid-transition to another
+    // tab, not behind a system prompt). On Desktop STARTED means its window is showing.
+    val homeLifecycle by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    // The language part of the BCP 47 tag: Android's Locale.language still reports the legacy "in"
+    // for Indonesian and "iw" for Hebrew, while the config is keyed "id" and "he".
+    val language = Locale.current.toLanguageTag().substringBefore('-')
+
     val backgroundColor = MaterialTheme.colorScheme.background
     val isLightTheme = backgroundColor.luminance() > 0.5f
     // What is ACTUALLY painted behind this screen. The desktop shell wraps content in a rounded
@@ -388,15 +430,24 @@ fun HomeScreen(
     var showFootgunsDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    // Decided once per launch (saveable, so a rotation does not count as a new launch).
+    var promoLaunchDecided by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var promoBanner by remember {
+        mutableStateOf<PromoBannerData?>(null)
+    }
+    // The banner that has gone a moment with nothing keeping it off screen; see where it is drawn.
+    var promoClearFor by remember {
+        mutableStateOf<PromoBannerData?>(null)
+    }
 
     var topAppBarHeightPx by rememberSaveable {
         mutableIntStateOf(0)
     }
 
     val hazeState =
-        rememberHazeState(
-            blurEnabled = true,
-        )
+        rememberHazeState()
 
     LaunchedEffect(scrollState) {
         snapshotFlow { scrollState.firstVisibleItemIndex }
@@ -518,9 +569,12 @@ fun HomeScreen(
     if (showFootgunsDialog) {
         FootgunsStarDialog(
             onDismissRequest = {
-                // "Later" only closes the dialog: it must not touch OPEN_APP_TIME,
-                // so the next milestone stays exactly where it was.
+                // "Later" advances OPEN_APP_TIME, the same way the review and share-lyrics dialogs do.
+                // Home's launch effect runs again every time Home re-enters composition, reading the
+                // stored count; leaving it untouched kept the milestone condition true, so the prompt
+                // came back on every return to Home until the app was restarted.
                 showFootgunsDialog = false
+                sharedViewModel.onDoneReview(isDismissOnly = true)
             },
             onDoneStar = {
                 sharedViewModel.putString(FOOTGUNS_STAR_KEY, "true")
@@ -554,6 +608,120 @@ fun HomeScreen(
                 sharedViewModel.onDoneRequestingShareLyrics(
                     contributor,
                 )
+            },
+        )
+    }
+
+    val otherDialogOpen =
+        appDialogOpen || showReviewDialog || showRequestShareLyricsPermissions || showBlogPromoDialog ||
+            showFootgunsDialog || shouldShowLogInAlert
+    // The launch banner, decided once per launch. It waits for Home to settle on its own dialogs (the
+    // open count and the lyrics-sharing flag load just after the first frame) and for the update check
+    // started at launch, however long that takes, so an update dialog comes first. Then it takes the
+    // first banner this version has not shown yet.
+    LaunchedEffect(Unit) {
+        // Tunes shows no upstream launch banners: they announce SimpMusic releases and pages.
+        if (!SHOW_UPSTREAM_PROMOS) return@LaunchedEffect
+        if (promoLaunchDecided) return@LaunchedEffect
+        // Marked at the start, not the end: leaving Home cancels this for good (by then the user is
+        // busy elsewhere), and a value written while Home is being left would not be saved.
+        promoLaunchDecided = true
+        snapshotFlow { openAppTime }.first { it > 0 }
+        delay(PROMO_SETTLE_MS)
+        sharedViewModel.isCheckingUpdate.first { !it }
+        if (userStarted) {
+            Logger.i("Promo", "Skipped: the user started before the banner's turn")
+            return@LaunchedEffect
+        }
+        val localTracking = sharedViewModel.getLocalTrackingEnabled().first() == TRUE
+        val youTubeLoggedIn = sharedViewModel.getYouTubeLoggedIn().first() == TRUE
+        val shown = sharedViewModel.shownPromos()
+        val promos = sharedViewModel.cachedPromos().first()
+        val eligible = eligiblePromos(promos, VersionManager.getVersionName(), language, localTracking, youTubeLoggedIn)
+        val banner =
+            eligible
+                .firstOrNull { (promo, _) -> promo.id.orEmpty() !in shown }
+                ?.let { (promo, url) -> PromoBannerData(id = promo.id.orEmpty(), imageUrl = url, link = promo.link.orEmpty()) }
+        when {
+            banner == null ->
+                Logger.i(
+                    "Promo",
+                    "Nothing to show: ${eligible.size} of ${promos.size} banners usable here " +
+                        "(local tracking ${if (localTracking) "on" else "off"}, " +
+                        "YouTube ${if (youTubeLoggedIn) "signed in" else "signed out"}), " +
+                        "already shown in ${VersionManager.getVersionName()}: $shown",
+                )
+
+            userStarted -> Logger.i("Promo", "Skipped ${banner.id}: the user started before its turn")
+
+            else -> {
+                Logger.i("Promo", "Picked ${banner.id}, waiting for its turn")
+                promoBanner = banner
+            }
+        }
+    }
+    // Everything that keeps the banner off screen: any other dialog (it waits its turn behind them),
+    // Now Playing, and Home not being in front. On Desktop that only asks for a showing window: one
+    // opened from a terminal or an IDE may start without focus, and the click that focuses it would
+    // count as the user starting, so the banner would never get its turn.
+    val homeInFront =
+        homeLifecycle.isAtLeast(
+            if (getPlatform() == Platform.Desktop) Lifecycle.State.STARTED else Lifecycle.State.RESUMED,
+        )
+    val promoBlocked = otherDialogOpen || nowPlayingOpen || !homeInFront
+    // It draws only once the banner has gone a moment unblocked since it was decided. The wait belongs
+    // to that banner, so nothing left over from before it arrived can let it through early: it never
+    // flashes in the gap between two dialogs, and the update dialog, raised a frame after its check
+    // ends, still gets there first.
+    LaunchedEffect(promoBlocked, promoBanner) {
+        val banner = promoBanner
+        promoClearFor = null
+        if (!promoBlocked && banner != null) {
+            delay(PROMO_CLEAR_MS)
+            promoClearFor = banner
+        }
+    }
+    // Whatever the user starts before the banner's turn puts it off to a later launch, uncounted.
+    LaunchedEffect(userStarted) {
+        val pending = promoBanner
+        if (userStarted && pending != null) {
+            Logger.i("Promo", "Put off ${pending.id}: the user started before its turn")
+            promoBanner = null
+        }
+    }
+    promoBanner?.takeIf { it == promoClearFor && !promoBlocked }?.let { banner ->
+        LaunchedEffect(banner.id) { Logger.i("Promo", "On screen: ${banner.id}") }
+        PromoBanner(
+            banner = banner,
+            onOpen = {
+                Logger.i("Promo", "Opened ${banner.id}: ${banner.link}")
+                promoBanner = null
+                sharedViewModel.markPromoShown(banner.id)
+                val link = banner.link
+                when {
+                    // The same router as links from the web and the widgets.
+                    link.startsWith("simpmusic://") -> {
+                        runCatching { Uri.parse(link) }.getOrNull()?.let {
+                            sharedViewModel.setIntent(GenericIntent(data = it))
+                        }
+                    }
+
+                    // openUrl rather than LocalUriHandler, which throws where no browser answers.
+                    link.startsWith("https://", ignoreCase = true) -> {
+                        runCatching { openUrl(link) }
+                    }
+                    // Anything else is a mistake in the config: ignoring it beats crashing on a tap.
+                }
+            },
+            onClose = {
+                Logger.i("Promo", "Closed ${banner.id}")
+                promoBanner = null
+                sharedViewModel.markPromoShown(banner.id)
+            },
+            // No picture, no banner: closed without counting, so a later launch tries again.
+            onFailed = {
+                Logger.w("Promo", "Picture failed to load for ${banner.id}; closed without counting it")
+                promoBanner = null
             },
         )
     }
@@ -666,7 +834,7 @@ fun HomeScreen(
                     val youtubeHasQuickPicks = orderedHome.firstOrNull()?.title == quickPicksTitle
                     LazyColumn(
                         state = scrollState,
-                        verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (appleLayout) 28.dp else 8.dp),
                     ) {
                         // Keyed by position and title: the old key hashed the whole shelf — every
                         // song, title and thumbnail in it — for each visible row on every scroll
@@ -795,6 +963,12 @@ fun HomeScreen(
                                                 viewModel = viewModel,
                                             )
                                         }
+                                    } else if (item.isSongCardShelf()) {
+                                        HomeDiscoverSection(
+                                            data = item,
+                                            navController = navController,
+                                            homeViewModel = viewModel,
+                                        )
                                     } else {
                                         HomeItem(
                                             navController = navController,
@@ -885,7 +1059,6 @@ fun HomeScreen(
                                         ChartTitle()
                                         Spacer(modifier = Modifier.height(5.dp))
                                         Crossfade(targetState = regionChart) {
-                                            Logger.w("HomeScreen", "regionChart: $it")
                                             if (it != null) {
                                                 DropdownButton(
                                                     items = CHART_SUPPORTED_COUNTRY.itemsData.toList(),
@@ -974,9 +1147,7 @@ fun HomeScreen(
                                 Modifier.background(Color.Transparent)
                             } else {
                                 Modifier
-                                    .hazeEffect(hazeState, style = HazeMaterials.ultraThin()) {
-                                        blurEnabled = true
-                                    }
+                                    .hazeBlur(HazeInput.Sources(hazeState), ultraThinBarStyle())
                             },
                         ).onGloballyPositioned { coordinates ->
                             topAppBarHeightPx = coordinates.size.height
@@ -1253,6 +1424,19 @@ fun AccountLayout(
     }
 }
 
+// Portrait fills the width with one column (the next one peeking in). On a landscape window that one
+// column stretched across the whole screen, so every row there is capped instead.
+private val LandscapeGridItemMaxWidth = 400.dp
+
+// A card shelf of songs only that leads to no page of its own ("Your daily discover"). List shelves
+// (Quick picks, Heard in Shorts) carry itemsPerColumn and keep their own look; a shelf with a More
+// page (Listen again can be all songs) keeps its cards; videos draw as wide cards, so never match.
+private fun HomeItem.isSongCardShelf(): Boolean =
+    itemsPerColumn == null &&
+        moreEndpoint == null &&
+        contents.isNotEmpty() &&
+        contents.all { it != null && !it.videoId.isNullOrEmpty() && it.homeCardAspectRatio() == 1f }
+
 @ExperimentalFoundationApi
 @Composable
 fun QuickPicks(
@@ -1262,6 +1446,7 @@ fun QuickPicks(
 ) {
     val lazyListState = rememberLazyGridState()
     val snapperFlingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = lazyListState, snapPosition = SnapPosition.Start))
+    val isPortrait = getScreenSizeInfo().let { it.wDP < it.hDP }
     val density = LocalDensity.current
     var widthDp by remember {
         mutableStateOf(0.dp)
@@ -1292,20 +1477,35 @@ fun QuickPicks(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
         } else {
-            Text(
-                text = stringResource(Res.string.let_s_start_with_a_radio),
-                style = typo().bodySmall,
-            )
-            Text(
-                text = stringResource(Res.string.quick_picks),
-                style = typo().headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 5.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(Res.string.let_s_start_with_a_radio),
+                        style = typo().bodySmall,
+                    )
+                    Text(
+                        text = stringResource(Res.string.quick_picks),
+                        style = typo().headlineMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        maxLines = 1,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 5.dp),
+                    )
+                }
+                if (homeItem.playAllEndpoint != null) {
+                    TextButton(
+                        onClick = { viewModel.playAll(homeItem) },
+                        colors =
+                            ButtonDefaults
+                                .textButtonColors()
+                                .copy(contentColor = MaterialTheme.colorScheme.onSurface),
+                    ) {
+                        Text(stringResource(Res.string.play_all), style = typo().bodySmall)
+                    }
+                }
+            }
         }
         if (LocalAppleLayout.current) {
             AppleSongGrid(
@@ -1362,11 +1562,16 @@ fun QuickPicks(
                             bottomSheetShow = true
                         },
                         data = it,
-                        widthDp = widthDp,
+                        widthDp = if (isPortrait) widthDp else minOf(widthDp, LandscapeGridItemMaxWidth + 30.dp),
                     )
                 }
             }
         }
+        HorizontalScrollBar(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            scrollState = lazyListState,
+            flingBehavior = snapperFlingBehavior,
+        )
     }
 }
 
@@ -1419,6 +1624,11 @@ fun MoodMomentAndGenre(
                     }
                 }
             }
+            HorizontalScrollBar(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                scrollState = gridState,
+                flingBehavior = flingBehavior,
+            )
         }
     }
 }
@@ -1455,6 +1665,7 @@ fun ChartData(
 
     val lazyListState2 = rememberLazyGridState()
     val snapperFlingBehavior2 = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = lazyListState2))
+    val isPortrait = getScreenSizeInfo().let { it.wDP < it.hDP }
 
     Column(
         Modifier.onGloballyPositioned { coordinates ->
@@ -1525,12 +1736,57 @@ fun ChartData(
                         )
                     },
                     data = data,
-                    widthDp = gridWidthDp,
+                    widthDp = if (isPortrait) gridWidthDp else minOf(gridWidthDp, LandscapeGridItemMaxWidth),
                 )
             }
+        }
+        HorizontalScrollBar(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            scrollState = lazyListState2,
+            flingBehavior = snapperFlingBehavior2,
+        )
+        // Ranked podcast shows, laid out exactly like the artist chart above.
+        chart.podcasts?.let { podcasts ->
+            Text(
+                text = podcasts.title,
+                style = typo().headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 10.dp),
+            )
+            val podcastGridState = rememberLazyGridState()
+            val podcastFlingBehavior = rememberSnapFlingBehavior(SnapLayoutInfoProvider(lazyGridState = podcastGridState))
+            LazyHorizontalGrid(
+                rows = GridCells.Fixed(3),
+                modifier = Modifier.height(240.dp),
+                state = podcastGridState,
+                flingBehavior = podcastFlingBehavior,
+            ) {
+                items(podcasts.shows.size, key = { index -> podcasts.shows[index].browseId + index }) {
+                    val data = podcasts.shows[it]
+                    ItemArtistChart(
+                        onClick = { navController.navigate(PodcastDestination(podcastId = data.browseId)) },
+                        data = data,
+                        widthDp = if (isPortrait) gridWidthDp else minOf(gridWidthDp, LandscapeGridItemMaxWidth),
+                        thumbnailShape = RoundedCornerShape(8.dp),
+                        subtitle = data.subscribers,
+                    )
+                }
+            }
+            HorizontalScrollBar(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                scrollState = podcastGridState,
+                flingBehavior = podcastFlingBehavior,
+            )
         }
     }
 }
 
 /** Apple layout: the discovery block follows Quick picks and this many of the user's own shelves. */
 private const val APPLE_DISCOVER_AFTER = 3
+
+// Off in Tunes; see the launch-banner effect in HomeScreen.
+private const val SHOW_UPSTREAM_PROMOS = false

@@ -1,5 +1,16 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.ui.navigation.destination.home.AppLogDestination
+import simpmusic.composeapp.generated.resources.preferred_audio_language
+import simpmusic.composeapp.generated.resources.preferred_audio_language_message
+import simpmusic.composeapp.generated.resources.original_audio
+import simpmusic.composeapp.generated.resources.lyrics_offset
+import simpmusic.composeapp.generated.resources.lyrics_offset_value
+import simpmusic.composeapp.generated.resources.lyrics_offset_message
+import simpmusic.composeapp.generated.resources.lyrics_offset_invalid
+import simpmusic.composeapp.generated.resources.developer_option
+import simpmusic.composeapp.generated.resources.app_log
+import simpmusic.composeapp.generated.resources.app_log_description
 import com.maxrave.simpmusic.ui.component.LIST_MARQUEE_ITERATIONS
 import simpmusic.composeapp.generated.resources.fill_gradient
 import simpmusic.composeapp.generated.resources.menu_button_size_xl
@@ -296,10 +307,10 @@ import com.mohamedrejeb.calf.io.getPath
 import com.mohamedrejeb.calf.picker.FilePickerFileType
 import com.mohamedrejeb.calf.picker.FilePickerSelectionMode
 import com.mohamedrejeb.calf.picker.rememberFilePickerLauncher
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
+import com.maxrave.simpmusic.extension.barBlurStyle
 import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.map
@@ -426,8 +437,6 @@ import simpmusic.composeapp.generated.resources.invalid_language_code
 import simpmusic.composeapp.generated.resources.invalid_port
 import simpmusic.composeapp.generated.resources.keep_backups
 import simpmusic.composeapp.generated.resources.keep_backups_format
-import simpmusic.composeapp.generated.resources.keep_service_alive
-import simpmusic.composeapp.generated.resources.keep_service_alive_description
 import simpmusic.composeapp.generated.resources.keep_your_youtube_playlist_offline
 import simpmusic.composeapp.generated.resources.keep_your_youtube_playlist_offline_description
 import simpmusic.composeapp.generated.resources.kill_service_on_exit
@@ -522,8 +531,6 @@ import simpmusic.composeapp.generated.resources.rich_presence_priority
 import simpmusic.composeapp.generated.resources.rich_presence_priority_info
 import simpmusic.composeapp.generated.resources.save
 import simpmusic.composeapp.generated.resources.save_all_your_playlist_data
-import simpmusic.composeapp.generated.resources.save_last_played
-import simpmusic.composeapp.generated.resources.save_last_played_track_and_queue
 import simpmusic.composeapp.generated.resources.save_playback_state
 import simpmusic.composeapp.generated.resources.save_shuffle_and_repeat_mode
 import simpmusic.composeapp.generated.resources.scrobbling_info
@@ -558,7 +565,6 @@ import simpmusic.composeapp.generated.resources.third_party_libraries
 import simpmusic.composeapp.generated.resources.thumbnail_cache
 import simpmusic.composeapp.generated.resources.translation_language
 import simpmusic.composeapp.generated.resources.translation_language_message
-import simpmusic.composeapp.generated.resources.translucent_bottom_navigation_bar
 import simpmusic.composeapp.generated.resources.unknown
 import simpmusic.composeapp.generated.resources.update_channel
 import simpmusic.composeapp.generated.resources.upload_your_listening_history_to_youtube_music_server_it_will_make_yt_music_recommendation_system_better_working_only_if_logged_in
@@ -572,7 +578,6 @@ import simpmusic.composeapp.generated.resources.video_quality
 import simpmusic.composeapp.generated.resources.warning
 import simpmusic.composeapp.generated.resources.weekly
 import simpmusic.composeapp.generated.resources.what_segments_will_be_skipped
-import simpmusic.composeapp.generated.resources.you_can_see_the_content_below_the_bottom_bar
 import simpmusic.composeapp.generated.resources.youtube_account
 import simpmusic.composeapp.generated.resources.youtube_subtitle_language
 import simpmusic.composeapp.generated.resources.youtube_subtitle_language_message
@@ -584,7 +589,6 @@ import java.time.format.DateTimeFormatter
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalCoilApi::class,
-    ExperimentalHazeMaterialsApi::class,
     FormatStringsInDatetimeFormats::class,
     ExperimentalCalfApi::class,
 )
@@ -652,7 +656,6 @@ fun SettingScreen(
             }
         }
 
-    val enableTranslucentNavBar by remember { viewModel.translucentBottomBar.map { it == TRUE } }.collectAsStateWithLifecycle(initialValue = false)
     val language by viewModel.language.collectAsStateWithLifecycle()
     val location by viewModel.location.collectAsStateWithLifecycle()
     val quality by viewModel.quality.collectAsStateWithLifecycle()
@@ -670,7 +673,6 @@ fun SettingScreen(
     val normalizeVolume by remember { viewModel.normalizeVolume.map { it == TRUE } }.collectAsStateWithLifecycle(initialValue = false)
     val skipSilent by remember { viewModel.skipSilent.map { it == TRUE } }.collectAsStateWithLifecycle(initialValue = false)
     val savePlaybackState by remember { viewModel.savedPlaybackState.map { it == TRUE } }.collectAsStateWithLifecycle(initialValue = false)
-    val saveLastPlayed by remember { viewModel.saveRecentSongAndQueue.map { it == TRUE } }.collectAsStateWithLifecycle(initialValue = false)
     val killServiceOnExit by remember { viewModel.killServiceOnExit.map { it == TRUE } }.collectAsStateWithLifecycle(initialValue = true)
     val mainLyricsProvider by viewModel.mainLyricsProvider.collectAsStateWithLifecycle()
     val youtubeSubtitleLanguage by viewModel.youtubeSubtitleLanguage.collectAsStateWithLifecycle()
@@ -699,6 +701,8 @@ fun SettingScreen(
     val isHasApiKey by viewModel.isHasApiKey.collectAsStateWithLifecycle()
     val useAITranslation by viewModel.useAITranslation.collectAsStateWithLifecycle()
     val translationLanguage by viewModel.translationLanguage.collectAsStateWithLifecycle()
+    val lyricsOffsetMs by viewModel.lyricsOffsetMs.collectAsStateWithLifecycle()
+    val preferredAudioLanguage by viewModel.preferredAudioLanguage.collectAsStateWithLifecycle()
     val customModelId by viewModel.customModelId.collectAsStateWithLifecycle()
     val customOpenAIBaseUrl by viewModel.customOpenAIBaseUrl.collectAsStateWithLifecycle()
     val customOpenAIHeaders by viewModel.customOpenAIHeaders.collectAsStateWithLifecycle()
@@ -777,7 +781,6 @@ fun SettingScreen(
     val lastfmScrobbleEnabled by viewModel.lastfmScrobbleEnabled.collectAsStateWithLifecycle()
     val richPresenceEnabled by viewModel.richPresenceEnabled.collectAsStateWithLifecycle()
     val richPresencePriority by viewModel.richPresencePriority.collectAsStateWithLifecycle()
-    val keepServiceAlive by viewModel.keepServiceAlive.collectAsStateWithLifecycle()
 
     val crossfadeEnabled by viewModel.crossfadeEnabled.collectAsStateWithLifecycle()
     val crossfadeDuration by viewModel.crossfadeDuration.collectAsStateWithLifecycle()
@@ -787,10 +790,7 @@ fun SettingScreen(
 
     val isCheckingUpdate by sharedViewModel.isCheckingUpdate.collectAsStateWithLifecycle()
 
-    val hazeState =
-        rememberHazeState(
-            blurEnabled = true,
-        )
+    val hazeState = rememberHazeState()
 
     val checkForUpdateSubtitle by remember {
         derivedStateOf {
@@ -1299,12 +1299,6 @@ fun SettingScreen(
         if (isOpen(SettingsCategory.APPEARANCE)) sectionItem(sectionOrder, "layout") {
             Column {
                 SettingsSectionHeader(stringResource(Res.string.settings_section_layout))
-                SettingItem(
-                    title = stringResource(Res.string.translucent_bottom_navigation_bar),
-                    subtitle = stringResource(Res.string.you_can_see_the_content_below_the_bottom_bar),
-                    smallSubtitle = true,
-                    switch = (enableTranslucentNavBar to { viewModel.setTranslucentBottomBar(it) }),
-                )
                 if (getPlatform() == Platform.Android) {
                     SettingItem(
                         title = stringResource(Res.string.enable_liquid_glass_effect),
@@ -1683,6 +1677,33 @@ fun SettingScreen(
                     style = typo().labelMedium,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(vertical = 8.dp),
+                )
+                SettingItem(
+                    title = stringResource(Res.string.preferred_audio_language),
+                    subtitle = preferredAudioLanguage.ifEmpty { stringResource(Res.string.original_audio) },
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.preferred_audio_language) },
+                                textField =
+                                    SettingAlertState.TextFieldData(
+                                        label = runBlocking { getString(Res.string.preferred_audio_language) },
+                                        value = preferredAudioLanguage,
+                                        // Empty is valid here: it means "original audio".
+                                        verifyCodeBlock = {
+                                            (it.isEmpty() || it.isTwoLetterCode()) to
+                                                runBlocking { getString(Res.string.invalid_language_code) }
+                                        },
+                                    ),
+                                message = runBlocking { getString(Res.string.preferred_audio_language_message) },
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        viewModel.setPreferredAudioLanguage(state.textField?.value ?: "")
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
                 )
                 SettingItem(
                     title = stringResource(Res.string.quality),
@@ -2084,21 +2105,11 @@ fun SettingScreen(
                     subtitle = stringResource(Res.string.save_shuffle_and_repeat_mode),
                     switch = (savePlaybackState to { viewModel.setSavedPlaybackState(it) }),
                 )
-                SettingItem(
-                    title = stringResource(Res.string.save_last_played),
-                    subtitle = stringResource(Res.string.save_last_played_track_and_queue),
-                    switch = (saveLastPlayed to { viewModel.setSaveLastPlayed(it) }),
-                )
                 if (getPlatform() == Platform.Android) {
                     SettingItem(
                         title = stringResource(Res.string.kill_service_on_exit),
                         subtitle = stringResource(Res.string.kill_service_on_exit_description),
                         switch = (killServiceOnExit to { viewModel.setKillServiceOnExit(it) }),
-                    )
-                    SettingItem(
-                        title = stringResource(Res.string.keep_service_alive),
-                        subtitle = stringResource(Res.string.keep_service_alive_description),
-                        switch = (keepServiceAlive to { viewModel.setKeepServiceAlive(it) }),
                     )
                 }
             }
@@ -2452,6 +2463,46 @@ fun SettingScreen(
                                                 else -> DataStoreManager.SIMPMUSIC
                                             },
                                         )
+                                    },
+                                dismiss = runBlocking { getString(Res.string.cancel) },
+                            ),
+                        )
+                    },
+                )
+
+                SettingItem(
+                    title = stringResource(Res.string.lyrics_offset),
+                    subtitle =
+                        stringResource(
+                            Res.string.lyrics_offset_value,
+                            if (lyricsOffsetMs > 0) "+$lyricsOffsetMs" else lyricsOffsetMs.toString(),
+                        ),
+                    onClick = {
+                        viewModel.setAlertData(
+                            SettingAlertState(
+                                title = runBlocking { getString(Res.string.lyrics_offset) },
+                                // The dialog renders its text field INSIDE the `message != null`
+                                // branch, so a state carrying a textField and no message opens an
+                                // empty box with no error anywhere.
+                                message = runBlocking { getString(Res.string.lyrics_offset_message) },
+                                textField =
+                                    SettingAlertState.TextFieldData(
+                                        label = runBlocking { getString(Res.string.lyrics_offset) },
+                                        value = lyricsOffsetMs.toString(),
+                                        // Only that it is a whole number — no range. How far a
+                                        // listener's own audio path lags is theirs to say.
+                                        verifyCodeBlock = {
+                                            (it.trim().toIntOrNull() != null) to
+                                                runBlocking { getString(Res.string.lyrics_offset_invalid) }
+                                        },
+                                    ),
+                                confirm =
+                                    runBlocking { getString(Res.string.change) } to { state ->
+                                        state.textField
+                                            ?.value
+                                            ?.trim()
+                                            ?.toIntOrNull()
+                                            ?.let { viewModel.setLyricsOffsetMs(it) }
                                     },
                                 dismiss = runBlocking { getString(Res.string.cancel) },
                             ),
@@ -3466,6 +3517,18 @@ fun SettingScreen(
                 )
             }
         }
+        if (isOpen(SettingsCategory.ABOUT)) sectionItem(sectionOrder, "developer_option") {
+            Column {
+                SettingsSectionHeader(stringResource(Res.string.developer_option))
+                SettingItem(
+                    title = stringResource(Res.string.app_log),
+                    subtitle = stringResource(Res.string.app_log_description),
+                    onClick = {
+                        navController.navigate(AppLogDestination)
+                    },
+                )
+            }
+        }
         // Credits only, and nothing here is clickable: this build is not the upstream app, so it
         // must not offer upstream's update checker, links or donations.
         if (isOpen(SettingsCategory.ABOUT)) sectionItem(sectionOrder, "about_us") {
@@ -4156,12 +4219,7 @@ fun SettingScreen(
                             // The house recipe from AlbumScreen's bars, thinned: ultraThin's built-in
                             // tint stacked on this page's dark ground read as a solid lid. 0.3 keeps
                             // the blur doing the work and the tint only settling legibility.
-                            Modifier.hazeEffect(hazeState) {
-                                blurEnabled = true
-                                blurRadius = 24.dp
-                                backgroundColor = settingBarTint
-                                tints = listOf(HazeTint(settingBarTint.copy(alpha = 0.3f)))
-                            }
+                            Modifier.hazeBlur(HazeInput.Sources(hazeState), barBlurStyle(settingBarTint, 0.3f))
                         },
                     ),
             colors =

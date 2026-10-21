@@ -69,6 +69,8 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.kmpalette.rememberPaletteState
 import com.kyant.backdrop.highlight.Highlight
+import com.maxrave.simpmusic.extension.barBlurStyle
+import com.maxrave.simpmusic.ui.component.DownloadingIndicator
 import com.maxrave.domain.data.entities.DownloadState
 import com.maxrave.domain.data.model.browse.album.Track
 import com.maxrave.domain.utils.toSongEntity
@@ -78,7 +80,7 @@ import com.maxrave.simpmusic.expect.ui.toImageBitmap
 import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.getColorFromPalette
 import com.maxrave.simpmusic.extension.getScreenSizeInfo
-import com.maxrave.simpmusic.extension.toImmersiveBackground
+import com.maxrave.simpmusic.extension.rememberPaletteColor
 import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
 import com.maxrave.simpmusic.ui.component.CenterLoadingBox
 import com.maxrave.simpmusic.ui.component.DescriptionView
@@ -111,14 +113,10 @@ import com.maxrave.simpmusic.viewModel.LocalPlaylistState
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.maxrave.simpmusic.viewModel.SongSelectionViewModel
 import com.maxrave.simpmusic.viewModel.UIEvent
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import io.github.alexzhirkevich.compottie.Compottie
-import io.github.alexzhirkevich.compottie.LottieCompositionSpec
-import io.github.alexzhirkevich.compottie.rememberLottieComposition
-import io.github.alexzhirkevich.compottie.rememberLottiePainter
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.runBlocking
@@ -167,11 +165,6 @@ fun AlbumScreen(
     var showSelectionSheet by rememberSaveable { mutableStateOf(false) }
     var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
 
-    val composition by rememberLottieComposition {
-        LottieCompositionSpec.JsonString(
-            Res.readBytes("files/downloading_animation.json").decodeToString(),
-        )
-    }
 
     LaunchedEffect(browseId) {
         viewModel.updateBrowseId(browseId)
@@ -193,9 +186,7 @@ fun AlbumScreen(
     }
     val paletteState = rememberPaletteState()
     val hazeState =
-        rememberHazeState(
-            blurEnabled = true,
-        )
+        rememberHazeState()
     var bitmap by remember {
         mutableStateOf<ImageBitmap?>(null)
     }
@@ -230,8 +221,8 @@ fun AlbumScreen(
     val screenInfo = getScreenSizeInfo()
     val isPortrait = screenInfo.wDP < screenInfo.hDP
     val dominantColor = uiState.colors.firstOrNull() ?: Color.Black
-    // Apple Music-style page background from the artwork's dominant tone (see UIExt.toImmersiveBackground).
-    val mutedPaletteBg = paletteState.palette.toImmersiveBackground()
+    // Apple Music-style page background from the artwork's dominant tone, held and faded (see UIExt.rememberPaletteColor).
+    val mutedPaletteBg = rememberPaletteColor(paletteState.palette)
 
     Crossfade(uiState.loadState) {
         when (it) {
@@ -284,7 +275,7 @@ fun AlbumScreen(
                                                             .memoryCachePolicy(CachePolicy.ENABLED)
                                                             .diskCacheKey(uiState.thumbnail)
                                                             .memoryCacheKey(uiState.thumbnail)
-                                                            .crossfade(false)
+                                                            .crossfade(550)
                                                             .build(),
                                                     placeholder = rememberHolderPainter(),
                                                     error = rememberHolderPainter(),
@@ -394,7 +385,7 @@ fun AlbumScreen(
                                                                 .memoryCachePolicy(CachePolicy.ENABLED)
                                                                 .diskCacheKey(uiState.thumbnail)
                                                                 .memoryCacheKey(uiState.thumbnail)
-                                                                .crossfade(false)
+                                                                .crossfade(550)
                                                                 .build(),
                                                         placeholder = rememberHolderPainter(),
                                                         error = rememberHolderPainter(),
@@ -557,13 +548,7 @@ fun AlbumScreen(
                                                                                         },
                                                                                 contentAlignment = Alignment.Center,
                                                                             ) {
-                                                                                Image(
-                                                                                    painter =
-                                                                                        rememberLottiePainter(
-                                                                                            composition = composition,
-                                                                                            iterations = Compottie.IterateForever,
-                                                                                        ),
-                                                                                    contentDescription = "Lottie animation",
+                                                                                DownloadingIndicator(
                                                                                     modifier = Modifier.size(28.dp),
                                                                                 )
                                                                             }
@@ -767,13 +752,7 @@ fun AlbumScreen(
                                                                                 },
                                                                         contentAlignment = Alignment.Center,
                                                                     ) {
-                                                                        Image(
-                                                                            painter =
-                                                                                rememberLottiePainter(
-                                                                                    composition = composition,
-                                                                                    iterations = Compottie.IterateForever,
-                                                                                ),
-                                                                            contentDescription = "Lottie animation",
+                                                                        DownloadingIndicator(
                                                                             modifier = Modifier.size(28.dp),
                                                                         )
                                                                     }
@@ -1020,12 +999,7 @@ fun AlbumScreen(
                                 containerColor = Color.Transparent,
                             ),
                         modifier =
-                            Modifier.hazeEffect(hazeState) {
-                                blurEnabled = true
-                                blurRadius = 24.dp
-                                backgroundColor = mutedPaletteBg
-                                tints = listOf(HazeTint(mutedPaletteBg.copy(alpha = 0.55f)))
-                            },
+                            Modifier.hazeBlur(HazeInput.Sources(hazeState), barBlurStyle(mutedPaletteBg, 0.55f)),
                     )
                 }
                 AnimatedVisibility(
@@ -1040,12 +1014,7 @@ fun AlbumScreen(
                         },
                         onOpenActions = { showSelectionSheet = true },
                         modifier =
-                            Modifier.hazeEffect(hazeState) {
-                                blurEnabled = true
-                                blurRadius = 24.dp
-                                backgroundColor = mutedPaletteBg
-                                tints = listOf(HazeTint(mutedPaletteBg.copy(alpha = 0.55f)))
-                            },
+                            Modifier.hazeBlur(HazeInput.Sources(hazeState), barBlurStyle(mutedPaletteBg, 0.55f)),
                     )
                 }
                 if (showSelectionSheet) {

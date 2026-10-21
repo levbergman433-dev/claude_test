@@ -53,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -65,6 +66,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.font.FontWeight
@@ -78,7 +82,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.window.core.layout.WindowSizeClass.Companion.WIDTH_DP_MEDIUM_LOWER_BOUND
-import coil3.toUri
+import com.maxrave.common.LibraryChipType
 import com.maxrave.domain.data.player.GenericMediaItem
 import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
@@ -91,6 +95,9 @@ import com.maxrave.simpmusic.extension.copy
 import com.maxrave.simpmusic.ui.component.AppBottomNavigationBar
 import com.maxrave.simpmusic.ui.component.AppNavigationRail
 import com.maxrave.simpmusic.ui.component.LiquidGlassAppBottomNavigationBar
+import com.maxrave.simpmusic.ui.component.LocalAppDialogOpen
+import com.maxrave.simpmusic.ui.component.LocalNowPlayingOpen
+import com.maxrave.simpmusic.ui.component.LocalUserStarted
 import com.maxrave.simpmusic.ui.icon.ArrowForwardIos
 import com.maxrave.simpmusic.ui.icon.SimpIcons
 import com.maxrave.simpmusic.ui.navigation.destination.home.AnalyticsDestination
@@ -110,6 +117,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.login.SpotifyLoginDestina
 import com.maxrave.simpmusic.ui.navigation.destination.player.FullscreenDestination
 import com.maxrave.simpmusic.ui.navigation.graph.AppNavigationGraph
 import com.maxrave.simpmusic.ui.screen.MiniPlayer
+import com.maxrave.simpmusic.ui.screen.other.UnofficialBuildScreen
 import com.maxrave.simpmusic.ui.screen.player.NowPlayingScreen
 import com.maxrave.simpmusic.ui.screen.player.NowPlayingScreenContent
 import com.maxrave.simpmusic.ui.theme.AppTheme
@@ -121,9 +129,14 @@ import com.maxrave.simpmusic.ui.theme.fontFamily
 import com.maxrave.simpmusic.ui.theme.parseThemeColorHex
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.utils.VersionManager
+import com.maxrave.simpmusic.utils.isAppLinkAvailable
+import com.maxrave.simpmusic.utils.libraryTabOf
 import com.maxrave.simpmusic.viewModel.SharedViewModel
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownTypography
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -147,7 +160,6 @@ import simpmusic.composeapp.generated.resources.this_link_is_not_supported
 import simpmusic.composeapp.generated.resources.unknown
 import simpmusic.composeapp.generated.resources.update_available
 import simpmusic.composeapp.generated.resources.update_message
-import simpmusic.composeapp.generated.resources.version_format
 import simpmusic.composeapp.generated.resources.yes
 import kotlin.time.ExperimentalTime
 
@@ -169,7 +181,6 @@ fun App(
     val intent by viewModel.intent.collectAsStateWithLifecycle()
     val showNotificationPermissionDialog by viewModel.showNotificationPermissionDialog.collectAsStateWithLifecycle()
 
-    val isTranslucentBottomBar by viewModel.getTranslucentBottomBar().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val isLiquidGlassEnabled by viewModel.getEnableLiquidGlass().collectAsStateWithLifecycle(DataStoreManager.FALSE)
     val menuStyle by remember { viewModel.stringPref(PersonalizationKeys.MENU_STYLE) }.collectAsStateWithLifecycle(null)
     val topBarStyle by remember { viewModel.stringPref(PersonalizationKeys.TOP_BAR_STYLE) }.collectAsStateWithLifecycle(null)
@@ -227,6 +238,7 @@ fun App(
         remember(themeColorSource, accentFillRaw) {
             if (themeColorSource == DataStoreManager.THEME_COLOR_GRADIENT) ColorFill.decode(accentFillRaw) else null
         }
+    val isOfficialBuild by viewModel.isOfficialBuild.collectAsStateWithLifecycle()
     // MiniPlayer visibility: derived, never stored.
     //
     // This used to be a rememberSaveable Boolean written by a LaunchedEffect. Two things went
@@ -262,6 +274,23 @@ fun App(
         mutableStateOf(false)
     }
 
+    // Every dialog this file raises on its own. Home's launch banner waits until none is up; see
+    // LocalAppDialogOpen. (The banner waits for a running update check by itself.)
+    val appDialogOpen =
+        shouldShowUpdateDialog || showNotificationPermissionDialog ||
+            showDesktopNotificationPermissionDialog || sleepTimerState.isDone
+
+    // Set by the first press or wheel scroll anywhere in the app this launch, or by opening Now
+    // Playing. A launch banner that has not had its turn yet then waits for a later launch.
+    var userStarted by remember {
+        mutableStateOf(false)
+    }
+    LaunchedEffect(isShowNowPlaylistScreen) {
+        if (isShowNowPlaylistScreen) userStarted = true
+    }
+
+    val hazeState =
+        rememberHazeState()
 
     LaunchedEffect(intent) {
         val intent = intent ?: return@LaunchedEffect
@@ -284,7 +313,7 @@ fun App(
             if (inviteCode != null) {
                 viewModel.setIntent(null)
                 navController.navigate(ListenTogetherDestination(code = inviteCode))
-            } else if (data == "simpmusic://notification".toUri()) {
+            } else if (data.scheme == "simpmusic" && data.host == "notification") {
                 viewModel.setIntent(null)
                 navController.navigate(
                     NotificationDestination,
@@ -318,6 +347,13 @@ fun App(
                         segments.getOrNull(1)
                     }
                 Logger.d("MainActivity", "simpmusic.org deep link, appPath: $appPath")
+                // A path added to the when below must also go into APP_LINK_PATHS in AppLinks.kt.
+                // Some screens exist only with local tracking on or while signed in to YouTube; see
+                // isAppLinkAvailable. Read before setIntent(null): clearing the intent changes this
+                // effect's key, and the next frame cancels the effect wherever it is suspended, which
+                // would lose a navigation waiting on these reads.
+                val localTrackingOn = viewModel.getLocalTrackingEnabled().first() == TRUE
+                val youTubeLoggedIn = viewModel.getYouTubeLoggedIn().first() == TRUE
                 viewModel.setIntent(null)
                 when (appPath) {
                     "watch" -> {
@@ -376,9 +412,38 @@ fun App(
                     "library" -> {
                         val type = data.getQueryParameter("type")
                         if (type.isNullOrBlank()) {
-                            navController.navigate(LibraryDestination)
+                            // simpmusic://library?tab=wrapped → the Library tab on one of its chips,
+                            // named as LibraryChipType stores them (a launch banner points at Wrapped).
+                            val tab = libraryTabOf(data)
+                            if (!isAppLinkAvailable(appPath, tab, localTrackingOn, youTubeLoggedIn)) {
+                                viewModel.makeToast(getString(Res.string.this_link_is_not_supported))
+                            } else {
+                                viewModel.requestLibraryTab(tab)
+                                navController.navigate(LibraryDestination)
+                            }
                         } else {
                             navController.navigate(LibraryDynamicPlaylistDestination(type = type))
+                        }
+                    }
+
+                    // simpmusic://analytics — added for the launch banners.
+                    "analytics" -> {
+                        if (isAppLinkAvailable(appPath, null, localTrackingOn, youTubeLoggedIn)) {
+                            navController.navigate(AnalyticsDestination)
+                        } else {
+                            viewModel.makeToast(getString(Res.string.this_link_is_not_supported))
+                        }
+                    }
+
+                    // simpmusic://taste — the AI taste card, which sits on Your library. A link of its
+                    // own rather than library?tab=your_library, so it can say that the card exists only
+                    // while local tracking is on.
+                    "taste" -> {
+                        if (isAppLinkAvailable(appPath, null, localTrackingOn, youTubeLoggedIn)) {
+                            viewModel.requestLibraryTab(LibraryChipType.YOUR_LIBRARY)
+                            navController.navigate(LibraryDestination)
+                        } else {
+                            viewModel.makeToast(getString(Res.string.this_link_is_not_supported))
                         }
                     }
 
@@ -465,9 +530,10 @@ fun App(
 
     LaunchedEffect(updateData) {
         val response = updateData ?: return@LaunchedEffect
-        if (viewModel.showedUpdateDialog &&
-            response.tagName != getString(Res.string.version_format, VersionManager.getVersionName())
-        ) {
+        // Only a NEWER release is offered. This used to compare the tags for inequality, which told a
+        // build ahead of the latest release (dev, beta) to "update" back down to it, and told every
+        // F-Droid-channel user to update on each launch: that channel's tag carries no leading "v".
+        if (viewModel.showedUpdateDialog && VersionManager.isBehind(response.tagName)) {
             shouldShowUpdateDialog = true
         }
     }
@@ -552,6 +618,10 @@ fun App(
         accentFill = accentFill,
         pageImage = pageImage,
     ) {
+        if (!isOfficialBuild) {
+            UnofficialBuildScreen()
+            return@AppTheme
+        }
         // Backdrop base must match the theme: white page → white glass, dark/AMOLED → black glass.
         // Read inside AppTheme so MaterialTheme reflects the resolved scheme (light background is #FFFFFF).
         val isLightScheme = MaterialTheme.colorScheme.background.luminance() > 0.5f
@@ -585,7 +655,19 @@ fun App(
         ) {
         Box(Modifier.fillMaxSize()) {
         Scaffold(
-            modifier = if (pageBrush != null) Modifier.background(pageBrush) else Modifier,
+            // Watches for userStarted without consuming anything. Dialogs and sheets are windows or
+            // layers of their own, so a press inside one (closing the update dialog, say) does not count.
+            modifier =
+                (if (pageBrush != null) Modifier.background(pageBrush) else Modifier).pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (!userStarted) {
+                            val type = awaitPointerEvent(PointerEventPass.Initial).type
+                            if (type == PointerEventType.Press || type == PointerEventType.Scroll) {
+                                userStarted = true
+                            }
+                        }
+                    }
+                },
             containerColor =
                 when {
                     isDesktopShell -> desktopWindow
@@ -599,22 +681,28 @@ fun App(
                         enter = fadeIn() + slideInHorizontally(),
                         exit = fadeOut(),
                     ) {
+                        // On Android both materials go through the folding bar, which draws the mini
+                        // player itself. Desktop keeps the always-open flat bar under its own one.
+                        val useFoldingBar = getPlatform() == Platform.Android || isLiquidGlassEnabled == TRUE
                         Column {
                             AnimatedVisibility(
-                                isShowMiniPlayer && isLiquidGlassEnabled == DataStoreManager.FALSE,
+                                isShowMiniPlayer && !useFoldingBar && isLiquidGlassEnabled == DataStoreManager.FALSE,
                                 enter = fadeIn() + slideInHorizontally(),
                                 exit = fadeOut(),
                             ) {
                                 MiniPlayer(
                                     Modifier
-                                        .height(56.dp)
+                                        // 56dp card + the 4dp gap below.
+                                        .height(60.dp)
                                         .fillMaxWidth()
                                         .padding(
-                                            horizontal = 12.dp,
+                                            // The bottom bar's own 16dp, so both edges line up.
+                                            horizontal = 16.dp,
                                         ).padding(
                                             bottom = 4.dp,
                                         ),
                                     backdrop = backdrop,
+                                    navController = navController,
                                     onClick = {
                                         isShowNowPlaylistScreen = true
                                     },
@@ -624,7 +712,7 @@ fun App(
                                     },
                                 )
                             }
-                            if (isLiquidGlassEnabled == TRUE) {
+                            if (useFoldingBar) {
                                 LiquidGlassAppBottomNavigationBar(
                                     navController = navController,
                                     backdrop = backdrop,
@@ -633,13 +721,13 @@ fun App(
                                     isScrolledToTop = isScrolledToTop,
                                     showAnalyticsTab = showAnalyticsTab,
                                     showMixForYouTab = showMixForYouTab,
+                                    liquidGlass = isLiquidGlassEnabled == TRUE,
                                 ) { klass ->
                                     viewModel.reloadDestination(klass)
                                 }
                             } else {
                                 AppBottomNavigationBar(
                                     navController = navController,
-                                    isTranslucentBackground = isTranslucentBottomBar == TRUE,
                                     showAnalyticsTab = showAnalyticsTab,
                                     showMixForYouTab = showMixForYouTab,
                                 ) { klass ->
@@ -713,22 +801,28 @@ fun App(
                                         },
                                     ),
                             ) {
-                                AppNavigationGraph(
-                                    innerPadding = innerPadding,
-                                    navController = navController,
-                                    hideNavBar = {
-                                        isNavBarVisible = false
-                                    },
-                                    showNavBar = {
-                                        isNavBarVisible = true
-                                    },
-                                    showNowPlayingSheet = {
-                                        isShowNowPlaylistScreen = true
-                                    },
-                                    onScrolling = {
-                                        isScrolledToTop = it
-                                    },
-                                )
+                                CompositionLocalProvider(
+                                    LocalAppDialogOpen provides appDialogOpen,
+                                    LocalNowPlayingOpen provides isShowNowPlaylistScreen,
+                                    LocalUserStarted provides userStarted,
+                                ) {
+                                    AppNavigationGraph(
+                                        innerPadding = innerPadding,
+                                        navController = navController,
+                                        hideNavBar = {
+                                            isNavBarVisible = false
+                                        },
+                                        showNavBar = {
+                                            isNavBarVisible = true
+                                        },
+                                        showNowPlayingSheet = {
+                                            isShowNowPlaylistScreen = true
+                                        },
+                                        onScrolling = {
+                                            isScrolledToTop = it
+                                        },
+                                    )
+                                }
                             }
                             this@Row.AnimatedVisibility(
                                 modifier =
@@ -742,7 +836,8 @@ fun App(
                                 MiniPlayer(
                                     if (getPlatform() == Platform.Android) {
                                         Modifier
-                                            .height(56.dp)
+                                            // Glass keeps its 52dp card; the flat one is 56dp.
+                                            .height(if (isLiquidGlassEnabled == TRUE) 56.dp else 60.dp)
                                             .fillMaxWidth(0.8f)
                                             .padding(
                                                 horizontal = 12.dp,
@@ -767,12 +862,18 @@ fun App(
                                             .height(60.dp)
                                     },
                                     backdrop = backdrop,
+                                    navController = navController,
                                     onClick = {
                                         isShowNowPlaylistScreen = true
                                     },
                                     onClose = {
                                         viewModel.stopPlayer()
                                         viewModel.isServiceRunning = false
+                                    },
+                                    // The page lives in the Now Playing panel, so the panel opens with it.
+                                    onOpenFullscreenLyrics = {
+                                        viewModel.requestFullscreenLyrics()
+                                        isShowNowPlaylistScreen = true
                                     },
                                 )
                             }
@@ -956,6 +1057,9 @@ fun App(
                                         Res.string.update_message,
                                         response.tagName,
                                         formatted,
+                                        // values-iw/values-in still carry an old %3$s; Compose Resources indexes
+                                        // args without a bounds check, so omitting it crashes the dialog
+                                        "",
                                     )
                                 }
                             Column(

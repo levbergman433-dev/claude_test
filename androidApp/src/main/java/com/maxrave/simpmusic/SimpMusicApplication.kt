@@ -5,7 +5,6 @@ import android.app.Application
 import android.database.CursorWindow
 import android.os.Build
 import android.util.Log
-import androidx.appcompat.app.AppCompatDelegate
 import androidx.work.Configuration
 import androidx.work.WorkManager
 import cat.ereza.customactivityoncrash.config.CaocConfig
@@ -22,6 +21,7 @@ import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.di.viewModelModule
 import com.maxrave.simpmusic.service.backup.AutoBackupScheduler
+import com.maxrave.simpmusic.utils.NetworkFirstInterceptor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,6 +38,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.simpmusic.crashlytics.configCrashlytics
 import org.simpmusic.lastfm.configLastfm
+import java.io.File
 import java.lang.reflect.Field
 
 class SimpMusicApplication :
@@ -51,9 +52,10 @@ class SimpMusicApplication :
 
     override fun onCreate() {
         super.onCreate()
+        // First, so the rest of startup reaches the App log too (Settings → Developer option).
+        Logger.enableFileLogging(File(filesDir, "logs").path)
         // Before startKoin: the HTTP clients read this when they are built.
         Logger.isVerbose = BuildConfig.DEBUG
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         configCrashlytics(this, BuildKonfig.sentryDsn)
         configLastfm(BuildKonfig.lastfmApiKey, BuildKonfig.lastfmSecret)
         startKoin {
@@ -64,6 +66,7 @@ class SimpMusicApplication :
                     applicationId = BuildConfig.APPLICATION_ID,
                     versionName = BuildConfig.VERSION_NAME,
                     platform = "Android ${Build.VERSION.RELEASE}",
+                    isDevBuild = BuildConfig.DEBUG,
                 ),
             )
             loadKoinModules(viewModelModule)
@@ -114,26 +117,30 @@ class SimpMusicApplication :
         Logger.w("Terminate", "Checking")
     }
 
-    override fun newImageLoader(context: PlatformContext): ImageLoader =
-        ImageLoader
-            .Builder(context)
-            .components {
-                add(
-                    OkHttpNetworkFetcherFactory(
-                        callFactory = {
-                            OkHttpClient()
-                        },
-                    ),
-                )
-            }.diskCachePolicy(CachePolicy.ENABLED)
-            .networkCachePolicy(CachePolicy.ENABLED)
-            .diskCache(
-                DiskCache
-                    .Builder()
-                    .directory(FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "image_cache")
-                    // Covers are small; 250 MB still holds thousands of them.
-                    .maxSizeBytes(250L * 1024 * 1024)
-                    .build(),
-            ).crossfade(true)
-            .build()
+    override fun newImageLoader(context: PlatformContext): ImageLoader {
+        lateinit var imageLoader: ImageLoader
+        imageLoader =
+            ImageLoader
+                .Builder(context)
+                .components {
+                    add(NetworkFirstInterceptor { imageLoader })
+                    add(
+                        OkHttpNetworkFetcherFactory(
+                            callFactory = {
+                                OkHttpClient()
+                            },
+                        ),
+                    )
+                }.diskCachePolicy(CachePolicy.ENABLED)
+                .networkCachePolicy(CachePolicy.ENABLED)
+                .diskCache(
+                    DiskCache
+                        .Builder()
+                        .directory(FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "image_cache")
+                        .maxSizeBytes(250L * 1024 * 1024)
+                        .build(),
+                ).crossfade(true)
+                .build()
+        return imageLoader
+    }
 }
