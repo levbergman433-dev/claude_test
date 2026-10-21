@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import androidx.compose.foundation.layout.wrapContentHeight
 import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
 import androidx.compose.animation.core.snap
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicGlyphButton
@@ -1024,7 +1025,13 @@ private fun AppleMusicArtworkPage(
                             .alpha(coverAlpha)
                             .appleMusicVerticalFadeEdges(topFade = 0.dp, bottomFade = artworkFade),
                 )
-                TopBandBlur(model = coverRequest, solidTo = topBandSolid, fadeTo = topBand, modifier = Modifier.alpha(coverAlpha))
+                TopBandBlur(
+                    model = coverRequest,
+                    frameHeight = artworkHeight,
+                    solidTo = topBandSolid,
+                    fadeTo = topBand,
+                    modifier = Modifier.alpha(coverAlpha),
+                )
             }
             if (pageShowsClip && animatedArtwork != null) {
                 AnimatedArtworkFrame(
@@ -1248,7 +1255,7 @@ private fun AppleMusicArtworkPage(
                     modifier = Modifier.fillMaxSize().appleMusicVerticalFadeEdges(topFade = 0.dp, bottomFade = artworkFade),
                 )
                 // Blurred like the current page's, or its top band would turn sharp mid-swipe.
-                TopBandBlur(model = thumbRequest, solidTo = topBandSolid, fadeTo = topBand)
+                TopBandBlur(model = thumbRequest, frameHeight = artworkHeight, solidTo = topBandSolid, fadeTo = topBand)
             }
         }
     }
@@ -1406,7 +1413,7 @@ private fun BoxScope.AnimatedArtworkFrame(
             )
             // Nothing can blur the video surface itself, so its band is the still's, blurred: at 32dp
             // it is a wash of the clip's colours, which barely move in the strip under the status bar.
-            stillRequest?.let { TopBandBlur(model = it, solidTo = topBandSolid, fadeTo = topBand) }
+            stillRequest?.let { TopBandBlur(model = it, frameHeight = frameHeight, solidTo = topBandSolid, fadeTo = topBand) }
         }
     }
 }
@@ -1416,25 +1423,41 @@ private fun BoxScope.AnimatedArtworkFrame(
  * glyphs. A Modifier.blur copy of the picture, solid down to [solidTo] and gone by [fadeTo] — the
  * artist page's technique. Below Android 12 blur is a no-op, the copy is then pixel-identical to
  * the picture under it, and only the page's dark wash remains. Nothing when [fadeTo] is zero.
+ *
+ * Only the band is blurred, not the whole [frameHeight] frame: a blur costs in proportion to the
+ * area under it, on every frame the page draws, and everything below [fadeTo] is masked out anyway.
+ * The copy is laid out at the frame's full height inside the band, so it is cropped exactly as the
+ * picture under it is; the band runs one blur radius past [fadeTo] so the blur still reads the real
+ * pixels just below the fade rather than the band's clamped edge.
  */
 @Composable
 private fun TopBandBlur(
     model: Any?,
+    frameHeight: Dp,
     solidTo: Dp,
     fadeTo: Dp,
     modifier: Modifier = Modifier,
 ) {
     if (fadeTo <= 0.dp) return
-    AsyncImage(
-        model = model,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
+    Box(
         modifier =
             modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .height((fadeTo + TOP_BAND_BLUR).coerceAtMost(frameHeight))
                 .appleMusicFadeBetween(transparentAt = fadeTo, opaqueAt = solidTo)
                 .blur(TOP_BAND_BLUR),
-    )
+    ) {
+        AsyncImage(
+            model = model,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(align = Alignment.Top, unbounded = true)
+                    .height(frameHeight),
+        )
+    }
 }
 
 // The status-bar gradient: alpha × (1 − p)^1.5, dark right at the top and falling off fast, drawn
