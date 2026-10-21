@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.ui.screen
 
+import com.maxrave.simpmusic.ui.component.LocalCoveredByNowPlaying
+import androidx.compose.runtime.rememberUpdatedState
 import com.maxrave.simpmusic.ui.component.artworkFrame
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.Animatable
@@ -180,7 +182,10 @@ fun MiniPlayer(
     // 0.12 darken, which is why it looked like a smear rather than glass. The setting still governs
     // the Android card below.
     val useGlassSurface = isLiquidGlassEnabled == DataStoreManager.TRUE || getPlatform() == Platform.Desktop
-    val luminance = rememberGlassLuminance(layer, enabled = useGlassSurface && isVisible)
+    // Under a full-screen Now Playing sheet nothing here is seen, so nothing here moves: see
+    // LocalCoveredByNowPlaying.
+    val covered = LocalCoveredByNowPlaying.current
+    val luminance = rememberGlassLuminance(layer, enabled = useGlassSurface && isVisible && !covered)
 
     val isDarkTheme = LocalIsDarkTheme.current
     val textColor by animateColorAsState(
@@ -214,6 +219,13 @@ fun MiniPlayer(
         remember {
             mutableFloatStateOf(0f)
         }
+    // The latest position, kept while covered and handed to the bar the moment the sheet goes, so
+    // the bar is right on its first frame even when nothing is playing to tick it forward.
+    val latestProgress = remember { mutableFloatStateOf(0f) }
+    val coveredNow by rememberUpdatedState(covered)
+    LaunchedEffect(covered) {
+        if (!covered) progressState.floatValue = latestProgress.floatValue
+    }
     val (isCrossfading, setIsCrossfading) =
         remember {
             mutableStateOf(false)
@@ -260,7 +272,8 @@ fun MiniPlayer(
                         } else {
                             0f
                         }
-                    progressState.floatValue = prog
+                    latestProgress.floatValue = prog
+                    if (!coveredNow) progressState.floatValue = prog
                 }
             }
         job1.join()
@@ -477,10 +490,16 @@ fun MiniPlayer(
                                                     .fillMaxWidth()
                                                     .wrapContentHeight(
                                                         align = Alignment.CenterVertically,
-                                                    ).basicMarquee(
-                                                        iterations = Int.MAX_VALUE,
-                                                        repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
-                                                        animationMode = MarqueeAnimationMode.Immediately,
+                                                    ).then(
+                                                        if (covered) {
+                                                            Modifier
+                                                        } else {
+                                                            Modifier.basicMarquee(
+                                                                iterations = Int.MAX_VALUE,
+                                                                repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
+                                                                animationMode = MarqueeAnimationMode.Immediately,
+                                                            )
+                                                        },
                                                     ).focusable(),
                                         )
                                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -503,10 +522,16 @@ fun MiniPlayer(
                                                         .weight(1f)
                                                         .wrapContentHeight(
                                                             align = Alignment.CenterVertically,
-                                                        ).basicMarquee(
-                                                            iterations = Int.MAX_VALUE,
-                                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
-                                                            animationMode = MarqueeAnimationMode.Immediately,
+                                                        ).then(
+                                                            if (covered) {
+                                                                Modifier
+                                                            } else {
+                                                                Modifier.basicMarquee(
+                                                                    iterations = Int.MAX_VALUE,
+                                                                    repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
+                                                                    animationMode = MarqueeAnimationMode.Immediately,
+                                                                )
+                                                            },
                                                         ).focusable(),
                                             )
                                         }
@@ -807,10 +832,16 @@ fun MiniPlayer(
                                         .fillMaxWidth()
                                         .wrapContentHeight(
                                             align = Alignment.CenterVertically,
-                                        ).basicMarquee(
-                                            iterations = Int.MAX_VALUE,
-                                            repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
-                                            animationMode = MarqueeAnimationMode.Immediately,
+                                        ).then(
+                                            if (covered) {
+                                                Modifier
+                                            } else {
+                                                Modifier.basicMarquee(
+                                                    iterations = Int.MAX_VALUE,
+                                                    repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
+                                                    animationMode = MarqueeAnimationMode.Immediately,
+                                                )
+                                            },
                                         ).focusable(),
                             )
                             Row(verticalAlignment = Alignment.CenterVertically) {

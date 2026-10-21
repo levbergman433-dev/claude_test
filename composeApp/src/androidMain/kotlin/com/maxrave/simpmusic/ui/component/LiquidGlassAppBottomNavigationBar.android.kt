@@ -84,7 +84,8 @@ actual fun LiquidGlassAppBottomNavigationBar(
     val layer = rememberGraphicsLayer()
     val searchFabInteraction = rememberGlassInteraction()
     // Only the glass reads what is behind it.
-    val luminance = rememberGlassLuminance(layer, enabled = liquidGlass)
+    // Not sampled under a full-screen Now Playing sheet (LocalCoveredByNowPlaying).
+    val luminance = rememberGlassLuminance(layer, enabled = liquidGlass && !LocalCoveredByNowPlaying.current)
 
     val nowPlayingData by viewModel.nowPlayingState.collectAsStateWithLifecycle()
     // MiniPlayer visibility: derived, never stored.

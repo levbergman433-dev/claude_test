@@ -2,14 +2,9 @@ package com.maxrave.simpmusic.ui.component
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.maxrave.simpmusic.ui.theme.LocalBatterySaver
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,6 +62,15 @@ import kotlin.math.sin
  */
 val LocalPlaybackActive = staticCompositionLocalOf<State<Boolean>> { mutableStateOf(true) }
 
+/**
+ * True in the main window while the Now Playing sheet covers all of it (phones). The window under
+ * the sheet still draws every frame something in it asks for — and with its glass bars and blurred
+ * top bars, each of those frames is a second full-screen render behind the one on show — so what
+ * animates on its own there (these indicators, the mini player's marquee, progress line and glass
+ * sampling) holds still until the sheet goes. The sheet itself provides false again.
+ */
+val LocalCoveredByNowPlaying = compositionLocalOf { false }
+
 @Composable
 fun AudioPlayingIndicator(
     modifier: Modifier = Modifier,
@@ -76,7 +80,7 @@ fun AudioPlayingIndicator(
     // current song's row used to keep the loop running for as long as it was on screen.
     val playing by LocalPlaybackActive.current
     val phase by rememberLoopingPhase(
-        active = playing && !LocalBatterySaver.current,
+        active = playing && !LocalBatterySaver.current && !LocalCoveredByNowPlaying.current,
         periodMillis = AUDIO_CYCLE_MS,
     )
 
@@ -141,16 +145,9 @@ fun DownloadingIndicator(
     modifier: Modifier = Modifier,
     color: Color = Color.White,
 ) {
-    val transition = rememberInfiniteTransition(label = "downloading")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = DOWNLOAD_CYCLE_MS, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-        label = "phase",
+    val phase by rememberLoopingPhase(
+        active = !LocalCoveredByNowPlaying.current,
+        periodMillis = DOWNLOAD_CYCLE_MS,
     )
 
     Canvas(modifier = modifier) {

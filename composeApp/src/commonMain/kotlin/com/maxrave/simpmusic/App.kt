@@ -3,6 +3,7 @@ package com.maxrave.simpmusic
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.maxrave.simpmusic.ui.component.LocalPlaybackActive
+import com.maxrave.simpmusic.ui.component.LocalCoveredByNowPlaying
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import com.maxrave.simpmusic.ui.theme.PageImage
@@ -663,6 +664,8 @@ fun App(
                 .collectAsStateWithLifecycle(false)
         CompositionLocalProvider(
             LocalPlaybackActive provides playbackActive,
+            // Phones: the sheet covers the whole window. A tablet or Desktop panel sits beside it.
+            LocalCoveredByNowPlaying provides (isShowNowPlaylistScreen && !isTabletLandscape),
             LocalGlassMenuHost provides glassMenuHost.takeIf { pageIsBackdropSource && menuStyle != MENU_STYLE_FROSTED },
             LocalTopBarStyle provides (topBarStyle ?: TOP_BAR_DEFAULT),
         ) {
@@ -948,11 +951,14 @@ fun App(
                 }
 
                 if (isShowNowPlaylistScreen && !isTabletLandscape) {
-                    ForceDarkContent {
-                        NowPlayingScreen(
-                            navController = navController,
-                        ) {
-                            isShowNowPlaylistScreen = false
+                    // The sheet inherits this tree's locals; it is what covers, not what is covered.
+                    CompositionLocalProvider(LocalCoveredByNowPlaying provides false) {
+                        ForceDarkContent {
+                            NowPlayingScreen(
+                                navController = navController,
+                            ) {
+                                isShowNowPlaylistScreen = false
+                            }
                         }
                     }
                 }
