@@ -114,7 +114,8 @@ run_pass() {
     revive
     note "== pass $tag"
     adb shell am force-stop "$PKG"
-    set_prefs "now_playing_style=$style" "liquid_glass=$glass"
+    # The log-in warning would otherwise sit over Home in every first screenshot.
+    set_prefs "now_playing_style=$style" "liquid_glass=$glass" "should_show_log_in_required_alert=FALSE"
     adb logcat -c
     adb logcat -v threadtime > "$OUT/logcat-$tag.txt" 2>/dev/null &
     local logcat_pid=$!
@@ -146,7 +147,10 @@ run_pass() {
         frames "np-idle-$tag"
         shot "nowplaying-$tag"
         adb shell input keyevent KEYCODE_BACK
-        sleep 2
+        # The app behind the sheet holds still while it is open (LocalCoveredByNowPlaying): this
+        # shows the mini player picking up again once the sheet has gone.
+        sleep 4
+        shot "closed-$tag"
     else
         note "[$tag] emulator went down while opening Now Playing"
     fi
