@@ -1,5 +1,9 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.login_sync_section
+import simpmusic.composeapp.generated.resources.equalizer_type
+import simpmusic.composeapp.generated.resources.open_system_equalizer
+import simpmusic.composeapp.generated.resources.use_your_system_equalizer
 import simpmusic.composeapp.generated.resources.app_log_description
 import simpmusic.composeapp.generated.resources.app_log
 import simpmusic.composeapp.generated.resources.lyrics_offset_message
@@ -230,6 +234,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.profile_badge_name_color, null, SettingsCategory.APPEARANCE, "profile_badge"),
         SettingsSearchEntry(Res.string.profile_badge_icon, null, SettingsCategory.APPEARANCE, "profile_badge"),
         SettingsSearchEntry(Res.string.profile_badge_icon_color, null, SettingsCategory.APPEARANCE, "profile_badge"),
+        SettingsSearchEntry(Res.string.login_sync_section, null, SettingsCategory.ACCOUNT, "login_sync"),
         SettingsSearchEntry(Res.string.youtube_account, Res.string.manage_your_youtube_accounts, SettingsCategory.ACCOUNT, "content"),
         SettingsSearchEntry(Res.string.language, null, SettingsCategory.ACCOUNT, "content"),
         SettingsSearchEntry(Res.string.content_country, null, SettingsCategory.ACCOUNT, "content"),
@@ -254,6 +259,8 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.proxy_password, null, SettingsCategory.ACCOUNT, "proxy"),
         SettingsSearchEntry(Res.string.normalize_volume, Res.string.balance_media_loudness, SettingsCategory.PLAYBACK, "audio"),
         SettingsSearchEntry(Res.string.skip_silent, Res.string.skip_no_music_part, SettingsCategory.PLAYBACK, "audio"),
+        SettingsSearchEntry(Res.string.equalizer_type, null, SettingsCategory.PLAYBACK, "audio"),
+        SettingsSearchEntry(Res.string.open_system_equalizer, Res.string.use_your_system_equalizer, SettingsCategory.PLAYBACK, "audio"),
         SettingsSearchEntry(Res.string.equalizer, Res.string.equalizer_description, SettingsCategory.PLAYBACK, "playback"),
         SettingsSearchEntry(Res.string.audio_delay, Res.string.audio_delay_description, SettingsCategory.PLAYBACK, "playback"),
         SettingsSearchEntry(Res.string.audio_reverb, Res.string.audio_reverb_description, SettingsCategory.PLAYBACK, "playback"),
@@ -315,6 +322,7 @@ internal val settingsSections: List<SettingsSectionInfo> =
         SettingsSectionInfo(SettingsCategory.APPEARANCE, "night_mode", Res.string.settings_section_night_mode),
         SettingsSectionInfo(SettingsCategory.APPEARANCE, "layout", Res.string.settings_section_layout),
         SettingsSectionInfo(SettingsCategory.APPEARANCE, "profile_badge", Res.string.profile_badge),
+        SettingsSectionInfo(SettingsCategory.ACCOUNT, "login_sync", Res.string.login_sync_section),
         SettingsSectionInfo(SettingsCategory.ACCOUNT, "content", Res.string.content),
         SettingsSectionInfo(SettingsCategory.PLAYBACK, "quality", Res.string.settings_quality_header),
         SettingsSectionInfo(SettingsCategory.PLAYBACK, "audio", Res.string.audio),

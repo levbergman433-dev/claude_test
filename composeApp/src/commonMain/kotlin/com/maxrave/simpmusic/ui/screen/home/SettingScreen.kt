@@ -1,5 +1,17 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.expect.ui.LoginSyncDialog
+import simpmusic.composeapp.generated.resources.login_sync_section
+import simpmusic.composeapp.generated.resources.login_sync_android_title
+import simpmusic.composeapp.generated.resources.login_sync_desktop_title
+import simpmusic.composeapp.generated.resources.login_sync_android_description
+import simpmusic.composeapp.generated.resources.login_sync_desktop_description
+import com.maxrave.simpmusic.expect.ui.openEqResult
+import simpmusic.composeapp.generated.resources.equalizer_type
+import simpmusic.composeapp.generated.resources.equalizer_type_built_in
+import simpmusic.composeapp.generated.resources.equalizer_type_system
+import simpmusic.composeapp.generated.resources.open_system_equalizer
+import simpmusic.composeapp.generated.resources.use_your_system_equalizer
 import com.maxrave.simpmusic.expect.ui.filePickerResult
 import com.maxrave.simpmusic.ui.navigation.destination.home.AppLogDestination
 import simpmusic.composeapp.generated.resources.preferred_audio_language
@@ -759,6 +771,8 @@ fun SettingScreen(
     val loggedIn by viewModel.loggedIn.collectAsStateWithLifecycle()
     val syncFollowToYouTube by viewModel.syncFollowToYouTube.collectAsStateWithLifecycle()
     val equalizerEnabled by viewModel.equalizerEnabled.collectAsStateWithLifecycle()
+    val equalizerType by viewModel.equalizerType.collectAsStateWithLifecycle()
+    val resultLauncher = openEqResult(viewModel.getAudioSessionId())
     val delayEnabled by viewModel.delayEnabled.collectAsStateWithLifecycle()
     val reverbEnabled by viewModel.reverbEnabled.collectAsStateWithLifecycle()
     val lastfmLoggedIn by viewModel.lastfmLoggedIn.collectAsStateWithLifecycle()
@@ -796,6 +810,9 @@ fun SettingScreen(
         }
     }
     var showYouTubeAccountDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+    var showLoginSyncDialog by rememberSaveable {
         mutableStateOf(false)
     }
     var showThirdPartyLibraries by rememberSaveable {
@@ -1576,6 +1593,32 @@ fun SettingScreen(
                 }
             }
         }
+        // Sign-ins travel between this phone and a desktop by QR code, instead of logging in twice.
+        if (isOpen(SettingsCategory.ACCOUNT)) sectionItem(sectionOrder, "login_sync") {
+            Column {
+                Text(
+                    text = stringResource(Res.string.login_sync_section),
+                    style = typo().labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                SettingItem(
+                    title =
+                        stringResource(
+                            if (getPlatform() == Platform.Android) Res.string.login_sync_android_title else Res.string.login_sync_desktop_title,
+                        ),
+                    subtitle =
+                        stringResource(
+                            if (getPlatform() == Platform.Android) {
+                                Res.string.login_sync_android_description
+                            } else {
+                                Res.string.login_sync_desktop_description
+                            },
+                        ),
+                    onClick = { showLoginSyncDialog = true },
+                )
+            }
+        }
         if (isOpen(SettingsCategory.ACCOUNT)) sectionItem(sectionOrder, "content") {
             Column {
                 Text(
@@ -2033,6 +2076,51 @@ fun SettingScreen(
                         subtitle = stringResource(Res.string.skip_no_music_part),
                         switch = (skipSilent to { viewModel.setSkipSilent(it) }),
                     )
+                    val equalizerTypeLabels =
+                        listOf(
+                            DataStoreManager.EQUALIZER_TYPE_BUILT_IN to stringResource(Res.string.equalizer_type_built_in),
+                            DataStoreManager.EQUALIZER_TYPE_SYSTEM to stringResource(Res.string.equalizer_type_system),
+                        )
+                    SettingItem(
+                        title = stringResource(Res.string.equalizer_type),
+                        subtitle = equalizerTypeLabels.firstOrNull { it.first == equalizerType }?.second ?: "",
+                        onClick = {
+                            viewModel.setAlertData(
+                                SettingAlertState(
+                                    title = runBlocking { getString(Res.string.equalizer_type) },
+                                    selectOne =
+                                        SettingAlertState.SelectData(
+                                            listSelect = equalizerTypeLabels.map { (it.first == equalizerType) to it.second },
+                                        ),
+                                    confirm =
+                                        runBlocking { getString(Res.string.change) } to { state ->
+                                            val selected = state.selectOne?.getSelected()
+                                            equalizerTypeLabels.firstOrNull { it.second == selected }?.first?.let {
+                                                viewModel.setEqualizerType(it)
+                                            }
+                                        },
+                                    dismiss = runBlocking { getString(Res.string.cancel) },
+                                ),
+                            )
+                        },
+                    )
+                    AnimatedVisibility(visible = equalizerType == DataStoreManager.EQUALIZER_TYPE_SYSTEM) {
+                        SettingItem(
+                            title = stringResource(Res.string.open_system_equalizer),
+                            subtitle =
+                                if (castState.isRemote) {
+                                    stringResource(Res.string.not_available_while_casting)
+                                } else {
+                                    stringResource(Res.string.use_your_system_equalizer)
+                                },
+                            isEnable = !castState.isRemote,
+                            onClick = {
+                                coroutineScope.launch {
+                                    resultLauncher.launch()
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -2048,17 +2136,23 @@ fun SettingScreen(
                 // Android-only branch — "Open system equalizer" is an Android feature — and this
                 // one is on both platforms: mpv's `af` chain on Desktop, an AudioProcessor in the
                 // Media3 sink on Android, driven from the same stored curve.
-                SettingItem(
-                    title = stringResource(Res.string.equalizer),
-                    subtitle = stringResource(Res.string.equalizer_description),
-                    smallSubtitle = true,
-                    switch = (equalizerEnabled to { viewModel.setEqualizerEnabled(it) }),
-                )
-                // Only while on. A curve that visibly does nothing is worse than no curve —
-                // and the stored bands survive the switch, so turning it back on returns to
-                // the shape the user built rather than to flat.
-                AnimatedVisibility(visible = equalizerEnabled) {
-                    EqualizerSection()
+                // Hidden while the system equalizer is chosen: the player bypasses the built-in
+                // curve then, and two equalizers on one session would multiply.
+                AnimatedVisibility(visible = getPlatform() != Platform.Android || equalizerType != DataStoreManager.EQUALIZER_TYPE_SYSTEM) {
+                    Column {
+                        SettingItem(
+                            title = stringResource(Res.string.equalizer),
+                            subtitle = stringResource(Res.string.equalizer_description),
+                            smallSubtitle = true,
+                            switch = (equalizerEnabled to { viewModel.setEqualizerEnabled(it) }),
+                        )
+                        // Only while on. A curve that visibly does nothing is worse than no curve —
+                        // and the stored bands survive the switch, so turning it back on returns to
+                        // the shape the user built rather than to flat.
+                        AnimatedVisibility(visible = equalizerEnabled) {
+                            EqualizerSection()
+                        }
+                    }
                 }
                 // Beside the equalizer rather than in its own group: all three are the same kind of
                 // thing — one stored setting reshaping the audio on both backends — and a user
@@ -3712,6 +3806,9 @@ fun SettingScreen(
                 }
             },
         )
+    }
+    if (showLoginSyncDialog) {
+        LoginSyncDialog(onDismiss = { showLoginSyncDialog = false })
     }
     if (showYouTubeAccountDialog) {
         BasicAlertDialog(
