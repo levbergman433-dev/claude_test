@@ -1,5 +1,8 @@
 package com.maxrave.simpmusic
 
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import com.maxrave.simpmusic.ui.component.LocalPlaybackActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import com.maxrave.simpmusic.ui.theme.PageImage
@@ -648,7 +651,12 @@ fun App(
                         ((isLiquidGlassEnabled == TRUE || getPlatform() == Platform.Desktop) && isTablet && !isInFullscreen)
                 )
         val glassMenuHost = remember(backdrop) { GlassMenuHost(backdrop) }
+        // Never read here: only the playing indicators read it, so a pause redraws those alone.
+        val playbackActive =
+            remember(viewModel) { viewModel.controllerState.map { it.isPlaying }.distinctUntilChanged() }
+                .collectAsStateWithLifecycle(false)
         CompositionLocalProvider(
+            LocalPlaybackActive provides playbackActive,
             LocalGlassMenuHost provides glassMenuHost.takeIf { pageIsBackdropSource && menuStyle != MENU_STYLE_FROSTED },
             LocalTopBarStyle provides (topBarStyle ?: TOP_BAR_DEFAULT),
         ) {

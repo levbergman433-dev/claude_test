@@ -1,5 +1,9 @@
 package com.maxrave.simpmusic.ui.component
 
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.staticCompositionLocalOf
+import com.maxrave.simpmusic.ui.theme.LocalBatterySaver
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -57,21 +61,23 @@ import kotlin.math.sin
  * The motion lives in animated PATHS (the rectangle is redrawn vertex by vertex each keyframe),
  * not in any transform, which is why every layer and parent in the file reads `p=(0,0)`.
  */
+/**
+ * Whether the player is actually playing, not merely holding a current song. Provided as a State
+ * so the provider never recomposes when it flips; only the indicators that read it do.
+ */
+val LocalPlaybackActive = staticCompositionLocalOf<State<Boolean>> { mutableStateOf(true) }
+
 @Composable
 fun AudioPlayingIndicator(
     modifier: Modifier = Modifier,
     color: Color = AudioIndicatorCyan,
 ) {
-    val transition = rememberInfiniteTransition(label = "audioPlaying")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = AUDIO_CYCLE_MS, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-        label = "phase",
+    // Frozen mid-bounce while paused, as Apple Music's bars are, and in battery saver. The
+    // current song's row used to keep the loop running for as long as it was on screen.
+    val playing by LocalPlaybackActive.current
+    val phase by rememberLoopingPhase(
+        active = playing && !LocalBatterySaver.current,
+        periodMillis = AUDIO_CYCLE_MS,
     )
 
     Canvas(modifier = modifier) {
