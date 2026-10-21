@@ -1,15 +1,12 @@
 package com.maxrave.simpmusic.ui.component
 
+import androidx.compose.ui.draw.drawBehind
+import com.maxrave.simpmusic.ui.theme.LocalBatterySaver
 import androidx.compose.animation.Animatable
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -289,19 +286,11 @@ fun FullscreenLyricsContent(
                 )
             }
         } else {
-            // Crossfade: RGB rainbow color cycling when transitioning between tracks
-            val infiniteTransition = rememberInfiniteTransition(label = "crossfadeRainbow")
-            val rainbowHue by infiniteTransition.animateFloat(
-                initialValue = 0f,
-                targetValue = 360f,
-                animationSpec =
-                    infiniteRepeatable(
-                        animation = tween(1000, easing = LinearEasing),
-                        repeatMode = RepeatMode.Restart,
-                    ),
-                label = "rainbowHue",
-            )
-            val rainbowColor = hsvToColor(rainbowHue, 1f, 1f)
+            // Crossfade: RGB rainbow color cycling when transitioning between tracks. Only ticks
+            // while a crossfade runs: it is read here, so an always-running loop recomposed this
+            // whole page at the display's refresh rate for as long as the lyrics were open.
+            val rainbowPhase by rememberLoopingPhase(active = timelineState.isCrossfading, periodMillis = 1000)
+            val rainbowColor = hsvToColor(rainbowPhase * 360f, 1f, 1f)
             val sliderTrackColor by animateColorAsState(
                 targetValue = if (timelineState.isCrossfading) rainbowColor else Color.White,
                 animationSpec = tween(300),
@@ -1190,42 +1179,12 @@ internal fun AnimatedLyricsGradientBackground(
     val endColor = remember { Animatable(Color.Black) }
 
     // Dynamic gradient animation - MULTIPLE DIRECTIONS
-    // Replaces the previous `while(true) { delay(16) }` loop with a Compose
-    // infinite transition.
-    val gradientTransition = rememberInfiniteTransition(label = "lyricsGradient")
-    val animatedAngle by gradientTransition.animateFloat(
-        initialValue = -45f,
-        targetValue = 45f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 6000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "lyricsGradientAngle",
-    )
-    val animatedOffsetX by gradientTransition.animateFloat(
-        initialValue = -1500f,
-        targetValue = 1500f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 8000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "lyricsGradientOffsetX",
-    )
-    val animatedOffsetY by gradientTransition.animateFloat(
-        initialValue = -1000f,
-        targetValue = 1000f,
-        animationSpec =
-            infiniteRepeatable(
-                animation = tween(durationMillis = 8000, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-        label = "lyricsGradientOffsetY",
-    )
-    val gradientAngle = animatedAngle
-    val gradientOffsetX = animatedOffsetX
-    val gradientOffsetY = animatedOffsetY
+    // Kept as State objects and only read inside drawBehind below, so the drift costs a redraw of
+    // the background per frame rather than a recomposition. Battery saver freezes it where it is.
+    val animateGradient = !LocalBatterySaver.current
+    val gradientAngle = rememberPingPong(animateGradient, from = -45f, to = 45f, durationMillis = 6000)
+    val gradientOffsetX = rememberPingPong(animateGradient, from = -1500f, to = 1500f, durationMillis = 8000)
+    val gradientOffsetY = rememberPingPong(animateGradient, from = -1000f, to = 1000f, durationMillis = 8000)
 
     // Smooth color animation based on lyrics color
     LaunchedEffect(color) {
@@ -1259,27 +1218,32 @@ internal fun AnimatedLyricsGradientBackground(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors =
-                            listOf(
-                                startColor.value,
-                                midColor1.value,
-                                midColor2.value,
-                                endColor.value.copy(alpha = 0.9f),
-                                endColor.value,
-                            ),
-                        start =
-                            Offset(
-                                x = gradientOffsetX + (cos(gradientAngle * PI.toFloat() / 180f) * 800f),
-                                y = gradientOffsetY + (sin(gradientAngle * PI.toFloat() / 180f) * 800f),
-                            ),
-                        end =
-                            Offset(
-                                x = gradientOffsetX + 2500f + (cos((gradientAngle + 180f) * PI.toFloat() / 180f) * 800f),
-                                y = gradientOffsetY + 2500f + (sin((gradientAngle + 180f) * PI.toFloat() / 180f) * 800f),
-                            ),
-                    ),
-                ),
+                .drawBehind {
+                    val angle = gradientAngle.value
+                    val offsetX = gradientOffsetX.value
+                    val offsetY = gradientOffsetY.value
+                    drawRect(
+                        Brush.linearGradient(
+                            colors =
+                                listOf(
+                                    startColor.value,
+                                    midColor1.value,
+                                    midColor2.value,
+                                    endColor.value.copy(alpha = 0.9f),
+                                    endColor.value,
+                                ),
+                            start =
+                                Offset(
+                                    x = offsetX + (cos(angle * PI.toFloat() / 180f) * 800f),
+                                    y = offsetY + (sin(angle * PI.toFloat() / 180f) * 800f),
+                                ),
+                            end =
+                                Offset(
+                                    x = offsetX + 2500f + (cos((angle + 180f) * PI.toFloat() / 180f) * 800f),
+                                    y = offsetY + 2500f + (sin((angle + 180f) * PI.toFloat() / 180f) * 800f),
+                                ),
+                        ),
+                    )
+                },
     )
 }
