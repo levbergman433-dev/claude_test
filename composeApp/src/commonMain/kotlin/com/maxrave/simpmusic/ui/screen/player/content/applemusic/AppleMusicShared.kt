@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState

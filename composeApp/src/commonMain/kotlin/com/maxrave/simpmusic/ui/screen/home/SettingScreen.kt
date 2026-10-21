@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import com.maxrave.simpmusic.expect.ui.filePickerResult
 import com.maxrave.simpmusic.ui.navigation.destination.home.AppLogDestination
 import simpmusic.composeapp.generated.resources.preferred_audio_language
 import simpmusic.composeapp.generated.resources.preferred_audio_language_message
@@ -302,11 +303,6 @@ import com.mikepenz.aboutlibraries.ui.compose.LibraryDefaults
 import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import com.mikepenz.aboutlibraries.ui.compose.m3.libraryColors
 import com.mikepenz.aboutlibraries.ui.compose.produceLibraries
-import com.mohamedrejeb.calf.core.ExperimentalCalfApi
-import com.mohamedrejeb.calf.io.getPath
-import com.mohamedrejeb.calf.picker.FilePickerFileType
-import com.mohamedrejeb.calf.picker.FilePickerSelectionMode
-import com.mohamedrejeb.calf.picker.rememberFilePickerLauncher
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.blur.hazeBlur
 import com.maxrave.simpmusic.extension.barBlurStyle
@@ -590,7 +586,6 @@ import java.time.format.DateTimeFormatter
     ExperimentalMaterial3Api::class,
     ExperimentalCoilApi::class,
     FormatStringsInDatetimeFormats::class,
-    ExperimentalCalfApi::class,
 )
 @Composable
 fun SettingScreen(
@@ -600,7 +595,6 @@ fun SettingScreen(
     sharedViewModel: SharedViewModel = koinInject(),
 ) {
     val platformContext = LocalPlatformContext.current
-    val pl = com.mohamedrejeb.calf.core.LocalPlatformContext.current
     val localDensity = LocalDensity.current
     val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
@@ -629,30 +623,21 @@ fun SettingScreen(
         }
 
     val restoreLauncher =
-        rememberFilePickerLauncher(
-            type =
-                FilePickerFileType.All,
-            selectionMode = FilePickerSelectionMode.Single,
-        ) { file ->
-            file.firstOrNull()?.getPath(pl)?.toKmpUri()?.let {
-                viewModel.restore(it)
+        filePickerResult { uri ->
+            uri?.let {
+                viewModel.restore(it.toKmpUri())
             }
         }
 
-    // Import playlists converted on the web. Unlike restore, the file is read through Calf's
-    // KmpFile rather than a Uri, so no expect/actual is needed. The type stays All because a
+    // Import playlists converted on the web. filePickerResult offers every file type, because a
     // converted .json arrives with whatever MIME its source assigned it, and an application/json
     // filter would hide it on some hosts.
     val importViewModel: ImportViewModel = koinViewModel()
     val importState by importViewModel.importState.collectAsStateWithLifecycle()
     val importLauncher =
-        rememberFilePickerLauncher(
-            type =
-                FilePickerFileType.All,
-            selectionMode = FilePickerSelectionMode.Single,
-        ) { file ->
-            file.firstOrNull()?.let {
-                importViewModel.import(it, pl)
+        filePickerResult { uri ->
+            uri?.let {
+                importViewModel.import(it.toKmpUri())
             }
         }
 

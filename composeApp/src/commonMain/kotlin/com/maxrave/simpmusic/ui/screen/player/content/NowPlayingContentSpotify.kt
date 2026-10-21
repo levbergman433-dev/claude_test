@@ -2,6 +2,8 @@
 
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import simpmusic.composeapp.generated.resources.live_badge
+import kotlin.math.roundToLong
 import com.maxrave.simpmusic.ui.icon.Bedtime
 import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
@@ -1951,6 +1953,16 @@ internal fun ColumnScope.SpotifyPlaybackControls(
     actions: NowPlayingContentActions,
     sliderModifier: Modifier = Modifier,
 ) {
+    // The position changes on every tick (10x a second on screen). Only the seek bar reads it
+    // directly, in a scope of its own; everything else reads values derived from it that change
+    // once a second at most, so a tick no longer recomposes the whole control block.
+    val loading by remember(state) { derivedStateOf { state.timelineState.loading } }
+    val crossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
+    val isLive by remember(state) { derivedStateOf { state.timelineState.isLive } }
+    val elapsedMs by remember(state) {
+        derivedStateOf { snapToSecond((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
+    }
+    val totalMs by remember(state) { derivedStateOf { state.timelineState.total } }
     // Real Slider
     Box(
         Modifier
@@ -1966,7 +1978,7 @@ internal fun ColumnScope.SpotifyPlaybackControls(
                     .height(24.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Crossfade(state.timelineState.loading) {
+            Crossfade(loading) {
                 if (it) {
                     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                         LinearProgressIndicator(
@@ -2010,6 +2022,7 @@ internal fun ColumnScope.SpotifyPlaybackControls(
             }
         }
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+            ExpressiveSeekBarScope {
             Slider(
                 // material3 1.5.0-alpha25 keeps a
                 // binary-compatibility overload of Slider that
@@ -2076,6 +2089,7 @@ internal fun ColumnScope.SpotifyPlaybackControls(
                     )
                 },
             )
+            }
         }
     }
     // Time Layout
@@ -2085,31 +2099,20 @@ internal fun ColumnScope.SpotifyPlaybackControls(
             .padding(horizontal = 20.dp),
     ) {
         Text(
-            text = state.timelineState.elapsedLabel(state.sliderValue / 100f),
+            text = if (isLive) "" else formatDuration(elapsedMs),
             style = typo().bodyMedium,
             color = state.secondaryTextColor(),
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Left,
         )
-        // Sweep head for the "Crossfading" shimmer, 0..1. Runs
-        // unconditionally: behind the crossfade check it would
-        // restart from zero each time the label appears (same
-        // rationale as MiniPlayer's crossfadeSweep).
-        val sweepTransition = rememberInfiniteTransition(label = "nowPlayingCrossfadeSweep")
-        val crossfadeSweep by sweepTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(3200, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-            label = "nowPlayingSweepHead",
-        )
+        // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
+        // resumes from where it paused, so the sweep never jumps and nothing redraws per frame
+        // while the label is hidden (see rememberLoopingPhase).
+        val crossfadeSweep by rememberLoopingPhase(active = crossfading)
         AnimatedVisibility(
             enter = fadeIn(),
             exit = fadeOut(),
-            visible = state.timelineState.isCrossfading,
+            visible = crossfading,
         ) {
             // Same effect as the desktop MiniPlayer label: a
             // highlight sweeping through the glyphs via a text
@@ -2138,7 +2141,7 @@ internal fun ColumnScope.SpotifyPlaybackControls(
             )
         }
         Text(
-            text = state.timelineState.lengthLabel(),
+            text = if (isLive) stringResource(Res.string.live_badge) else formatDuration(totalMs),
             style = typo().bodyMedium,
             color = state.secondaryTextColor(),
             modifier = Modifier.weight(1f),

@@ -24,13 +24,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -110,14 +108,9 @@ import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicHeade
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicLyricsView
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicQueueView
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicTypography
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicBottomCluster
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicHeaderActions
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicLyricStrip
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicLyricsView
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicMeshBackdrop
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicOutputSheet
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicQueueView
-import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicTypography
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicView
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.LocalAppleMusicGlassBackdrop
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.appleMusicFadeBetween
@@ -638,72 +631,55 @@ private fun AppleMusicMainView(
                     enter = fadeIn(),
                     exit = fadeOut(),
                 ) {
-                    Spacer(modifier = Modifier.height(20.dp))
-                    AppleMusicMainTitleRow(state = state, actions = actions, typography = typography)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    AppleMusicBottomCluster(
-                        state = state,
-                        actions = actions,
-                        typography = typography,
-                        viewState = viewState,
-                        onSelectView = onSelectView,
-                        activePillContainer = activePillContainer,
-                        activePillContent = activePillContent,
-                        deviceVolumeController = deviceVolumeController,
-                    )
-                }
-                // Idle overlay — replaces the (now invisible) title row + cluster while canvas/video
-                // controls are auto-hidden, mirroring M3E's canvas-unfocused overlay verbatim.
-                if (showCanvasBackdrop) {
-                    AnimatedVisibility(
-                        visible = !state.showControlLayout,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(bottomContentHeightDp.dp)
+                                .clickable(
+                                    onClick = { actions.onToggleControls() },
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() },
+                                ),
+                        contentAlignment = Alignment.BottomStart,
                     ) {
+                        // The page's OWN colour, not black. This scrim is what the artwork fades
+                        // INTO, so it has to be the same tone the page is painted with below it —
+                        // appleMusicGradientColorAt(seed, 1f), i.e. the thumbnail's colour darkened,
+                        // exactly like the bottom stop of backdropBrush. Fading to black instead
+                        // laid a dark slab over a tinted page and left a visible seam where the two
+                        // met, which read as "black smudge into transparent".
+                        //
+                        // Fully opaque at the bottom for the same reason: at 0.85 the artwork still
+                        // showed through the last few pixels and tinted the seam a different colour
+                        // than the page continuing beneath it.
+                        val pageScrimColor = appleMusicGradientColorAt(seedColor, 1f)
                         Box(
                             modifier =
                                 Modifier
-                                    .fillMaxWidth()
-                                    .height(bottomContentHeightDp.dp)
-                                    .clickable(
-                                        onClick = { actions.onToggleControls() },
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() },
+                                    .fillMaxSize()
+                                    .background(
+                                        smoothScrimBrush(
+                                            from = pageScrimColor.copy(alpha = 0f),
+                                            to = pageScrimColor,
+                                        ),
                                     ),
-                            contentAlignment = Alignment.BottomStart,
+                        )
+                        Column(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        bottom =
+                                            with(localDensity) {
+                                                WindowInsets.systemBars.getBottom(localDensity).toDp()
+                                            } + 16.dp,
+                                    ),
                         ) {
-                            // The page's OWN colour, not black. This scrim is what the artwork fades
-                            // INTO, so it has to be the same tone the page is painted with below it —
-                            // appleMusicGradientColorAt(seed, 1f), i.e. the thumbnail's colour darkened,
-                            // exactly like the bottom stop of backdropBrush. Fading to black instead
-                            // laid a dark slab over a tinted page and left a visible seam where the two
-                            // met, which read as "black smudge into transparent".
-                            //
-                            // Fully opaque at the bottom for the same reason: at 0.85 the artwork still
-                            // showed through the last few pixels and tinted the seam a different colour
-                            // than the page continuing beneath it.
-                            val pageScrimColor = appleMusicGradientColorAt(seedColor, 1f)
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            smoothScrimBrush(
-                                                from = pageScrimColor.copy(alpha = 0f),
-                                                to = pageScrimColor,
-                                            ),
-                                        ),
-                            )
-                            Column(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(
-                                            bottom =
-                                                with(localDensity) {
-                                                    WindowInsets.systemBars.getBottom(localDensity).toDp()
-                                                } + 16.dp,
-                                        ),
+                            AnimatedVisibility(
+                                visible = state.currentLyricLineIndex > -1,
+                                enter = fadeIn() + expandVertically(),
+                                exit = fadeOut() + shrinkVertically(),
                             ) {
                                 val lineText =
                                     state.screenData.lyricsData
@@ -743,87 +719,63 @@ private fun AppleMusicMainView(
                                                     Modifier
                                                         .fillMaxWidth()
                                                         .padding(horizontal = 20.dp, vertical = 2.dp)
-                                                        .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
+                                                        .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
                                                         .focusable(),
                                             )
-                                            val translatedLineText =
-                                                state.screenData.lyricsData
-                                                    ?.translatedLyrics
-                                                    ?.first
-                                                    ?.lines
-                                                    ?.getOrNull(state.currentLyricLineIndex)
-                                                    ?.words
-                                                    ?.stripRichSyncTimestamps()
-                                            if (!translatedLineText.isNullOrBlank()) {
-                                                Text(
-                                                    text = translatedLineText,
-                                                    style = typography.idleTranslated,
-                                                    maxLines = 1,
-                                                    modifier =
-                                                        Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(horizontal = 20.dp, vertical = 2.dp)
-                                                            .basicMarquee(
-                                                                iterations = Int.MAX_VALUE,
-                                                                repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS,
-                                                                animationMode = MarqueeAnimationMode.Immediately,
-                                                            ).focusable(),
-                                                )
-                                            }
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                // The DEFAULT style shows its full NowPlayingTrackInfoRow here — 55dp thumbnail
-                                // and the ⊕ / ☆ / ⋯ actions. This is that row, not a stripped-down copy of it.
-                                // It types with the COMPACT slots, not the main ones: this is a track header
-                                // floating over a canvas, the same job the Lyrics/Queue header does.
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                                ) {
-                                    AsyncImage(
-                                        model =
-                                            ImageRequest
-                                                .Builder(LocalPlatformContext.current)
-                                                .data(state.screenData.thumbnailURL)
-                                                .diskCachePolicy(CachePolicy.ENABLED)
-                                                .diskCacheKey(state.screenData.thumbnailURL)
-                                                .crossfade(300)
-                                                .build(),
-                                        placeholder = rememberHolderPainter(),
-                                        error = rememberHolderPainter(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.size(55.dp).clip(RoundedCornerShape(4.dp)),
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // The DEFAULT style shows its full NowPlayingTrackInfoRow here — 55dp thumbnail
+                            // and the ⊕ / ☆ / ⋯ actions. This is that row, not a stripped-down copy of it.
+                            // It types with the COMPACT slots, not the main ones: this is a track header
+                            // floating over a canvas, the same job the Lyrics/Queue header does.
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                            ) {
+                                AsyncImage(
+                                    model =
+                                        ImageRequest
+                                            .Builder(LocalPlatformContext.current)
+                                            .data(state.screenData.thumbnailURL)
+                                            .diskCachePolicy(CachePolicy.ENABLED)
+                                            .diskCacheKey(state.screenData.thumbnailURL)
+                                            .crossfade(300)
+                                            .build(),
+                                    placeholder = rememberHolderPainter(),
+                                    error = rememberHolderPainter(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(55.dp).clip(RoundedCornerShape(4.dp)),
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = state.screenData.nowPlayingTitle,
+                                        style = typography.compactTitle,
+                                        maxLines = 1,
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                .focusable(),
                                     )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = state.screenData.nowPlayingTitle,
-                                            style = typography.compactTitle,
-                                            maxLines = 1,
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
-                                                    .focusable(),
-                                        )
-                                        Spacer(modifier = Modifier.height(3.dp))
-                                        Text(
-                                            text = state.screenData.artistName,
-                                            style = typography.compactArtist,
-                                            maxLines = 1,
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .basicMarquee(iterations = Int.MAX_VALUE, repeatDelayMillis = PLAYER_MARQUEE_REPEAT_DELAY_MS, animationMode = MarqueeAnimationMode.Immediately)
-                                                    .focusable(),
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    AppleMusicHeaderActions(state = state, actions = actions)
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = state.screenData.artistName,
+                                        style = typography.compactArtist,
+                                        maxLines = 1,
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                .focusable(),
+                                    )
                                 }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                AppleMusicHeaderActions(state = state, actions = actions)
                             }
                         }
                     }

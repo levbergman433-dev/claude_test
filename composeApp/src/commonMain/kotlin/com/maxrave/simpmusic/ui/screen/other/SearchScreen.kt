@@ -1003,10 +1003,10 @@ fun SearchScreen(
                         // The fading scrim behind this row already blurs by default; only the
                         // top-bar style setting (and a gradient page) changes the look here.
                         .topBarSurface(
-                            atTop = atTop,
+                            atTop = isContentAtTop,
                             hazeState = hazeState,
                             default =
-                                if (!atTop && LocalPageBrush.current != null) {
+                                if (!isContentAtTop && LocalPageBrush.current != null) {
                                     // Gradient page: the gradient own slice, not a flat tinted band.
                                     Modifier.pageBrushSlice(LocalPageBrush.current!!)
                                 } else {

@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import simpmusic.composeapp.generated.resources.live_badge
+import kotlin.math.roundToLong
 import com.maxrave.simpmusic.ui.icon.Bedtime
 import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
@@ -150,7 +152,7 @@ import simpmusic.composeapp.generated.resources.now_playing_upper
 @OptIn(ExperimentalFoundationApi::class)
 /** A restartable boundary, so state read inside [content] recomposes only this, not its caller. */
 @Composable
-private fun ExpressiveSeekBarScope(content: @Composable () -> Unit) = content()
+internal fun ExpressiveSeekBarScope(content: @Composable () -> Unit) = content()
 
 @Composable
 fun NowPlayingContentM3Expressive(
@@ -867,6 +869,15 @@ internal fun ColumnScope.ExpressivePlaybackControls(
     showShuffleAndRepeat: Boolean = false,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    // The position changes on every tick. Only the wave reads it directly, in a scope of its own;
+    // the rest reads values derived from it that change once a second at most.
+    val loading by remember(state) { derivedStateOf { state.timelineState.loading } }
+    val crossfading by remember(state) { derivedStateOf { state.timelineState.isCrossfading } }
+    val isLive by remember(state) { derivedStateOf { state.timelineState.isLive } }
+    val elapsedMs by remember(state) {
+        derivedStateOf { snapToSecond((state.timelineState.total * (state.sliderValue / 100f)).roundToLong()) }
+    }
+    val totalMs by remember(state) { derivedStateOf { state.timelineState.total } }
     Box(
         Modifier
             .padding(
@@ -874,6 +885,7 @@ internal fun ColumnScope.ExpressivePlaybackControls(
             ).padding(horizontal = 20.dp)
             .then(sliderModifier),
     ) {
+        ExpressiveSeekBarScope {
         WavySeekBar(
             progressFraction = state.sliderValue / 100f,
             isPlaying = state.controllerState.isPlaying,
@@ -881,7 +893,7 @@ internal fun ColumnScope.ExpressivePlaybackControls(
             // crossfading (state.sliderTrackColor); tonal primary
             // otherwise.
             activeColor =
-                if (state.timelineState.isCrossfading) {
+                if (crossfading) {
                     state.sliderTrackColor
                 } else {
                     colorScheme.primary
@@ -891,6 +903,7 @@ internal fun ColumnScope.ExpressivePlaybackControls(
             onSliderChange = actions.onSliderChange,
             onSliderChangeFinished = actions.onSliderChangeFinished,
         )
+        }
     }
     // Time row — same math and negative guard as Classic
     // (formatDuration renders any negative as NA:NA).
@@ -906,31 +919,19 @@ internal fun ColumnScope.ExpressivePlaybackControls(
             .padding(horizontal = 20.dp),
     ) {
         Text(
-            text = state.timelineState.elapsedLabel(state.sliderValue / 100f),
+            text = if (isLive) "" else formatDuration(elapsedMs),
             style = typo().bodyMedium,
             color = state.secondaryTextColor(),
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Left,
         )
-        // Sweep head for the "Crossfading" shimmer, 0..1. Runs
-        // unconditionally: behind the crossfade check it would
-        // restart from zero each time the label appears (same
-        // rationale as the desktop MiniPlayer's crossfadeSweep).
-        val sweepTransition = rememberInfiniteTransition(label = "m3eCrossfadeSweep")
-        val crossfadeSweep by sweepTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec =
-                infiniteRepeatable(
-                    animation = tween(3200, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
-            label = "m3eSweepHead",
-        )
+        // Head of the "Crossfading" shimmer, 0..1. Only ticks while a crossfade is running and
+        // resumes from where it paused (see rememberLoopingPhase).
+        val crossfadeSweep by rememberLoopingPhase(active = crossfading)
         AnimatedVisibility(
             enter = fadeIn(),
             exit = fadeOut(),
-            visible = state.timelineState.isCrossfading,
+            visible = crossfading,
         ) {
             // Same effect as the desktop MiniPlayer label: a
             // highlight sweeping through the glyphs via a text
@@ -958,7 +959,7 @@ internal fun ColumnScope.ExpressivePlaybackControls(
             )
         }
         Text(
-            text = state.timelineState.lengthLabel(),
+            text = if (isLive) stringResource(Res.string.live_badge) else formatDuration(totalMs),
             style = typo().bodyMedium,
             color = state.secondaryTextColor(),
             modifier = Modifier.weight(1f),
@@ -973,7 +974,7 @@ internal fun ColumnScope.ExpressivePlaybackControls(
     )
     ExpressiveTransportRow(
         controllerState = state.controllerState,
-        loading = state.timelineState.loading,
+        loading = loading,
         onUIEvent = actions.onUIEvent,
         modifier = Modifier.padding(horizontal = 20.dp),
         showShuffleAndRepeat = showShuffleAndRepeat,

@@ -82,8 +82,6 @@ import simpmusic.composeapp.generated.resources.help_build_lyrics_database_descr
 import simpmusic.composeapp.generated.resources.import_data
 import simpmusic.composeapp.generated.resources.import_playlists_from_other_apps
 import simpmusic.composeapp.generated.resources.keep_backups
-import simpmusic.composeapp.generated.resources.keep_service_alive
-import simpmusic.composeapp.generated.resources.keep_service_alive_description
 import simpmusic.composeapp.generated.resources.keep_your_youtube_playlist_offline
 import simpmusic.composeapp.generated.resources.keep_your_youtube_playlist_offline_description
 import simpmusic.composeapp.generated.resources.kill_service_on_exit
@@ -144,8 +142,6 @@ import simpmusic.composeapp.generated.resources.rich_presence_info
 import simpmusic.composeapp.generated.resources.rich_presence_priority
 import simpmusic.composeapp.generated.resources.rich_presence_priority_info
 import simpmusic.composeapp.generated.resources.save_all_your_playlist_data
-import simpmusic.composeapp.generated.resources.save_last_played
-import simpmusic.composeapp.generated.resources.save_last_played_track_and_queue
 import simpmusic.composeapp.generated.resources.save_playback_state
 import simpmusic.composeapp.generated.resources.save_shuffle_and_repeat_mode
 import simpmusic.composeapp.generated.resources.scrobbling_info
@@ -176,13 +172,11 @@ import simpmusic.composeapp.generated.resources.theme_color
 import simpmusic.composeapp.generated.resources.thumbnail_cache
 import simpmusic.composeapp.generated.resources.top_bar_style
 import simpmusic.composeapp.generated.resources.translation_language
-import simpmusic.composeapp.generated.resources.translucent_bottom_navigation_bar
 import simpmusic.composeapp.generated.resources.use_ai_translation
 import simpmusic.composeapp.generated.resources.use_ai_translation_description
 import simpmusic.composeapp.generated.resources.video_download_quality
 import simpmusic.composeapp.generated.resources.video_quality
 import simpmusic.composeapp.generated.resources.what_segments_will_be_skipped
-import simpmusic.composeapp.generated.resources.you_can_see_the_content_below_the_bottom_bar
 import simpmusic.composeapp.generated.resources.youtube_account
 import simpmusic.composeapp.generated.resources.youtube_subtitle_language
 
@@ -220,7 +214,6 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.aod_lock_screen, Res.string.aod_lock_screen_description, SettingsCategory.APPEARANCE, "night_mode"),
         SettingsSearchEntry(Res.string.aod_burn_in, Res.string.aod_burn_in_description, SettingsCategory.APPEARANCE, "night_mode"),
         SettingsSearchEntry(Res.string.aod_auto_dim, null, SettingsCategory.APPEARANCE, "night_mode"),
-        SettingsSearchEntry(Res.string.translucent_bottom_navigation_bar, Res.string.you_can_see_the_content_below_the_bottom_bar, SettingsCategory.APPEARANCE, "layout"),
         SettingsSearchEntry(Res.string.enable_liquid_glass_effect, Res.string.enable_liquid_glass_effect_description, SettingsCategory.APPEARANCE, "layout"),
         SettingsSearchEntry(Res.string.glass_style, null, SettingsCategory.APPEARANCE, "layout"),
         SettingsSearchEntry(Res.string.apple_layout, Res.string.apple_layout_description, SettingsCategory.APPEARANCE, "layout"),
@@ -265,9 +258,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.audio_delay, Res.string.audio_delay_description, SettingsCategory.PLAYBACK, "playback"),
         SettingsSearchEntry(Res.string.audio_reverb, Res.string.audio_reverb_description, SettingsCategory.PLAYBACK, "playback"),
         SettingsSearchEntry(Res.string.save_playback_state, Res.string.save_shuffle_and_repeat_mode, SettingsCategory.PLAYBACK, "playback"),
-        SettingsSearchEntry(Res.string.save_last_played, Res.string.save_last_played_track_and_queue, SettingsCategory.PLAYBACK, "playback"),
         SettingsSearchEntry(Res.string.kill_service_on_exit, Res.string.kill_service_on_exit_description, SettingsCategory.PLAYBACK, "playback"),
-        SettingsSearchEntry(Res.string.keep_service_alive, Res.string.keep_service_alive_description, SettingsCategory.PLAYBACK, "playback"),
         SettingsSearchEntry(Res.string.crossfade, null, SettingsCategory.PLAYBACK, "crossfade_settings"),
         SettingsSearchEntry(Res.string.crossfade_duration, null, SettingsCategory.PLAYBACK, "crossfade_settings"),
         SettingsSearchEntry(Res.string.crossfade_dj_mode, null, SettingsCategory.PLAYBACK, "crossfade_settings"),
