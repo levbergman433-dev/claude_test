@@ -16,11 +16,6 @@ dependencyResolutionManagement {
         mavenCentral()
         gradlePluginPortal()
         maven { url = uri("https://jitpack.io") }
-        // compottie's Compose-1.12 snapshot builds (skiko 0.148.2) are published to the
-        // Maven Central Portal snapshot repo below. The legacy OSSRH repo
-        // (oss.sonatype.org) was removed — Sonatype shut it down and its flaky 504s
-        // disabled the repo set, blocking fallback to this one.
-        maven("https://central.sonatype.com/repository/maven-snapshots/")
         maven("https://jogamp.org/deployment/maven")
         maven(url = "https://raw.githubusercontent.com/bravepipeproject/maven-repo/master/repository")
     }
@@ -42,6 +37,7 @@ val mediaDir = File(rootDir, "core/media")
 rootProject.name = "SimpMusic"
 include(
     ":androidApp",
+    ":vivoAndroidApp",
     ":composeApp",
     ":desktopApp",
     ":common",
@@ -65,6 +61,7 @@ include(
     ":lastfm-empty",
     ":kizzy",
     ":listenTogether",
+    ":loginSync",
 )
 
 // core modules
@@ -81,6 +78,7 @@ project(":kotlinYtmusicScraper").projectDir = File(serviceDir, "kotlinYtmusicScr
 project(":spotify").projectDir = File(serviceDir, "spotify")
 project(":kizzy").projectDir = File(serviceDir, "kizzy")
 project(":listenTogether").projectDir = File(serviceDir, "listenTogether")
+project(":loginSync").projectDir = File(serviceDir, "loginSync")
 
 // media modules
 project(":media-jvm").projectDir = File(mediaDir, "media-jvm")

@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,6 +41,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.maxrave.domain.data.model.metadata.Lyrics
 import com.maxrave.domain.data.model.streams.TimeLine
+import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
 import com.simpmusic.media_jvm.mpv.MpvPlayer
 import com.simpmusic.media_jvm.mpv.MpvPlayerAdapter
@@ -54,6 +56,7 @@ fun MediaPlayerViewWithUrl(
     url: String,
     modifier: Modifier,
     cropToBounds: Boolean = false,
+    onFirstFrame: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var frameSource by remember { mutableStateOf<MpvVideoFrameSource?>(null) }
@@ -102,6 +105,7 @@ fun MediaPlayerViewWithUrl(
                     Modifier
                         .fillMaxSize()
                         .align(Alignment.Center),
+                onFirstFrame = onFirstFrame,
             )
         }
     }
@@ -127,6 +131,7 @@ fun MediaPlayerViewWithUrl(
 private fun MpvVideoFrames(
     source: MpvVideoFrameSource,
     modifier: Modifier = Modifier,
+    onFirstFrame: () -> Unit = {},
 ) {
     var frame by remember(source) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(source) {
@@ -137,6 +142,12 @@ private fun MpvVideoFrames(
                 frame = image?.toComposeImageBitmap()
             }
         }
+    }
+    // Until a frame arrives this box is plain black, so tell the caller when it stops being.
+    val hasFrame = frame != null
+    val currentOnFirstFrame by rememberUpdatedState(onFirstFrame)
+    LaunchedEffect(hasFrame) {
+        if (hasFrame) currentOnFirstFrame()
     }
     Box(
         modifier
@@ -157,6 +168,17 @@ private fun MpvVideoFrames(
 
 private val RICH_SYNC_TIMESTAMP_REGEX = Regex("""<\d{2}:\d{2}\.\d{2,3}>\s*""")
 
+/**
+ * Display aspect ratio of the video the main player is showing, or null while it has none.
+ * Follows the adapter's current handle, so a track change or crossfade re-points it by itself.
+ */
+@Composable
+fun rememberVideoAspectRatioJvm(): Float? {
+    val player: MpvPlayerAdapter = koinInject<MpvPlayerAdapter>()
+    val source = player.currentVideoFrames.collectAsState().value ?: return null
+    return source.aspectRatio.collectAsState().value
+}
+
 @Composable
 fun MediaPlayerViewWithSubtitleJvm(
     modifier: Modifier,
@@ -172,6 +194,10 @@ fun MediaPlayerViewWithSubtitleJvm(
 ) {
     val player: MpvPlayerAdapter = koinInject<MpvPlayerAdapter>()
 
+    // Subtitles over the video are lyrics like any other, so they take the same audio-delay
+    // correction the lyrics sheet does.
+    val lyricsOffsetMs by koinInject<DataStoreManager>().lyricsOffsetMs.collectAsState(0)
+
     val state by mediaPlayerHandler.nowPlayingState.collectAsState()
     val videoFrames by player.currentVideoFrames.collectAsState()
 
@@ -182,10 +208,12 @@ fun MediaPlayerViewWithSubtitleJvm(
     var currentLineIndex by rememberSaveable { mutableIntStateOf(-1) }
     var currentTranslatedLineIndex by rememberSaveable { mutableIntStateOf(-1) }
 
-    LaunchedEffect(key1 = timelineState) {
+    LaunchedEffect(key1 = timelineState, key2 = lyricsOffsetMs) {
         val lines = lyricsData?.lines ?: return@LaunchedEffect
         val translatedLines = translatedLyricsData?.lines
-        if (timelineState.current > 0L) {
+        // What the ear is hearing right now, rather than where the player is.
+        val nowMs = timelineState.current - lyricsOffsetMs
+        if (nowMs > 0L) {
             lines.indices.forEach { i ->
                 val sentence = lines[i]
                 val startTimeMs = sentence.startTimeMs.toLong()
@@ -195,7 +223,7 @@ fun MediaPlayerViewWithSubtitleJvm(
                     } else {
                         startTimeMs + 60000
                     }
-                if (timelineState.current in startTimeMs..endTimeMs) {
+                if (nowMs in startTimeMs..endTimeMs) {
                     currentLineIndex = i
                 }
             }
@@ -208,12 +236,12 @@ fun MediaPlayerViewWithSubtitleJvm(
                     } else {
                         startTimeMs + 60000
                     }
-                if (timelineState.current in startTimeMs..endTimeMs) {
+                if (nowMs in startTimeMs..endTimeMs) {
                     currentTranslatedLineIndex = i
                 }
             }
             if (lines.isNotEmpty() &&
-                (timelineState.current in (0..(lines.getOrNull(0)?.startTimeMs ?: "0").toLong()))
+                (nowMs in (0..(lines.getOrNull(0)?.startTimeMs ?: "0").toLong()))
             ) {
                 currentLineIndex = -1
                 currentTranslatedLineIndex = -1

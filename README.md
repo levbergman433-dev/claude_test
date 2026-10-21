@@ -12,6 +12,7 @@ A FOSS YouTube Music client for Android and Desktop with many features from<br>S
 <a href="https://f-droid.org/en/packages/com.maxrave.simpmusic/"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" width="200"></a> 
 <a href="https://www.openapk.net/simpmusic/com.maxrave.simpmusic/"><img src="https://www.openapk.net/images/openapk-badge.png" width="200"></a> 
 <a href="https://github.com/maxrave-dev/SimpMusic/releases"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a> 
+<br><sub>On vivo phones, install <code>SimpMusic-full-vivo-*.apk</code> from <a href="https://github.com/maxrave-dev/SimpMusic/releases">Releases</a> for Origin Island and the music widget. It installs as a separate app and can't sit next to Spotify.</sub>
 <h4>Nightly Build</h4>  
 <a href="https://simpmusic.org/nightly-download"><img src="https://github.com/maxrave-dev/SimpMusic/actions/workflows/android.yml/badge.svg"></a><br/> <a href="https://simpmusic.org/nightly-download"><img src="https://raw.githubusercontent.com/NeoApplications/Neo-Backup/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png" width="200"></a> 
 </div>  
@@ -19,22 +20,28 @@ A FOSS YouTube Music client for Android and Desktop with many features from<br>S
 > SimpMusic is available on Desktop now!
 >
 > [kotlin-footguns](https://github.com/maxrave-dev/kotlin-footguns) — the Kotlin, Compose Multiplatform and desktop JVM traps this project ran into the hard way. Star it if it saves you a night.
+
+[![Sponsor](https://readme.cash/i/janwgx1dnp.svg)](https://readme.cash/c/janwgx1dnp)
   
 ## Features ✨️    
 - Play music from YouTube Music or YouTube for free, without ads and in the background
-- Three Now Playing styles: Classic, Material 3 Expressive and Apple Music (NEW)
-- Ten-band equalizer with presets and AutoEq headphone profiles, plus Delay and Reverb effects (NEW)
+- Three Now Playing styles: Classic, Material 3 Expressive and a redesigned Apple Music player with Apple Music-style lyrics (NEW)
+- Ten-band equalizer with presets and AutoEq headphone profiles, plus Delay and Reverb effects, or your phone's system equalizer on Android (NEW)
+- Pick the speaker, headphones or Cast device SimpMusic plays on, without moving other apps' audio (NEW)
 - SimpMusic Wrapped: your year in music, plus monthly recap playlists (NEW)
-- On-device listening analytics: charts, period history, listening clock (NEW)
-- Word-by-word Apple Music-style lyrics, romanization for 12 languages, share lyrics as an image (NEW)
+- On-device listening analytics: charts, period history, listening clock and a shareable listening receipt (NEW)
+- Word-by-word Apple Music-style lyrics, romanization for 12 languages, share lyrics as an image, landscape fullscreen lyrics and a timing offset (NEW)
 - Home screen widgets: turntable, playlists and listening insights (NEW)
+- Send your sign-ins from Android to Desktop by scanning a QR code (NEW)
+- Preferred audio language for videos with several audio tracks (NEW)
 - High quality up-to 256kbps stream (Opus or AAC) for YouTube Music Premium users
 - Browsing Home, Charts, Podcast, Moods & Genre with YouTube Music data at high speed    
 - Search everything on YouTube    
 - Spotify Canvas and Animated Album Art supported (NEW)
 - Power your experience with SimpMusic Chart (https://chart.simpmusic.org/)
 - Play 1080p video option with subtitle    
-- AI song suggestions    
+- Play YouTube Music live stations (NEW)
+- AI song suggestions and an AI reading of your music taste (NEW)
 - Import playlists converted from Spotify and other apps
 - Customize your playlist, synced with YouTube Music
 - Notifications from followed artists    
@@ -98,7 +105,7 @@ A FOSS YouTube Music client for Android and Desktop with many features from<br>S
  SimpMusic doesn't have any tracker or third-party server for collecting user data in FOSS version. If YouTube      
 logged-in users enable "Send back to Google" feature, SimpMusic only uses YouTube Music Tracking API to send listening history and listening record of video to Google for better recommendations and      
 supporting artist or YouTube Creator (For API reference,      
-see [this](https://github.com/maxrave-dev/SimpMusic/blob/main/core/service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt)).
+see [this](https://github.com/maxrave-dev/core/blob/master/service/kotlinYtmusicScraper/src/commonMain/kotlin/com/maxrave/kotlinytmusicscraper/Ytmusic.kt)).
 
 We collect crash data in the Full version to improve the app.
    
@@ -109,8 +116,8 @@ I use [Sentry](http://sentry.io) crashlytics to catch all crashes in the Full ve
 ## Desktop app
 
 ### Which file should I download?
-- For Windows: Download the `.msix` package and run `install.bat` to install.
-- For macOS: Download the file with extension `.dmg`.
+- For Windows: Download `SimpMusic-Windows-installer.zip`, unzip it and run `install.bat`.
+- For macOS (macOS 15 or newer): Download the file with extension `.dmg`.
 - For Linux: Download the file with extension `.AppImage` (all Linux distributions)
 
 ### Log in guide: https://www.simpmusic.org/blogs/en/how-to-log-in-on-desktop-app
