@@ -52,6 +52,9 @@ jobs:
           else
             echo "::warning::SIGNING_KEY secret not set; using the cached fallback key"
             if [ ! -f sideload.jks ]; then
+              # The cached key is gone (evicted or expired): this build cannot install as an update
+              # over any earlier one. Say so on the run page rather than leave it to the installer.
+              echo "::error title=New signing key generated::The cached signing key was missing, so a new one was made. This APK will NOT install over builds signed with the old key: uninstall first (Settings > Backup to keep your data). Add the SIGNING_KEY and KEY_PASSWORD secrets to stop this happening again."
               keytool -genkeypair -v -keystore sideload.jks -alias simpmusic -keyalg RSA -keysize 4096 \
                 -validity 36500 -storepass sideload-key -keypass sideload-key \
                 -dname "CN=SimpMusic sideload"
