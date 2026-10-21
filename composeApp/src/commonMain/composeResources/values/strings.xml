@@ -42,6 +42,8 @@
     <string name="your_playlists">Your Local Playlists</string>
     <string name="no_playlists_added">No playlists added</string>
     <string name="recently_added">Recently Added</string>
+    <string name="show_all">Show all</string>
+    <string name="show_less">Show less</string>
     <string name="search_for_songs_artists_albums_playlists_and_more">Search for songs, artists, albums, playlists, and more</string>
     <string name="everything_you_need">Everything you need</string>
     <string name="restore_failed">Restore Failed</string>

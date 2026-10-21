@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.expect.ui.PlatformBackdrop
+import androidx.compose.animation.core.snap
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicGlyphButton
 import com.maxrave.simpmusic.ui.screen.player.content.applemusic.AppleMusicGlassCircle
 import com.maxrave.simpmusic.ui.icon.Bedtime
@@ -222,9 +224,25 @@ fun NowPlayingContentAppleMusic(
     // the button, never its parent: nesting the button inside the source is the render-feedback
     // loop that crashes the RuntimeShader.
     val panelBackdrop = rememberBackdrop(Color.Black)
+    // MAIN's own glass source: its mesh, the page actually behind the controls there.
+    val meshBackdrop = rememberBackdrop(Color.Black)
+
+    // MAIN stands on an opaque mesh except under a fullscreen canvas or a video, so the frosted page
+    // is entirely hidden there. It stays composed — it is what loads the artwork the palette and the
+    // other tabs need — but it is not drawn: two full-screen layers, one of them an 80dp blur, were
+    // being composited under the mesh on every frame. Hidden only once a switch to MAIN has finished,
+    // so the tab crossfade still has the frosted page under it rather than black.
+    val mainPageIsMesh =
+        !fullscreenCanvas && !(state.screenData.canvasData == null && state.screenData.isVideo && state.shouldShowVideo)
+    val meshCoversPage = viewState == AppleMusicView.MAIN && mainPageIsMesh
+    val frostedAlpha by animateFloatAsState(
+        targetValue = if (meshCoversPage) 0f else 1f,
+        animationSpec = if (meshCoversPage) snap<Float>(delayMillis = VIEW_CROSSFADE_MS) else snap<Float>(),
+        label = "appleMusicFrostedPage",
+    )
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        Box(modifier = Modifier.matchParentSize().layerBackdrop(panelBackdrop)) {
+        Box(modifier = Modifier.matchParentSize().graphicsLayer { alpha = frostedAlpha }.layerBackdrop(panelBackdrop)) {
             AppleMusicArtworkBackdrop(state = state, actions = actions, seedColor = seedColor)
             // Flat black only for a CANVAS (it fills the screen). A video letterboxes, so a black page
             // turns the bars above and below it into dead black slabs — keep the artwork-tinted
@@ -241,12 +259,13 @@ fun NowPlayingContentAppleMusic(
             LocalAppleMusicGlassBackdrop provides if (glass) panelBackdrop else null,
             LocalLiquidGlassEnabled provides (glass || LocalLiquidGlassEnabled.current),
         ) {
-            Crossfade(targetState = viewState, animationSpec = tween(300), label = "appleMusicView") { view ->
+            Crossfade(targetState = viewState, animationSpec = tween(VIEW_CROSSFADE_MS), label = "appleMusicView") { view ->
                 when (view) {
                     AppleMusicView.MAIN ->
                         AppleMusicMainView(
                             state = state,
                             actions = actions,
+                            meshBackdrop = meshBackdrop,
                             typography = typography,
                             viewState = view,
                             onSelectView = { viewState = it },
@@ -301,7 +320,7 @@ fun NowPlayingContentAppleMusic(
         if (getPlatform() == Platform.Desktop) {
             if (viewState == AppleMusicView.MAIN) {
                 LiquidGlassIconButton(
-                    backdrop = panelBackdrop,
+                    backdrop = if (meshCoversPage) meshBackdrop else panelBackdrop,
                     imageVector = state.dismissIcon,
                     shape = RoundedCornerShape(24.dp),
                     // Same as AnalyticsScreen's back button: a 48dp circle catches only a short arc
@@ -388,6 +407,7 @@ fun NowPlayingContentAppleMusic(
 private fun AppleMusicMainView(
     state: NowPlayingContentState,
     actions: NowPlayingContentActions,
+    meshBackdrop: PlatformBackdrop,
     typography: AppleMusicTypography,
     viewState: AppleMusicView,
     onSelectView: (AppleMusicView) -> Unit,
@@ -457,7 +477,13 @@ private fun AppleMusicMainView(
                 null
             }
         val meshSeam = if (showsClip) clipFrameHeight else artworkHeight
-        if (meshPage) AppleMusicMeshBackdrop(mesh = mesh, seam = meshSeam)
+        // Recorded as MAIN's glass source as well: the glass controls sit on the mesh, so that is
+        // what they should refract.
+        if (meshPage) {
+            Box(modifier = Modifier.fillMaxSize().layerBackdrop(meshBackdrop)) {
+                AppleMusicMeshBackdrop(mesh = mesh, seam = meshSeam)
+            }
+        }
 
         // The band under the status bar and the grabber, where a bright or busy sleeve drowns their
         // white glyphs: blurred (TopBandBlur, inside each page so it moves with it) and darkened
@@ -584,136 +610,117 @@ private fun AppleMusicMainView(
         // Box, not Column: the real content and the idle overlay below must OVERLAP (Z-stack),
         // not lay out one after another — matches NowPlayingContentM3Expressive's exact structure
         // for this same canvas-unfocused-overlay pattern.
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-        ) {
-            // Hung from the bottom of the page. Whatever height is left above it and below the
-            // artwork is the mesh continuing the artwork's own colours.
-            Column(
+        val styleGlass = LocalAppleMusicGlassBackdrop.current
+        CompositionLocalProvider(LocalAppleMusicGlassBackdrop provides if (styleGlass != null && meshPage) meshBackdrop else styleGlass) {
+            Box(
                 modifier =
                     Modifier
-                        .alpha(controlsAlpha)
-                        .onGloballyPositioned { coords ->
-                            bottomContentHeightDp =
-                                with(localDensity) { coords.size.height.toDp().value.toInt() }
-                        },
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
             ) {
-                AppleMusicMainTitleRow(state = state, actions = actions, typography = typography)
-                Spacer(modifier = Modifier.height(20.dp))
-                AppleMusicLyricStrip(
-                    state = state,
-                    typography = typography,
-                    onClick = { onSelectView(AppleMusicView.LYRICS) },
-                )
-                AppleMusicBottomCluster(
-                    state = state,
-                    actions = actions,
-                    typography = typography,
-                    viewState = viewState,
-                    onSelectView = onSelectView,
-                    activePillContainer = activePillContainer,
-                    activePillContent = activePillContent,
-                    deviceVolumeController = deviceVolumeController,
-                    outputName = outputName,
-                    onOpenOutput = onOpenOutput,
-                    // The lyric sits right on the progress bar: it is read with the bar, not the title.
-                    topPadding = 2.dp,
-                )
-            }
-            // Idle overlay — replaces the (now invisible) title row + cluster while a fullscreen
-            // canvas has auto-hidden them, mirroring M3E's canvas-unfocused overlay verbatim.
-            if (fullscreenCanvas) {
-                AnimatedVisibility(
-                    visible = !state.showControlLayout,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
+                // Hung from the bottom of the page. Whatever height is left above it and below the
+                // artwork is the mesh continuing the artwork's own colours.
+                Column(
+                    modifier =
+                        Modifier
+                            .alpha(controlsAlpha)
+                            .onGloballyPositioned { coords ->
+                                bottomContentHeightDp =
+                                    with(localDensity) { coords.size.height.toDp().value.toInt() }
+                            },
                 ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(bottomContentHeightDp.dp)
-                                .clickable(
-                                    onClick = { actions.onToggleControls() },
-                                    indication = null,
-                                    interactionSource = remember { MutableInteractionSource() },
-                                ),
-                        contentAlignment = Alignment.BottomStart,
+                    AppleMusicMainTitleRow(state = state, actions = actions, typography = typography)
+                    Spacer(modifier = Modifier.height(20.dp))
+                    AppleMusicLyricStrip(
+                        state = state,
+                        typography = typography,
+                        onClick = { onSelectView(AppleMusicView.LYRICS) },
+                    )
+                    AppleMusicBottomCluster(
+                        state = state,
+                        actions = actions,
+                        typography = typography,
+                        viewState = viewState,
+                        onSelectView = onSelectView,
+                        activePillContainer = activePillContainer,
+                        activePillContent = activePillContent,
+                        deviceVolumeController = deviceVolumeController,
+                        outputName = outputName,
+                        onOpenOutput = onOpenOutput,
+                        // The lyric sits right on the progress bar: it is read with the bar, not the title.
+                        topPadding = 2.dp,
+                    )
+                }
+                // Idle overlay — replaces the (now invisible) title row + cluster while a fullscreen
+                // canvas has auto-hidden them, mirroring M3E's canvas-unfocused overlay verbatim.
+                if (fullscreenCanvas) {
+                    AnimatedVisibility(
+                        visible = !state.showControlLayout,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
                     ) {
-                        // The page's OWN colour, not black. This scrim is what the artwork fades
-                        // INTO, so it has to be the same tone the page is painted with below it —
-                        // appleMusicGradientColorAt(seed, 1f), i.e. the thumbnail's colour darkened,
-                        // exactly like the bottom stop of backdropBrush. Fading to black instead
-                        // laid a dark slab over a tinted page and left a visible seam where the two
-                        // met, which read as "black smudge into transparent".
-                        //
-                        // Fully opaque at the bottom for the same reason: at 0.85 the artwork still
-                        // showed through the last few pixels and tinted the seam a different colour
-                        // than the page continuing beneath it.
-                        val pageScrimColor = appleMusicGradientColorAt(seedColor, 1f)
                         Box(
                             modifier =
                                 Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        smoothScrimBrush(
-                                            from = pageScrimColor.copy(alpha = 0f),
-                                            to = pageScrimColor,
-                                        ),
-                                    ),
-                        )
-                        Column(
-                            modifier =
-                                Modifier
                                     .fillMaxWidth()
-                                    .padding(
-                                        bottom =
-                                            with(localDensity) {
-                                                WindowInsets.systemBars.getBottom(localDensity).toDp()
-                                            } + 16.dp,
+                                    .height(bottomContentHeightDp.dp)
+                                    .clickable(
+                                        onClick = { actions.onToggleControls() },
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() },
                                     ),
+                            contentAlignment = Alignment.BottomStart,
                         ) {
-                            AnimatedVisibility(
-                                visible = state.currentLyricLineIndex > -1,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically(),
+                            // The page's OWN colour, not black. This scrim is what the artwork fades
+                            // INTO, so it has to be the same tone the page is painted with below it —
+                            // appleMusicGradientColorAt(seed, 1f), i.e. the thumbnail's colour darkened,
+                            // exactly like the bottom stop of backdropBrush. Fading to black instead
+                            // laid a dark slab over a tinted page and left a visible seam where the two
+                            // met, which read as "black smudge into transparent".
+                            //
+                            // Fully opaque at the bottom for the same reason: at 0.85 the artwork still
+                            // showed through the last few pixels and tinted the seam a different colour
+                            // than the page continuing beneath it.
+                            val pageScrimColor = appleMusicGradientColorAt(seedColor, 1f)
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            smoothScrimBrush(
+                                                from = pageScrimColor.copy(alpha = 0f),
+                                                to = pageScrimColor,
+                                            ),
+                                        ),
+                            )
+                            Column(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            bottom =
+                                                with(localDensity) {
+                                                    WindowInsets.systemBars.getBottom(localDensity).toDp()
+                                                } + 16.dp,
+                                        ),
                             ) {
-                                val lineText =
-                                    state.screenData.lyricsData
-                                        ?.lyrics
-                                        ?.lines
-                                        ?.getOrNull(state.currentLyricLineIndex)
-                                        ?.words
-                                        ?.stripRichSyncTimestamps()
-                                if (!lineText.isNullOrBlank()) {
-                                    Column(modifier = Modifier.fillMaxWidth()) {
-                                        LyricText(
-                                            text = lineText,
-                                            style = typography.idleLyric,
-                                            maxLines = 1,
-                                            modifier =
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(horizontal = 20.dp, vertical = 2.dp)
-                                                    .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
-                                                    .focusable(),
-                                        )
-                                        val translatedLineText =
-                                            state.screenData.lyricsData
-                                                ?.translatedLyrics
-                                                ?.first
-                                                ?.lines
-                                                ?.getOrNull(state.currentLyricLineIndex)
-                                                ?.words
-                                                ?.stripRichSyncTimestamps()
-                                        if (!translatedLineText.isNullOrBlank()) {
+                                AnimatedVisibility(
+                                    visible = state.currentLyricLineIndex > -1,
+                                    enter = fadeIn() + expandVertically(),
+                                    exit = fadeOut() + shrinkVertically(),
+                                ) {
+                                    val lineText =
+                                        state.screenData.lyricsData
+                                            ?.lyrics
+                                            ?.lines
+                                            ?.getOrNull(state.currentLyricLineIndex)
+                                            ?.words
+                                            ?.stripRichSyncTimestamps()
+                                    if (!lineText.isNullOrBlank()) {
+                                        Column(modifier = Modifier.fillMaxWidth()) {
                                             LyricText(
-                                                text = translatedLineText,
-                                                alignmentText = lineText,
-                                                style = typography.idleTranslated,
+                                                text = lineText,
+                                                style = typography.idleLyric,
                                                 maxLines = 1,
                                                 modifier =
                                                     Modifier
@@ -722,60 +729,82 @@ private fun AppleMusicMainView(
                                                         .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
                                                         .focusable(),
                                             )
+                                            val translatedLineText =
+                                                state.screenData.lyricsData
+                                                    ?.translatedLyrics
+                                                    ?.first
+                                                    ?.lines
+                                                    ?.getOrNull(state.currentLyricLineIndex)
+                                                    ?.words
+                                                    ?.stripRichSyncTimestamps()
+                                            if (!translatedLineText.isNullOrBlank()) {
+                                                LyricText(
+                                                    text = translatedLineText,
+                                                    alignmentText = lineText,
+                                                    style = typography.idleTranslated,
+                                                    maxLines = 1,
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .padding(horizontal = 20.dp, vertical = 2.dp)
+                                                            .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                            .focusable(),
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            // The DEFAULT style shows its full NowPlayingTrackInfoRow here — 55dp thumbnail
-                            // and the ⊕ / ☆ / ⋯ actions. This is that row, not a stripped-down copy of it.
-                            // It types with the COMPACT slots, not the main ones: this is a track header
-                            // floating over a canvas, the same job the Lyrics/Queue header does.
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                            ) {
-                                AsyncImage(
-                                    model =
-                                        ImageRequest
-                                            .Builder(LocalPlatformContext.current)
-                                            .data(state.screenData.thumbnailURL)
-                                            .diskCachePolicy(CachePolicy.ENABLED)
-                                            .diskCacheKey(state.screenData.thumbnailURL)
-                                            .crossfade(300)
-                                            .build(),
-                                    placeholder = rememberHolderPainter(),
-                                    error = rememberHolderPainter(),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.size(55.dp).clip(RoundedCornerShape(4.dp)),
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = state.screenData.nowPlayingTitle,
-                                        style = typography.compactTitle,
-                                        maxLines = 1,
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
-                                                .focusable(),
+                                Spacer(modifier = Modifier.height(8.dp))
+                                // The DEFAULT style shows its full NowPlayingTrackInfoRow here — 55dp thumbnail
+                                // and the ⊕ / ☆ / ⋯ actions. This is that row, not a stripped-down copy of it.
+                                // It types with the COMPACT slots, not the main ones: this is a track header
+                                // floating over a canvas, the same job the Lyrics/Queue header does.
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                                ) {
+                                    AsyncImage(
+                                        model =
+                                            ImageRequest
+                                                .Builder(LocalPlatformContext.current)
+                                                .data(state.screenData.thumbnailURL)
+                                                .diskCachePolicy(CachePolicy.ENABLED)
+                                                .diskCacheKey(state.screenData.thumbnailURL)
+                                                .crossfade(300)
+                                                .build(),
+                                        placeholder = rememberHolderPainter(),
+                                        error = rememberHolderPainter(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.size(55.dp).clip(RoundedCornerShape(4.dp)),
                                     )
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Text(
-                                        text = state.screenData.artistName,
-                                        style = typography.compactArtist,
-                                        maxLines = 1,
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
-                                                .focusable(),
-                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = state.screenData.nowPlayingTitle,
+                                            style = typography.compactTitle,
+                                            maxLines = 1,
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                    .focusable(),
+                                        )
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        Text(
+                                            text = state.screenData.artistName,
+                                            style = typography.compactArtist,
+                                            maxLines = 1,
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    .basicMarquee(iterations = Int.MAX_VALUE, animationMode = MarqueeAnimationMode.Immediately)
+                                                    .focusable(),
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    AppleMusicHeaderActions(state = state, actions = actions)
                                 }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                AppleMusicHeaderActions(state = state, actions = actions)
                             }
                         }
                     }
@@ -1480,3 +1509,6 @@ private const val PAGE_COLOR_FADE_START = 0.92f
 // does not leave the user staring at an empty page. Not a fixed budget for the request itself:
 // lyrics arriving at any point cancel the wait outright.
 private const val LYRICS_ABSENCE_GRACE_MS = 2_500L
+
+// The tab crossfade, and how long the frosted page waits to hide after a switch to MAIN.
+private const val VIEW_CROSSFADE_MS = 300

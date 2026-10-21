@@ -1,5 +1,11 @@
 package com.maxrave.simpmusic.ui.component
 
+import simpmusic.composeapp.generated.resources.live_badge
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshots.Snapshot
+import com.maxrave.domain.data.model.streams.TimeLine
+import com.maxrave.simpmusic.ui.screen.player.content.snapToSecond
 import androidx.compose.ui.draw.drawBehind
 import com.maxrave.simpmusic.ui.theme.LocalBatterySaver
 import androidx.compose.animation.Animatable
@@ -88,7 +94,6 @@ import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.KeepScreenOn
 import com.maxrave.simpmusic.extension.formatDuration
-import com.maxrave.simpmusic.extension.lengthLabel
 import com.maxrave.simpmusic.extension.getScreenSizeInfo
 import com.maxrave.simpmusic.extension.hsvToColor
 import com.maxrave.simpmusic.getPlatform
@@ -175,7 +180,10 @@ fun FullscreenLyricsContent(
     val fullscreenAppleLyrics =
         fullscreenLyricsStyle == DataStoreManager.LYRICS_STYLE_APPLE_MUSIC && isLyricsBlurSupported()
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
-    val timelineState by sharedViewModel.timeline.collectAsStateWithLifecycle()
+    // Held as a State and read only by the pieces that show it (the progress bar and the times),
+    // so a position tick — ten a second — redraws those alone rather than the whole page.
+    val timelineHolder = sharedViewModel.timeline.collectAsStateWithLifecycle()
+    val isCrossfading by remember { derivedStateOf { timelineHolder.value.isCrossfading } }
     // Same correction LyricsView applies to the sheet itself, so the line the share picker opens on
     // is the line the listener is actually hearing.
     val fullscreenLyricsOffsetMs by sharedViewModel.getLyricsOffsetMs().collectAsStateWithLifecycle(0)
@@ -184,10 +192,6 @@ fun FullscreenLyricsContent(
     val coroutineScope = rememberCoroutineScope()
     val localDensity = LocalDensity.current
     val windowInsets = WindowInsets.systemBars
-
-    var sliderValue by rememberSaveable {
-        mutableFloatStateOf(0f)
-    }
 
     // Auto-hide controls state - Only hide control buttons, not title/progress
     var showControlButtons by rememberSaveable {
@@ -204,15 +208,6 @@ fun FullscreenLyricsContent(
             delay(4000) // Hide after 4 seconds
             showControlButtons = false
         }
-    }
-
-    LaunchedEffect(key1 = timelineState) {
-        sliderValue =
-            if (timelineState.total > 0L) {
-                timelineState.current.toFloat() * 100 / timelineState.total.toFloat()
-            } else {
-                0f
-            }
     }
 
     if (screenDataState.lyricsData != null) {
@@ -289,10 +284,10 @@ fun FullscreenLyricsContent(
             // Crossfade: RGB rainbow color cycling when transitioning between tracks. Only ticks
             // while a crossfade runs: it is read here, so an always-running loop recomposed this
             // whole page at the display's refresh rate for as long as the lyrics were open.
-            val rainbowPhase by rememberLoopingPhase(active = timelineState.isCrossfading, periodMillis = 1000)
+            val rainbowPhase by rememberLoopingPhase(active = isCrossfading, periodMillis = 1000)
             val rainbowColor = hsvToColor(rainbowPhase * 360f, 1f, 1f)
             val sliderTrackColor by animateColorAsState(
-                targetValue = if (timelineState.isCrossfading) rainbowColor else Color.White,
+                targetValue = if (isCrossfading) rainbowColor else Color.White,
                 animationSpec = tween(300),
                 label = "sliderCrossfadeColor",
             )
@@ -490,155 +485,14 @@ fun FullscreenLyricsContent(
 
                     // Progress Bar and Time - Always visible
                     Column {
-                        // Real Slider
-                        Box(
-                            Modifier
-                                .padding(
-                                    top = 15.dp,
-                                ).padding(horizontal = 40.dp),
-                        ) {
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(24.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Crossfade(timelineState.loading) {
-                                    if (it) {
-                                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                                            LinearProgressIndicator(
-                                                modifier =
-                                                    Modifier
-                                                        .fillMaxWidth()
-                                                        .height(4.dp)
-                                                        .padding(
-                                                            horizontal = 3.dp,
-                                                        ).clip(
-                                                            RoundedCornerShape(8.dp),
-                                                        ),
-                                                color = Color.Gray,
-                                                trackColor = Color.DarkGray,
-                                                strokeCap = StrokeCap.Round,
-                                            )
-                                        }
-                                    } else {
-                                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                                            LinearProgressIndicator(
-                                                progress = { timelineState.bufferedPercent.toFloat() / 100 },
-                                                modifier =
-                                                    Modifier
-                                                        .fillMaxWidth()
-                                                        .height(4.dp)
-                                                        .padding(
-                                                            horizontal = 3.dp,
-                                                        ).clip(
-                                                            RoundedCornerShape(8.dp),
-                                                        ),
-                                                color = Color.Gray,
-                                                trackColor = Color.DarkGray,
-                                                strokeCap = StrokeCap.Round,
-                                                drawStopIndicator = {},
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                                Slider(
-                                    // Fraction, not 0..100 — see the note in NowPlayingScreen:
-                                    // material3 alpha25 drops valueRange on its binary-compatibility
-                                    // overload.
-                                    value = sliderValue / 100f,
-                                    onValueChange = {
-                                        sharedViewModel.onUIEvent(
-                                            UIEvent.UpdateProgress(it * 100f),
-                                        )
-                                    },
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 3.dp)
-                                            .align(
-                                                Alignment.TopCenter,
-                                            ),
-                                    track = { sliderState ->
-                                        SliderDefaults.Track(
-                                            modifier =
-                                                Modifier
-                                                    .height(5.dp),
-                                            enabled = true,
-                                            sliderState = sliderState,
-                                            colors =
-                                                SliderDefaults.colors().copy(
-                                                    thumbColor = sliderTrackColor,
-                                                    activeTrackColor = sliderTrackColor,
-                                                    inactiveTrackColor = Color.Transparent,
-                                                ),
-                                            thumbTrackGapSize = 0.dp,
-                                            drawTick = { _, _ -> },
-                                            drawStopIndicator = null,
-                                        )
-                                    },
-                                    thumb = {
-                                        SliderDefaults.Thumb(
-                                            modifier =
-                                                Modifier
-                                                    .height(18.dp)
-                                                    .width(8.dp)
-                                                    .padding(
-                                                        vertical = 4.dp,
-                                                    ),
-                                            thumbSize = DpSize(8.dp, 8.dp),
-                                            interactionSource =
-                                                remember {
-                                                    MutableInteractionSource()
-                                                },
-                                            colors =
-                                                SliderDefaults.colors().copy(
-                                                    thumbColor = Color.White,
-                                                    activeTrackColor = Color.White,
-                                                    inactiveTrackColor = Color.Transparent,
-                                                ),
-                                            enabled = true,
-                                        )
-                                    },
-                                )
-                            }
-                        }
+                        FullscreenLyricsSeekBar(
+                            timelineHolder = timelineHolder,
+                            trackColor = sliderTrackColor,
+                            onSeek = { sharedViewModel.onUIEvent(UIEvent.UpdateProgress(it)) },
+                        )
                         LazyColumn {
                             item {
-                                // Time Layout
-                                Row(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 40.dp),
-                                ) {
-                                    Text(
-                                        text = if (timelineState.isLive) "" else formatDuration(timelineState.current),
-                                        style = typo().bodyMedium,
-                                        modifier = Modifier.weight(1f),
-                                        textAlign = TextAlign.Left,
-                                    )
-                                    AnimatedVisibility(
-                                        enter = fadeIn(),
-                                        exit = fadeOut(),
-                                        visible = timelineState.isCrossfading,
-                                    ) {
-                                        Text(
-                                            text = stringResource(Res.string.crossfading),
-                                            style = typo().bodyMedium,
-                                            modifier = Modifier.weight(1f),
-                                            textAlign = TextAlign.Center,
-                                        )
-                                    }
-                                    Text(
-                                        text = timelineState.lengthLabel(),
-                                        style = typo().bodyMedium,
-                                        modifier = Modifier.weight(1f),
-                                        textAlign = TextAlign.Right,
-                                    )
-                                }
+                                FullscreenLyricsTimeRow(timelineHolder = timelineHolder)
 
                                 Spacer(
                                     modifier =
@@ -781,7 +635,13 @@ fun FullscreenLyricsContent(
                 artistName = screenDataState.artistName,
                 artwork = screenDataState.bitmap,
                 seedColor = color,
-                initialLineIndex = shareTimedLineIndexes.activeIndexAt(timelineState.current - fullscreenLyricsOffsetMs),
+                // Where the sheet opens, read once without subscribing this page to the tick.
+                initialLineIndex =
+                    remember {
+                        Snapshot.withoutReadObservation {
+                            shareTimedLineIndexes.activeIndexAt(timelineHolder.value.current - fullscreenLyricsOffsetMs)
+                        }
+                    },
                 onDismiss = { showShareLyricsSheet = false },
             )
         }
@@ -1246,4 +1106,171 @@ internal fun AnimatedLyricsGradientBackground(
                     )
                 },
     )
+}
+
+/**
+ * The page's progress bar: the buffered amount under a thin seek slider, or an indeterminate bar
+ * while the track loads. Reads the timeline itself, so the page around it does not recompose on a
+ * tick. [onSeek] takes a percentage, 0..100.
+ */
+@Composable
+private fun FullscreenLyricsSeekBar(
+    timelineHolder: State<TimeLine>,
+    trackColor: Color,
+    onSeek: (Float) -> Unit,
+) {
+    val loading by remember(timelineHolder) { derivedStateOf { timelineHolder.value.loading } }
+    Box(
+        Modifier
+            .padding(
+                top = 15.dp,
+            ).padding(horizontal = 40.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Crossfade(loading) {
+                if (it) {
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        LinearProgressIndicator(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .padding(
+                                        horizontal = 3.dp,
+                                    ).clip(
+                                        RoundedCornerShape(8.dp),
+                                    ),
+                            color = Color.Gray,
+                            trackColor = Color.DarkGray,
+                            strokeCap = StrokeCap.Round,
+                        )
+                    }
+                } else {
+                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                        LinearProgressIndicator(
+                            progress = { timelineHolder.value.bufferedPercent.toFloat() / 100 },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .padding(
+                                        horizontal = 3.dp,
+                                    ).clip(
+                                        RoundedCornerShape(8.dp),
+                                    ),
+                            color = Color.Gray,
+                            trackColor = Color.DarkGray,
+                            strokeCap = StrokeCap.Round,
+                            drawStopIndicator = {},
+                        )
+                    }
+                }
+            }
+        }
+        val timeline = timelineHolder.value
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+            Slider(
+                // Fraction, not 0..100 — see the note in NowPlayingScreen: material3 alpha25 drops
+                // valueRange on its binary-compatibility overload.
+                value = if (timeline.total > 0L) (timeline.current.toFloat() / timeline.total.toFloat()).coerceIn(0f, 1f) else 0f,
+                onValueChange = { onSeek(it * 100f) },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 3.dp)
+                        .align(
+                            Alignment.TopCenter,
+                        ),
+                track = { sliderState ->
+                    SliderDefaults.Track(
+                        modifier =
+                            Modifier
+                                .height(5.dp),
+                        enabled = true,
+                        sliderState = sliderState,
+                        colors =
+                            SliderDefaults.colors().copy(
+                                thumbColor = trackColor,
+                                activeTrackColor = trackColor,
+                                inactiveTrackColor = Color.Transparent,
+                            ),
+                        thumbTrackGapSize = 0.dp,
+                        drawTick = { _, _ -> },
+                        drawStopIndicator = null,
+                    )
+                },
+                thumb = {
+                    SliderDefaults.Thumb(
+                        modifier =
+                            Modifier
+                                .height(18.dp)
+                                .width(8.dp)
+                                .padding(
+                                    vertical = 4.dp,
+                                ),
+                        thumbSize = DpSize(8.dp, 8.dp),
+                        interactionSource =
+                            remember {
+                                MutableInteractionSource()
+                            },
+                        colors =
+                            SliderDefaults.colors().copy(
+                                thumbColor = Color.White,
+                                activeTrackColor = Color.White,
+                                inactiveTrackColor = Color.Transparent,
+                            ),
+                        enabled = true,
+                    )
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Elapsed time, "Crossfading" while a crossfade runs, and the track's length. The elapsed time is
+ * snapped to whole seconds, so this changes once a second rather than on every tick.
+ */
+@Composable
+private fun FullscreenLyricsTimeRow(timelineHolder: State<TimeLine>) {
+    val isLive by remember(timelineHolder) { derivedStateOf { timelineHolder.value.isLive } }
+    val elapsedMs by remember(timelineHolder) { derivedStateOf { snapToSecond(timelineHolder.value.current) } }
+    val isCrossfading by remember(timelineHolder) { derivedStateOf { timelineHolder.value.isCrossfading } }
+    val totalMs by remember(timelineHolder) { derivedStateOf { timelineHolder.value.total } }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 40.dp),
+    ) {
+        Text(
+            text = if (isLive) "" else formatDuration(elapsedMs),
+            style = typo().bodyMedium,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Left,
+        )
+        AnimatedVisibility(
+            enter = fadeIn(),
+            exit = fadeOut(),
+            visible = isCrossfading,
+        ) {
+            Text(
+                text = stringResource(Res.string.crossfading),
+                style = typo().bodyMedium,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+            )
+        }
+        Text(
+            text = if (isLive) stringResource(Res.string.live_badge) else formatDuration(totalMs),
+            style = typo().bodyMedium,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Right,
+        )
+    }
 }

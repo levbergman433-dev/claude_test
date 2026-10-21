@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -84,9 +85,12 @@ internal fun AppleMusicLyricStrip(
     // until the next one, and the last is held to the end of the track.
     val line = if (synced) lyrics.lines?.getOrNull(state.currentLyricLineIndex) else null
 
+    // The position is handed over as a reader, not a value: read here it would recompose the strip
+    // on every tick, ten a second, when only the sweep (a draw) needs it.
+    val lyricsOffsetMs by rememberUpdatedState(state.lyricsOffsetMs)
     val playhead =
         rememberSweepPlayhead(
-            rawMs = state.timelineState.current - state.lyricsOffsetMs,
+            rawMs = { state.timelineState.current - lyricsOffsetMs },
             running = line != null && richSynced && state.controllerState.isPlaying,
         )
 
@@ -266,24 +270,25 @@ private fun sweepX(
  */
 @Composable
 private fun rememberSweepPlayhead(
-    rawMs: Long,
+    rawMs: () -> Long,
     running: Boolean,
 ): State<Long> {
-    val playhead = remember { mutableLongStateOf(rawMs) }
+    val playhead = remember { mutableLongStateOf(Snapshot.withoutReadObservation { rawMs() }) }
     val latestRaw by rememberUpdatedState(rawMs)
     LaunchedEffect(running) {
         if (!running) {
-            snapshotFlow { latestRaw }.collect { playhead.longValue = it }
+            snapshotFlow { latestRaw() }.collect { playhead.longValue = it }
             return@LaunchedEffect
         }
-        var reported = latestRaw
+        var reported = latestRaw()
         var reportedAt = -1L
         var lastFrame = -1L
         var position = playhead.longValue.toDouble()
         while (true) {
             withFrameNanos { now ->
-                if (reportedAt < 0L || latestRaw != reported) {
-                    reported = latestRaw
+                val raw = latestRaw()
+                if (reportedAt < 0L || raw != reported) {
+                    reported = raw
                     reportedAt = now
                 }
                 // Where the last report puts the song by now. Capped, so a player that has stalled

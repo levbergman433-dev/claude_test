@@ -146,95 +146,18 @@ fun LibraryItem(
                     if (state.type is LibraryItemType.RecentlyAdded) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             state.data.filterIsInstance<RecentlyType>().forEach { item ->
-                                when (item.objectType()) {
-                                    RecentlyType.Type.SONG -> {
-                                        SongFullWidthItems(
-                                            songEntity = item as SongEntity,
-                                            isPlaying = item.videoId == state.type.playingVideoId,
-                                            modifier = Modifier,
-                                            onMoreClickListener = {
-                                                songEntity = item
-                                                showBottomSheet = true
-                                            },
-                                            onClickListener = {
-                                                viewModel.setQueueData(
-                                                    QueueData.Data(
-                                                        listTracks = arrayListOf(item.toTrack()),
-                                                        firstPlayedTrack = item.toTrack(),
-                                                        playlistId = "RDAMVM${item.videoId}",
-                                                        playlistName = item.title,
-                                                        playlistType = DomainPlaylistType.RADIO,
-                                                        continuation = null,
-                                                    ),
-                                                )
-                                                viewModel.loadMediaItem(
-                                                    item,
-                                                    type = Config.SONG_CLICK,
-                                                    index = 0,
-                                                )
-                                            },
-                                            selectionMode = selectionState?.isActive == true,
-                                            isSelected = selectionState?.isSelected(item.videoId) == true,
-                                            onLongClick =
-                                                selectionState?.let { sel -> { id: String -> sel.start(id) } },
-                                            onSelectToggle =
-                                                selectionState?.let { sel -> { id: String -> sel.toggle(id) } },
-                                            onAddToQueue = { videoId ->
-                                                sharedViewModel.addListToQueue(
-                                                    arrayListOf(item.toTrack()),
-                                                )
-                                            },
-                                        )
-                                    }
-
-                                    RecentlyType.Type.ARTIST -> {
-                                        ArtistFullWidthItems(
-                                            data = item as? ArtistEntity ?: return@forEach,
-                                            onClickListener = {
-                                                navController.navigate(
-                                                    ArtistDestination(
-                                                        channelId = item.channelId,
-                                                    ),
-                                                )
-                                            },
-                                        )
-                                    }
-
-                                    else -> {
-                                        if (item is PlaylistType) {
-                                            PlaylistFullWidthItems(
-                                                data = item,
-                                                onClickListener = {
-                                                    when (item) {
-                                                        is AlbumEntity -> {
-                                                            navController.navigate(
-                                                                AlbumDestination(
-                                                                    item.browseId,
-                                                                ),
-                                                            )
-                                                        }
-
-                                                        is PlaylistEntity -> {
-                                                            navController.navigate(
-                                                                PlaylistDestination(
-                                                                    item.id,
-                                                                ),
-                                                            )
-                                                        }
-
-                                                        is PodcastsEntity -> {
-                                                            navController.navigate(
-                                                                PodcastDestination(
-                                                                    podcastId = item.podcastId,
-                                                                ),
-                                                            )
-                                                        }
-                                                    }
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
+                                RecentlyRow(
+                                    item = item,
+                                    playingVideoId = state.type.playingVideoId,
+                                    navController = navController,
+                                    viewModel = viewModel,
+                                    sharedViewModel = sharedViewModel,
+                                    selectionState = selectionState,
+                                    onSongMore = {
+                                        songEntity = it
+                                        showBottomSheet = true
+                                    },
+                                )
                             }
                         }
                     } else if (state.type is LibraryItemType.CanvasSong) {
@@ -416,6 +339,111 @@ fun LibraryItem(
                         CenterLoadingBox(Modifier.wrapContentSize())
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * One entry of the Library's history: a song plays with its radio, an artist, album, playlist or
+ * podcast opens its page. [onSongMore] opens the song sheet, which the caller hosts so it stays open
+ * when this row scrolls away.
+ */
+@Composable
+fun RecentlyRow(
+    item: RecentlyType,
+    playingVideoId: String,
+    navController: NavController,
+    viewModel: LibraryViewModel,
+    sharedViewModel: SharedViewModel,
+    selectionState: SongSelectionState?,
+    onSongMore: (SongEntity) -> Unit,
+) {
+    when (item.objectType()) {
+        RecentlyType.Type.SONG -> {
+            val song = item as? SongEntity ?: return
+            SongFullWidthItems(
+                songEntity = song,
+                isPlaying = song.videoId == playingVideoId,
+                modifier = Modifier,
+                onMoreClickListener = { onSongMore(song) },
+                onClickListener = {
+                    viewModel.setQueueData(
+                        QueueData.Data(
+                            listTracks = arrayListOf(song.toTrack()),
+                            firstPlayedTrack = song.toTrack(),
+                            playlistId = "RDAMVM${song.videoId}",
+                            playlistName = song.title,
+                            playlistType = DomainPlaylistType.RADIO,
+                            continuation = null,
+                        ),
+                    )
+                    viewModel.loadMediaItem(
+                        song,
+                        type = Config.SONG_CLICK,
+                        index = 0,
+                    )
+                },
+                selectionMode = selectionState?.isActive == true,
+                isSelected = selectionState?.isSelected(song.videoId) == true,
+                onLongClick =
+                    selectionState?.let { sel -> { id: String -> sel.start(id) } },
+                onSelectToggle =
+                    selectionState?.let { sel -> { id: String -> sel.toggle(id) } },
+                onAddToQueue = {
+                    sharedViewModel.addListToQueue(
+                        arrayListOf(song.toTrack()),
+                    )
+                },
+            )
+        }
+
+        RecentlyType.Type.ARTIST -> {
+            val artist = item as? ArtistEntity ?: return
+            ArtistFullWidthItems(
+                data = artist,
+                onClickListener = {
+                    navController.navigate(
+                        ArtistDestination(
+                            channelId = artist.channelId,
+                        ),
+                    )
+                },
+            )
+        }
+
+        else -> {
+            if (item is PlaylistType) {
+                PlaylistFullWidthItems(
+                    data = item,
+                    onClickListener = {
+                        when (item) {
+                            is AlbumEntity -> {
+                                navController.navigate(
+                                    AlbumDestination(
+                                        item.browseId,
+                                    ),
+                                )
+                            }
+
+                            is PlaylistEntity -> {
+                                navController.navigate(
+                                    PlaylistDestination(
+                                        item.id,
+                                    ),
+                                )
+                            }
+
+                            is PodcastsEntity -> {
+                                navController.navigate(
+                                    PodcastDestination(
+                                        podcastId = item.podcastId,
+                                    ),
+                                )
+                            }
+                        }
+                    },
+                )
             }
         }
     }

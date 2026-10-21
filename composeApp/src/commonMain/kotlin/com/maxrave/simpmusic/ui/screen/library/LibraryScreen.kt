@@ -1,5 +1,18 @@
 package com.maxrave.simpmusic.ui.screen.library
 
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.wrapContentSize
+import com.maxrave.simpmusic.ui.component.CenterLoadingBox
+import com.maxrave.simpmusic.ui.component.NowPlayingBottomSheet
+import com.maxrave.simpmusic.ui.component.AppleShelfHeader
+import com.maxrave.simpmusic.ui.component.LibraryShortcutGrid
+import com.maxrave.simpmusic.ui.component.LibraryCollectionPills
+import com.maxrave.simpmusic.ui.component.RecentlyRow
+import com.maxrave.simpmusic.ui.component.recentlyKey
+import simpmusic.composeapp.generated.resources.show_all
+import simpmusic.composeapp.generated.resources.show_less
+import simpmusic.composeapp.generated.resources.recently_added
 import com.maxrave.simpmusic.ui.component.topBarSurface
 import com.maxrave.simpmusic.ui.component.pageBrushSlice
 import com.maxrave.simpmusic.ui.theme.LocalPageBrush
@@ -187,6 +200,11 @@ fun LibraryScreen(
     val chartPlaylists by viewModel.chartPlaylists.collectAsStateWithLifecycle()
     val recentlyAdded by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val libraryOverview by viewModel.libraryOverview.collectAsStateWithLifecycle()
+    // A list rebuilt on every track change can repeat an entry; a lazy list must not see a key twice.
+    val history =
+        remember(recentlyAdded) {
+            recentlyAdded.data.orEmpty().distinctBy { it.recentlyKey() }
+        }
 
     val selectionState = rememberSongSelectionState()
     val selectionViewModel: SongSelectionViewModel = koinViewModel()
@@ -194,6 +212,9 @@ fun LibraryScreen(
     // Held here rather than inside the list item, so the sheet does not close if its card scrolls
     // out of composition behind it.
     var sharingTaste by remember { mutableStateOf<TasteProfile?>(null) }
+    // The history's song sheet, hosted here so it stays open when its row scrolls out of the list.
+    var historySheetSong by remember { mutableStateOf<SongEntity?>(null) }
+    var showAllHistory by rememberSaveable { mutableStateOf(false) }
     var showSelectionSheet by rememberSaveable { mutableStateOf(false) }
     var showSelectionAddToPlaylist by rememberSaveable { mutableStateOf(false) }
     val accountThumbnail by viewModel.accountThumbnail.collectAsStateWithLifecycle()
@@ -301,6 +322,7 @@ fun LibraryScreen(
                         } else {
                             0.dp
                         }
+                    val appleLayout = LocalAppleLayout.current
                     LazyColumn(
                         contentPadding =
                             innerPadding.copy(
@@ -310,16 +332,87 @@ fun LibraryScreen(
                             ),
                         state = state,
                     ) {
-                        item {
-                            if (LocalAppleLayout.current) {
-                                AppleLibraryCategories(
+                        // Everything that opens part of the library fits above the fold, so the
+                        // history starts on the first screen instead of two screens down.
+                        if (appleLayout) {
+                            item(key = "shortcuts") {
+                                LibraryShortcutGrid(
                                     navController = navController,
+                                    overview = libraryOverview,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                            item(key = "collections") {
+                                LibraryCollectionPills(
                                     showYouTube = loggedIn,
                                     showWrapped = localTrackingEnabled,
                                     onOpenCategory = { viewModel.setCurrentScreen(it) },
+                                    modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
                                 )
-                            } else {
+                            }
+                        } else {
+                            item(key = "tiles") {
                                 LibraryTilingBox(navController, libraryOverview)
+                            }
+                        }
+
+                        // The history, one lazy row per entry. It used to be a single item holding
+                        // every entry (up to 150) in a plain Column, so all of them were composed
+                        // and laid out at once, and again on every track change.
+                        item(key = "history_header") {
+                            LibraryHistoryHeader(appleLayout = appleLayout)
+                        }
+                        if (history.isEmpty() && recentlyAdded is LocalResource.Loading) {
+                            item(key = "history_loading") {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().height(130.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CenterLoadingBox(Modifier.wrapContentSize())
+                                }
+                            }
+                        }
+                        items(
+                            items = if (showAllHistory) history else history.take(HISTORY_PREVIEW),
+                            key = { "history:${it.recentlyKey()}" },
+                            contentType = { it.objectType() },
+                        ) { entry ->
+                            RecentlyRow(
+                                item = entry,
+                                playingVideoId = nowPlaying,
+                                navController = navController,
+                                viewModel = viewModel,
+                                sharedViewModel = sharedViewModel,
+                                selectionState = selectionState,
+                                onSongMore = { historySheetSong = it },
+                            )
+                        }
+                        if (history.size > HISTORY_PREVIEW) {
+                            item(key = "history_toggle") {
+                                TextButton(
+                                    onClick = { showAllHistory = !showAllHistory },
+                                    modifier = Modifier.padding(horizontal = 10.dp),
+                                ) {
+                                    Text(
+                                        text = stringResource(if (showAllHistory) Res.string.show_less else Res.string.show_all),
+                                        style = typo().titleSmall.copy(fontSize = 15.sp),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
+                        }
+
+                        if (!listCanvasSong.data.isNullOrEmpty()) {
+                            item(key = "canvas") {
+                                LibraryItem(
+                                    state =
+                                        LibraryItemState(
+                                            type = LibraryItemType.CanvasSong,
+                                            data = listCanvasSong.data ?: emptyList(),
+                                            isLoading = listCanvasSong is LocalResource.Loading,
+                                        ),
+                                    navController = navController,
+                                )
                             }
                         }
 
@@ -334,42 +427,12 @@ fun LibraryScreen(
                                         onGenerate = tasteViewModel::generate,
                                         onOpenSettings = { navController.navigate(SettingsDestination) },
                                         onShare = { sharingTaste = it },
-                                        modifier = Modifier.padding(start = 10.dp, end = 10.dp, bottom = 8.dp),
+                                        modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 16.dp, bottom = 8.dp),
                                     )
                                 }
                             }
                         }
-
-                        if (!listCanvasSong.data.isNullOrEmpty()) {
-                            item {
-                                LibraryItem(
-                                    state =
-                                        LibraryItemState(
-                                            type = LibraryItemType.CanvasSong,
-                                            data = listCanvasSong.data ?: emptyList(),
-                                            isLoading = listCanvasSong is LocalResource.Loading,
-                                        ),
-                                    navController = navController,
-                                )
-                            }
-                        }
-
-                        item {
-                            LibraryItem(
-                                state =
-                                    LibraryItemState(
-                                        type =
-                                            LibraryItemType.RecentlyAdded(
-                                                playingVideoId = nowPlaying,
-                                            ),
-                                        data = recentlyAdded.data ?: emptyList(),
-                                        isLoading = recentlyAdded is LocalResource.Loading,
-                                    ),
-                                navController = navController,
-                                selectionState = selectionState,
-                            )
-                        }
-                        item {
+                        item(key = "end") {
                             EndOfPage()
                         }
                     }
@@ -466,6 +529,14 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+    historySheetSong?.let { song ->
+        NowPlayingBottomSheet(
+            onDismiss = { historySheetSong = null },
+            navController = navController,
+            song = song,
+            onLibraryDelete = { viewModel.deleteSong(song.videoId) },
+        )
     }
     sharingTaste?.let { profile ->
         ShareTasteSheet(profile = profile, onDismiss = { sharingTaste = null })
@@ -736,54 +807,6 @@ fun LibraryScreen(
 }
 
 /**
- * Apple Music-style Library landing list: the four smart playlists that used to be coloured
- * tiles, followed by the collections that used to be chips. Rows open exactly what the tiles and
- * chips opened.
- */
-@Composable
-private fun AppleLibraryCategories(
-    navController: NavController,
-    showYouTube: Boolean,
-    showWrapped: Boolean,
-    onOpenCategory: (LibraryChipType) -> Unit,
-) {
-    fun openDynamic(type: LibraryDynamicPlaylistType) {
-        navController.navigate(LibraryDynamicPlaylistDestination(type = type.toStringParams()))
-    }
-    val rows = mutableListOf<Triple<String, ImageVector, () -> Unit>>()
-    rows += Triple(stringResource(Res.string.favorite), SimpIcons.Favorite, { openDynamic(LibraryDynamicPlaylistType.Favorite) })
-    rows += Triple(stringResource(Res.string.followed), SimpIcons.PeopleAlt, { openDynamic(LibraryDynamicPlaylistType.Followed) })
-    rows += Triple(stringResource(Res.string.most_played), SimpIcons.TrendingUp, { openDynamic(LibraryDynamicPlaylistType.MostPlayed) })
-    rows += Triple(stringResource(Res.string.downloaded), SimpIcons.DownloadForOffline, { openDynamic(LibraryDynamicPlaylistType.Downloaded) })
-    rows += Triple(stringResource(Res.string.your_playlists), SimpIcons.QueueMusic, { onOpenCategory(LibraryChipType.LOCAL_PLAYLIST) })
-    if (showYouTube) {
-        rows +=
-            Triple(
-                stringResource(Res.string.your_youtube_playlists),
-                SimpIcons.LibraryMusic,
-                { onOpenCategory(LibraryChipType.YOUTUBE_MUSIC_PLAYLIST) },
-            )
-    }
-    rows += Triple(stringResource(Res.string.favorite_playlists), SimpIcons.Star, { onOpenCategory(LibraryChipType.FAVORITE_PLAYLIST) })
-    rows += Triple(stringResource(Res.string.downloaded_playlists), SimpIcons.Download, { onOpenCategory(LibraryChipType.DOWNLOADED_PLAYLIST) })
-    rows += Triple(stringResource(Res.string.favorite_podcasts), SimpIcons.RssFeed, { onOpenCategory(LibraryChipType.FAVORITE_PODCAST) })
-    rows += Triple(stringResource(Res.string.simpmusic_charts), SimpIcons.AutoGraph, { onOpenCategory(LibraryChipType.CHART) })
-    if (showWrapped) {
-        rows += Triple(stringResource(Res.string.wrapped), SimpIcons.Insights, { onOpenCategory(LibraryChipType.WRAPPED) })
-    }
-    Column(Modifier.padding(bottom = 16.dp)) {
-        rows.forEachIndexed { index, (title, icon, onClick) ->
-            AppleLibraryRow(
-                title = title,
-                icon = icon,
-                showDivider = index != rows.lastIndex,
-                onClick = onClick,
-            )
-        }
-    }
-}
-
-/**
  * How wide the Your Library tab may get on Desktop: the floating capsule player's own width plus
  * the 10dp gutter every row of this list already carries, so the cards' edges land on the
  * capsule's. The capsule has no width constant of its own — `MiniPlayer`'s Desktop row sums to
@@ -791,3 +814,25 @@ private fun AppleLibraryCategories(
  * 48dp icon buttons) + 16 = 822dp — so this must follow if that row changes.
  */
 private val YOUR_LIBRARY_MAX_WIDTH = 842.dp
+
+/** "Recently Added" over the Your library history, in the Apple layout's shelf style or the classic one. */
+@Composable
+private fun LibraryHistoryHeader(appleLayout: Boolean) {
+    if (appleLayout) {
+        AppleShelfHeader(
+            title = stringResource(Res.string.recently_added),
+            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+        )
+    } else {
+        Text(
+            text = stringResource(Res.string.recently_added),
+            style = typo().headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            modifier = Modifier.padding(top = 15.dp, start = 10.dp, end = 10.dp).height(35.dp).wrapContentHeight(align = Alignment.CenterVertically),
+        )
+    }
+}
+
+/** How much of the history shows before "Show all": about two screens' worth. */
+private const val HISTORY_PREVIEW = 25
