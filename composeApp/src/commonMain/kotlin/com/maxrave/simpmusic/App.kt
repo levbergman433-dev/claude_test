@@ -437,6 +437,12 @@ fun App(
                         }
                     }
 
+                    // simpmusic://player — opens the player over whatever is on screen, for a shortcut
+                    // or a widget to land on it. Nothing loaded means nothing to show, so it is ignored.
+                    "player" -> {
+                        if (viewModel.nowPlayingState.value != null) isShowNowPlaylistScreen = true
+                    }
+
                     // simpmusic://taste — the AI taste card, which sits on Your library. A link of its
                     // own rather than library?tab=your_library, so it can say that the card exists only
                     // while local tracking is on.
