@@ -1008,6 +1008,22 @@ if (getPlatform() == Platform.Android) {
   - **The swipe on a song row** goes through `SharedViewModel.addListToQueue`, which plays a single song next whenever Add to queue is blocked (it used to do so only under Endless queue). Its icon switches to Play next while that applies.
   - The owner decided against a Spotify-style Add to queue that plays before the rest of the queue, against a two-way swipe, and against a setting for the default action. Report those requests as decided, not as missing work.
 
+- **Tunes fork: upstream SimpMusic v2.3.0 merged (2026-10-21)**: this tree is **Tunes**, a credited GPL-3 fork of SimpMusic. Upstream keeps `core/` as a git submodule (`maxrave-dev/core`); the fork carries it inline. So an upstream release comes in as a **synthetic commit** that flattens the submodule into the tree at upstream's pinned revision, and that commit is then merged with an ordinary 3-way merge. Merging upstream's own history directly would show `core/` as a gitlink and conflict on every file under it.
+  - **Three upstream behaviours are switched off on purpose, each by one constant:**
+    - `ENFORCE_OFFICIAL_BUILD = false` (`SharedViewModel.kt`) disables `checkOfficialBuild`, upstream's repackaged-build lock, which would otherwise lock a fork out.
+    - `UPSTREAM_UPDATES_DISABLED = true` stops the update dialog offering SimpMusic releases.
+    - `SHOW_UPSTREAM_PROMOS = false` (`HomeScreen.kt`) stops the launch banners, which come from SimpMusic's remote config.
+    - Keep all three when merging the next release.
+  - **Branding:** CI writes `Tunes-<abi>.apk` into a `Tunes-apk` artifact. The launcher, round and adaptive-foreground icons in every density, plus `app_icon.png`/`circle_app_icon.png`, are generated from `asset/tunes_icon.png`. `app_name` and the user-facing strings that named the app now say Tunes. The `applicationId` stays `com.maxrave.simpmusic`, so existing installs update in place.
+  - **Haze 2.0:** fork-only code was moved off `hazeEffect(state, style) { blurEnabled = true }` to `hazeBlur(HazeInput.Sources(state), …)`, with the shared styles `ultraThinBarStyle()`/`barBlurStyle()` in `extension/UIExt.kt`.
+  - **Fork features re-applied onto upstream's redesigns rather than kept whole:**
+    - Apple Music player: progress-slider scope, glass codec pill, Bedtime (night mode) button.
+    - Glass tab bar: `appleStyle`, accent tint.
+    - Artwork: the 1 px `artworkFrame` edge.
+    - Rich-presence priority setting.
+    - Quick-picks cache.
+  - **Not ported, so still upstream-only:** the system-equalizer option and the login-sync QR.
+
 ## 🔄 CLAUDE.md Auto-Update Rule (MANDATORY)
 
 After completing any of the following types of changes, the AI agent **MUST** update this CLAUDE.md file:
@@ -1032,6 +1048,6 @@ After completing any of the following types of changes, the AI agent **MUST** up
 
 *This document helps AI Agents quickly understand the SimpMusic project. Update regularly when there are major changes to architecture or structure.*
 
-**Last updated**: 2026-10-10
+**Last updated**: 2026-10-21
 **Project version**: Check latest release on GitHub
 **Maintained by**: maxrave-dev and contributors
