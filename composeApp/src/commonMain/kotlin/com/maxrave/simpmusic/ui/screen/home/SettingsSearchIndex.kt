@@ -38,6 +38,8 @@ import simpmusic.composeapp.generated.resources.auto_backup
 import simpmusic.composeapp.generated.resources.auto_backup_description
 import simpmusic.composeapp.generated.resources.auto_download_liked_songs
 import simpmusic.composeapp.generated.resources.auto_download_liked_songs_description
+import simpmusic.composeapp.generated.resources.smart_downloads
+import simpmusic.composeapp.generated.resources.smart_downloads_description
 import simpmusic.composeapp.generated.resources.backup
 import simpmusic.composeapp.generated.resources.backup_downloaded
 import simpmusic.composeapp.generated.resources.backup_downloaded_description
@@ -244,6 +246,7 @@ internal val settingsSearchIndex: List<SettingsSearchEntry> =
         SettingsSearchEntry(Res.string.video_quality, null, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.video_download_quality, null, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.auto_download_liked_songs, Res.string.auto_download_liked_songs_description, SettingsCategory.PLAYBACK, "quality"),
+        SettingsSearchEntry(Res.string.smart_downloads, Res.string.smart_downloads_description, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.play_video_for_video_track_instead_of_audio_only, Res.string.such_as_music_video_lyrics_video_podcasts_and_more, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.radio_audio_only, Res.string.radio_audio_only_description, SettingsCategory.PLAYBACK, "quality"),
         SettingsSearchEntry(Res.string.sync_follow_to_youtube, Res.string.sync_follow_to_youtube_description, SettingsCategory.ACCOUNT, "content_more"),

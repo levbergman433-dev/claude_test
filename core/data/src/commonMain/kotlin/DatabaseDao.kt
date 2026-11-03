@@ -220,6 +220,14 @@ interface DatabaseDao {
     suspend fun insertSearchHistory(searchHistory: SearchHistory): Long
 
     // Song
+    // Read by the fork's Apple-layout Home ("Recently played", and the seeds of its own Quick picks);
+    // upstream dropped it with its Recently Added screen in 2.4.0.
+    @Query("SELECT * FROM song ORDER BY inLibrary DESC LIMIT :limit OFFSET :offset")
+    suspend fun getRecentSongs(
+        limit: Int,
+        offset: Int,
+    ): List<SongEntity>
+
     @Query("SELECT * FROM song ORDER BY inLibrary DESC LIMIT :limit OFFSET 0")
     suspend fun getAllSongs(limit: Int): List<SongEntity>
 

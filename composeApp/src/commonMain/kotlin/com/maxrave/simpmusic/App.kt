@@ -1,5 +1,7 @@
 package com.maxrave.simpmusic
 
+import androidx.compose.ui.graphics.Color
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import com.maxrave.simpmusic.ui.component.LocalPlaybackActive

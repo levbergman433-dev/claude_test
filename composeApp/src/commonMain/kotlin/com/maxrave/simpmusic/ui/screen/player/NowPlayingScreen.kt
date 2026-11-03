@@ -922,7 +922,8 @@ fun NowPlayingScreenContent(
                 onTimestamp = { raw ->
                     // The rule the Info card's description follows: only a time inside the track seeks.
                     val timestamp = parseTimestampToMilliseconds(raw)
-                    val total = timelineState.total
+                    // Read on tap, not in composition: the timeline ticks ten times a second.
+                    val total = timelineHolder.value.total
                     if (timestamp != 0.0 && timestamp < total) {
                         sharedViewModel.onUIEvent(UIEvent.UpdateProgress(((timestamp * 100) / total).toFloat()))
                     }

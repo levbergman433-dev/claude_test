@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.extension
 
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FloatSpringSpec
 import androidx.compose.animation.core.LinearEasing
@@ -779,6 +780,27 @@ fun artworkScrimBrush(
     color: Color,
     steps: Int = 24,
 ): Brush = smoothScrimBrush(from = color.copy(alpha = 0f), to = color, steps = steps)
+
+/**
+ * Whether any of this element is on screen, through every ancestor's bounds: a scrolled Column's
+ * viewport bounds its content, so a card scrolled out of it reads as off screen. [onChange] runs only
+ * when the answer flips. For holding off a heavy child, such as an animated lyrics view below the
+ * fold, until it can be seen.
+ */
+fun Modifier.onVisibleInWindow(onChange: (Boolean) -> Unit): Modifier =
+    composed {
+        val latest by rememberUpdatedState(onChange)
+        // Not state: nothing reads it in composition, it only gates the callback.
+        val last = remember { arrayOfNulls<Boolean>(1) }
+        onGloballyPositioned { coordinates ->
+            val bounds = coordinates.boundsInWindow()
+            val visible = coordinates.isAttached && bounds.width > 0f && bounds.height > 0f
+            if (visible != last[0]) {
+                last[0] = visible
+                latest(visible)
+            }
+        }
+    }
 
 fun Modifier.isElementVisible(onVisibilityChanged: (Boolean) -> Unit) =
     composed {

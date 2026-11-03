@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content
 
+import com.maxrave.simpmusic.extension.onVisibleInWindow
 import androidx.compose.runtime.derivedStateOf
 import com.maxrave.simpmusic.ui.component.PLAYER_MARQUEE_REPEAT_DELAY_MS
 import androidx.compose.animation.AnimatedVisibility
@@ -673,13 +674,17 @@ internal fun ExpressiveBelowTheFold(
                         }
                     }
                     Spacer(modifier = Modifier.height(18.dp))
+                    // Below the fold until scrolled to, and a lyrics view animates on every line (and,
+                    // word-synced, every frame): composed only while any of it is on screen.
+                    var lyricsCardOnScreen by remember { mutableStateOf(false) }
                     Box(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .height(300.dp),
+                                .height(300.dp)
+                                .onVisibleInWindow { lyricsCardOnScreen = it },
                     ) {
-                        state.screenData.lyricsData?.let {
+                        state.screenData.lyricsData?.takeIf { lyricsCardOnScreen }?.let {
                             LyricsView(
                                 lyricsData = it,
                                 timeLine = state.timelineFlow,

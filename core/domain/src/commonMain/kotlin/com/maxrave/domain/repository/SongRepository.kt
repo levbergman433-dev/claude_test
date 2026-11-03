@@ -119,6 +119,12 @@ interface SongRepository {
         downloadState: Int,
     )
 
+    /** The songs added to the library most recently, newest first (the fork's Home "Recently played"). */
+    suspend fun getRecentSong(
+        limit: Int,
+        offset: Int,
+    ): List<SongEntity>
+
     suspend fun insertSongInfo(songInfo: SongInfoEntity)
 
     suspend fun getSongInfoEntity(videoId: String): Flow<SongInfoEntity?>
