@@ -46,6 +46,10 @@ wait_boot() {
     adb root > /dev/null 2>&1
     sleep 3
     timeout 60 adb wait-for-device
+    # No "isn't responding" dialogs: on the software renderer the Pixel Launcher misses its deadlines
+    # and its dialog sat over every screenshot (run 82). With dialogs hidden the system kills an app
+    # that stops responding instead; every ANR, ours included, is still listed in the stats.
+    adb shell settings put global hide_error_dialogs 1 > /dev/null 2>&1
 }
 
 # Brings the emulator back if it went down, so the next pass can still run and the action's own
@@ -155,6 +159,11 @@ run_pass() {
         note "[$tag] emulator went down while opening Now Playing"
     fi
     kill "$logcat_pid" > /dev/null 2>&1
+    # Which apps stopped responding during the pass. The dialogs are hidden (wait_boot), so an ANR
+    # shows up only here, and one in $PKG would also have closed the app before the next screenshot.
+    local anrs
+    anrs=$(grep -oE "ANR in [A-Za-z0-9_.:]+" "$OUT/logcat-$tag.txt" | sort | uniq -c | tr -s ' ' | tr '\n' ';')
+    [ -n "$anrs" ] && note "[$tag] ANRs: $anrs"
     # What the app logged when something went wrong: Java crashes, native aborts, and HWUI or
     # RenderThread complaints (the emulator renders in software, so its GPU path is the weak spot).
     {
