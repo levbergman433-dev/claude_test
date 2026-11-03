@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.component
 
+import simpmusic.composeapp.generated.resources.save_queue_as_playlist
 import androidx.compose.runtime.collectAsState
 import com.maxrave.domain.repository.ListenTogetherRepository
 import com.maxrave.domain.data.model.listentogether.RoomTrack
@@ -993,6 +994,7 @@ fun QueueBottomSheet(
     var overscrollJob by remember { mutableStateOf<Job?>(null) }
     // The row whose ⋯ was tapped, as its queue position and the track that was there.
     var moreFor by remember { mutableStateOf<Pair<Int, Track>?>(null) }
+    var showSaveQueue by remember { mutableStateOf(false) }
     val screenDataState by sharedViewModel.nowPlayingScreenData.collectAsStateWithLifecycle()
     val songEntity by remember { sharedViewModel.nowPlayingState.map { it?.songEntity } }.collectAsStateWithLifecycle(null)
     val queueData by musicServiceHandler.queueData.collectAsStateWithLifecycle()
@@ -1050,6 +1052,13 @@ fun QueueBottomSheet(
             song = track.toSongEntity(),
             queuePosition = QueuePosition(index, track.videoId),
             onNavigateToOtherScreen = onNavigateToOtherScreen,
+        )
+    }
+    if (showSaveQueue) {
+        CreateLocalPlaylistSheet(
+            onDismiss = { showSaveQueue = false },
+            onCreate = { title -> sharedViewModel.saveQueueAsPlaylist(title) },
+            initialTitle = queueData?.data?.playlistName.orEmpty(),
         )
     }
 
@@ -1132,9 +1141,17 @@ fun QueueBottomSheet(
                         }
                     },
                     actions = {
-                        Box(
-                            modifier = Modifier.size(32.dp),
-                        )
+                        // Save the queue as a local playlist; the name sheet opens on the queue's source.
+                        IconButton(
+                            onClick = { showSaveQueue = true },
+                            enabled = queue.isNotEmpty(),
+                        ) {
+                            Icon(
+                                imageVector = SimpIcons.PlaylistAdd,
+                                contentDescription = stringResource(Res.string.save_queue_as_playlist),
+                                tint = rememberSurfaceDarkColors().content,
+                            )
+                        }
                     },
                 )
 

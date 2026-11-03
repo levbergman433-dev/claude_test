@@ -912,6 +912,7 @@ fun HomeItemContentPlaylist(
                     textWidth
                         .wrapContentHeight(align = Alignment.CenterVertically)
                         .basicMarquee(
+                            iterations = LIST_MARQUEE_ITERATIONS,
                             initialDelayMillis = 2000,
                             repeatDelayMillis = 2000,
                             velocity = 25.dp,
@@ -1027,6 +1028,7 @@ fun QuickPicksItem(
                                     .fillMaxWidth()
                                     .wrapContentHeight(align = Alignment.CenterVertically)
                                     .basicMarquee(
+                                        iterations = LIST_MARQUEE_ITERATIONS,
                                         initialDelayMillis = 2000,
                                         repeatDelayMillis = 2000,
                                         velocity = 25.dp,
@@ -1138,6 +1140,7 @@ fun HomeItemSong(
                         textWidth
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 initialDelayMillis = 2000,
                                 repeatDelayMillis = 2000,
                                 velocity = 25.dp,
@@ -1239,6 +1242,7 @@ fun HomeItemVideo(
                             .weight(1f)
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 initialDelayMillis = 2000,
                                 repeatDelayMillis = 2000,
                                 velocity = 25.dp,
@@ -1340,6 +1344,7 @@ fun HomeItemArtist(
                     textWidth
                         .wrapContentHeight(align = Alignment.CenterVertically)
                         .basicMarquee(
+                            iterations = LIST_MARQUEE_ITERATIONS,
                             initialDelayMillis = 2000,
                             repeatDelayMillis = 2000,
                             velocity = 25.dp,
@@ -1477,6 +1482,7 @@ fun ItemVideoChart(
                                 .width(210.dp)
                                 .wrapContentHeight(align = Alignment.CenterVertically)
                                 .basicMarquee(
+                                    iterations = LIST_MARQUEE_ITERATIONS,
                                     initialDelayMillis = 2000,
                                     repeatDelayMillis = 2000,
                                     velocity = 25.dp,
@@ -1580,6 +1586,7 @@ fun ItemArtistChart(
                         Modifier
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 initialDelayMillis = 2000,
                                 repeatDelayMillis = 2000,
                                 velocity = 25.dp,
@@ -1685,6 +1692,7 @@ fun ItemTrackChart(
                             .fillMaxWidth()
                             .wrapContentHeight(align = Alignment.CenterVertically)
                             .basicMarquee(
+                                iterations = LIST_MARQUEE_ITERATIONS,
                                 initialDelayMillis = 2000,
                                 repeatDelayMillis = 2000,
                                 velocity = 25.dp,

@@ -32,7 +32,8 @@ jobs:
       # Signing key: the SIGNING_KEY secret (base64 keystore) + KEY_PASSWORD when set. Without
       # them, a key is generated once and kept in the Actions cache so that every build carries the
       # SAME signature and installs as an update over the previous one. Caches expire after a week
-      # without builds, so adding the secrets is what makes the key permanent.
+      # without a read; keep-signing-key.yml reads this one every three days so quiet spells between
+      # builds do not lose it, but adding the secrets is what makes the key permanent.
       - name: Restore fallback signing key
         if: ${{ env.HAS_SECRET != 'true' }}
         id: keycache

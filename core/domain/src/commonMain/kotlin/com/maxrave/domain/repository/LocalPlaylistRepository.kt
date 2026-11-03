@@ -34,6 +34,18 @@ interface LocalPlaylistRepository {
 
     suspend fun insertPairSongLocalPlaylist(pairSongLocalPlaylist: PairSongLocalPlaylist)
 
+    /**
+     * Creates a local playlist named [title] holding [tracks] in the order given, in one transaction,
+     * writing a `song` row first for any track that has none (rows that exist keep their state).
+     * A track listed twice is kept once, at its first position, as Add to playlist does.
+     *
+     * @return the new playlist id, or -1 when the playlist row was not written.
+     */
+    suspend fun createLocalPlaylistFromTracks(
+        title: String,
+        tracks: List<Track>,
+    ): Long
+
     fun getPlaylistPairSongByListPosition(
         playlistId: Long,
         listPosition: List<Int>,

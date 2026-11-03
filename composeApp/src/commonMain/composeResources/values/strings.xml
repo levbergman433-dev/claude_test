@@ -986,6 +986,8 @@
     <string name="credits_maiker_subtitle">Apple Music-style design, liquid glass and speed improvements</string>
     <string name="theme_mode_graphite">Graphite (dark grey)</string>
     <string name="theme_mode_black">Black (OLED)</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="queue_saved_as_playlist">Saved the queue as a playlist</string>
     <string name="theme_mode_midnight">Midnight (dark blue)</string>
     <string name="theme_mode_forest">Forest (dark green)</string>
     <string name="theme_mode_plum">Plum (dark purple)</string>

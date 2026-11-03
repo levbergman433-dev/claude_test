@@ -1,0 +1,36 @@
+name: Keep the fallback signing key cached
+
+# Until the SIGNING_KEY and KEY_PASSWORD secrets are set, build-apk.yml signs with a key that lives
+# only in the Actions cache (sideload-signing-key-v1). GitHub evicts a cache entry nobody has read
+# for 7 days, and two quiet weeks between builds lost it once (2026-11-03): every APK signed after
+# that cannot install over the ones before it. Reading the entry every few days keeps it alive.
+#
+# The key is restored onto the runner and deleted there. It is never printed, uploaded or written
+# back, and this workflow never creates one: generating a key stays build-apk.yml's job.
+on:
+  schedule:
+    - cron: '23 5 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  touch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read the cached key
+        id: key
+        uses: actions/cache/restore@v4
+        with:
+          path: sideload.jks
+          key: sideload-signing-key-v1
+
+      - name: Report
+        run: |
+          rm -f sideload.jks
+          if [ "${{ steps.key.outputs.cache-hit }}" = "true" ]; then
+            echo "Fallback signing key is cached; its 7-day eviction timer has been reset."
+          else
+            echo "::warning title=No cached signing key::The next APK build will generate a new key, and that APK will not install over earlier ones. Add the SIGNING_KEY and KEY_PASSWORD secrets to make the key permanent."
+          fi

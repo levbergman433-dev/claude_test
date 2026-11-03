@@ -1139,6 +1139,33 @@ if (getPlatform() == Platform.Android) {
   - **The window under the Now Playing sheet keeps rendering.** On a phone the sheet is a window over the app, and the app underneath still draws every frame something in it asks for, with all its glass and blur. `LocalCoveredByNowPlaying` (in `PlaybackIndicators.kt`) is true there while the sheet is open, and false again inside the sheet. The mini player's marquee, progress line and glass sampling, the bottom bar's glass sampling, the playing bars and the download spinner hold still while it is set. **Anything new that animates on its own in the main window must check it too.**
   - Tick-driven values stay out of big scopes: the full-screen lyrics page's seek bar and times (`FullscreenLyricsSeekBar`/`FullscreenLyricsTimeRow`) and the Apple Music lyric strip read the timeline themselves. Note that `lengthLabel()`/`formatDuration()` are `@Composable`, so they cannot go inside a `derivedStateOf`: derive the number, format it outside.
 
+- **Tunes fork: upstream SimpMusic v2.5.0 and the dev fixes after it merged (2026-11-03)**:
+  - **Two more synthetic commits**, each built on the previous one rather than on our history: `40f3dfe` is v2.5.0 (app `b5cff20`, core `1830a60`) on top of `1ee62c9` (v2.3.0), and `8d9ef88` is dev `15cbe70` (core `344d614`), which brought post-release fixes including `DelegatingForwardingPlayer` (FOSS background playback, #2233). They were merged as `2f9f0f0` and `fcee48a`. The recipe, with a scratch index:
+    ```
+    GIT_INDEX_FILE=tmp git read-tree <app tag>
+    git update-index --force-remove core .gitmodules
+    git read-tree --prefix=core/ <core rev>
+    git write-tree
+    git commit-tree -p <previous synthetic commit>
+    ```
+  - **Upstream deleted the recent-songs paging, but our Home still reads it.** `RecentPagingSource` and `RecentlySongsScreen` are gone, so the Recently played shelf now gets its rows from `SongRepository.getRecentSong(limit, offset)` over DAO `getRecentSongs`, both restored. Its "See all" opens the Library history (`requestLibraryTab(YOUR_LIBRARY)`) instead of the deleted screen.
+  - **Liquid glass follows the setting on Desktop too**, as upstream reversed on 2026-10-26; every `|| Platform.Desktop` glass override is gone.
+  - **Upstream 2.4.0 turned plain Dark into a tinted grey**, so pure black is back as a theme of its own: `THEME_MODE_BLACK`, labelled "Black (OLED)", which `surfaceThemeFor` maps to `Color.Black`.
+  - **The mesh keeps our CPU blur** and takes upstream's `topEdge`/`topHold`, with the artwork now starting below the status bar. Its top row is blurred the same way as the rest, so the band above the artwork matches the page.
+  - **Frame loops:**
+    - `rememberLoopingPhase` and `rememberPingPong` (`OnDemandAnimations.kt`) take their frames from `withInfiniteAnimationFrameNanos`, so the Desktop frame governor paces them. With the animator duration scale at 0 they hold still. Before, they were chained `Animatable` tweens, which slipped past the governor.
+    - `Modifier.onVisibleInWindow` (`UIExt.kt`) reports whether a node is on screen. Classic's and M3E's lyrics card, below the fold, now composes `LyricsView` only while it is visible.
+    - Battery saver stops the per-frame word sweep, both in `LyricsView` and in the Apple Music lyric strip.
+    - Long titles on Home cards and on the Browse page title stop after `LIST_MARQUEE_ITERATIONS`.
+  - **Library:**
+    - A Cached pill (Android only) joins `LibraryCollectionPills`.
+    - `LibraryHistoryFilters` narrows the history to one kind: All, Songs, Artists, Albums or Playlists, offering only the kinds present.
+  - **Apple Music player:** for a song every provider came back empty for, the Lyrics dock button carries a "+" and opens Add lyrics (`NowPlayingContentActions.onAddLyrics`). Before, it sat disabled, which buried upstream's add-lyrics feature in the ⋯ sheet.
+  - **Save queue as playlist:**
+    - `LocalPlaylistRepository.createLocalPlaylistFromTracks(title, tracks)` writes the playlist in one transaction through `insertLocalPlaylistWithTracks`.
+    - The `song` rows are IGNORE-inserted first, because the pair table has a foreign key to `song.videoId`.
+    - Buttons: the top bar of `QueueBottomSheet`, and a Save pill in the Apple Music queue header. Both open `CreateLocalPlaylistSheet(initialTitle = <queue's source>)`.
+
 ## 🔄 CLAUDE.md Auto-Update Rule (MANDATORY)
 
 After completing any of the following types of changes, the AI agent **MUST** update this CLAUDE.md file:

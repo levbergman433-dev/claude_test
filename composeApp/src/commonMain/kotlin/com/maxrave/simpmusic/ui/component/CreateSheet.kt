@@ -282,9 +282,11 @@ fun CreateLocalPlaylistSheet(
     onDismiss: () -> Unit,
     onCreate: (String) -> Unit,
     sharedViewModel: SharedViewModel = koinInject(),
+    // The name the field opens with, e.g. the queue's source when the queue is saved as a playlist.
+    initialTitle: String = "",
 ) {
     val coroutineScope = rememberCoroutineScope()
-    var newTitle by remember { mutableStateOf("") }
+    var newTitle by remember { mutableStateOf(initialTitle) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismiss,

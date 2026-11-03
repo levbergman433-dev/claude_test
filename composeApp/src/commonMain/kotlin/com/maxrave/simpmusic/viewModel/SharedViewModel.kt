@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.viewModel
 
+import simpmusic.composeapp.generated.resources.queue_saved_as_playlist
 import simpmusic.composeapp.generated.resources.lt_control_denied
 import org.koin.core.component.inject
 import com.maxrave.domain.repository.ListenTogetherRepository
@@ -1336,6 +1337,23 @@ class SharedViewModel(
                     getString(Res.string.added_local_playlist),
                 ).lastOrNull()
             makeToast(getString(Res.string.added_local_playlist))
+        }
+    }
+
+    /**
+     * Saves the queue as it stands into a new local playlist named [title], in the order the queue
+     * shows (the shuffled order while shuffle is on).
+     */
+    fun saveQueueAsPlaylist(title: String) {
+        val tracks = mediaPlayerHandler.queueData.value?.data?.listTracks.orEmpty()
+        if (tracks.isEmpty()) return
+        viewModelScope.launch {
+            val id =
+                runCatching { localPlaylistRepository.createLocalPlaylistFromTracks(title, tracks) }
+                    .onFailure { Logger.e(tag, "saveQueueAsPlaylist: ${it.message}") }
+                    .getOrDefault(-1L)
+            Logger.i(tag, "saveQueueAsPlaylist: ${tracks.size} tracks -> playlist $id")
+            makeToast(getString(if (id != -1L) Res.string.queue_saved_as_playlist else Res.string.error))
         }
     }
 

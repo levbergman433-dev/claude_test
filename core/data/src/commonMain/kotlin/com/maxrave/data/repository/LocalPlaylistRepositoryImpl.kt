@@ -870,6 +870,28 @@ internal class LocalPlaylistRepositoryImpl(
             localDataSource.insertPairSongLocalPlaylist(pairSongLocalPlaylist)
         }
 
+    override suspend fun createLocalPlaylistFromTracks(
+        title: String,
+        tracks: List<Track>,
+    ): Long =
+        withContext(Dispatchers.IO) {
+            val songs = tracks.distinctBy { it.videoId }.map { it.toSongEntity() }
+            if (songs.isEmpty()) return@withContext -1L
+            // IGNORE inserts: a song already stored keeps its liked and download state. The pair table
+            // has a foreign key to song.videoId, so every row must exist before the playlist is written.
+            localDataSource.insertSongs(songs)
+            val videoIds = songs.map { it.videoId }
+            localDataSource.insertLocalPlaylistWithTracks(
+                localPlaylist =
+                    LocalPlaylistEntity(
+                        title = title,
+                        thumbnail = songs.firstNotNullOfOrNull { it.thumbnails?.takeIf { url -> url.isNotBlank() } },
+                        tracks = videoIds,
+                    ),
+                videoIds = videoIds,
+            )
+        }
+
     override fun getPlaylistPairSongByListPosition(
         playlistId: Long,
         listPosition: List<Int>,

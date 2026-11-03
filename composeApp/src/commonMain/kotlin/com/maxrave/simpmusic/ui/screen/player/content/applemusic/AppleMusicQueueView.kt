@@ -2,6 +2,10 @@
 
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
+import com.maxrave.simpmusic.ui.component.CreateLocalPlaylistSheet
+import com.maxrave.simpmusic.viewModel.SharedViewModel
+import simpmusic.composeapp.generated.resources.save
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -406,6 +410,7 @@ private fun AppleMusicContinuePlayingHeader(
     activePillContainer: Color,
     activePillContent: Color,
     modifier: Modifier = Modifier,
+    sharedViewModel: SharedViewModel = koinInject(),
 ) {
     val coroutineScope = rememberCoroutineScope()
     // remember the mapped flow: a bare .map in composition builds a new Flow every recomposition
@@ -415,6 +420,14 @@ private fun AppleMusicContinuePlayingHeader(
             dataStoreManager.endlessQueue.map { it == DataStoreManager.TRUE }
         }
     val endlessQueueEnabled by endlessQueueFlow.collectAsStateWithLifecycle(initialValue = false)
+    var showSaveQueue by rememberSaveable { mutableStateOf(false) }
+    if (showSaveQueue) {
+        CreateLocalPlaylistSheet(
+            onDismiss = { showSaveQueue = false },
+            onCreate = { title -> sharedViewModel.saveQueueAsPlaylist(title) },
+            initialTitle = state.screenData.playlistName,
+        )
+    }
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             // Two stacked lines instead of one "Continue Playing": the small label says WHAT this
@@ -438,6 +451,26 @@ private fun AppleMusicContinuePlayingHeader(
             }
             // Liquid Glass variant: the label and its switch sit together in one glass capsule.
             val glassBackdrop = LocalAppleMusicGlassBackdrop.current
+            // Saves the queue as a local playlist; the name sheet opens on the queue's source.
+            val saveShape = RoundedCornerShape(percent = 50)
+            Text(
+                text = stringResource(Res.string.save),
+                style = typography.queueSectionSubtitle,
+                color = Color.White,
+                modifier =
+                    Modifier
+                        .padding(end = 8.dp)
+                        .appleMusicPressInflate(pressedScale = 1.08f)
+                        .then(
+                            if (glassBackdrop != null) {
+                                Modifier.appleMusicGlass(glassBackdrop, saveShape)
+                            } else {
+                                Modifier.background(AppleMusicPillInactive, saveShape)
+                            },
+                        ).clip(saveShape)
+                        .clickable(enabled = state.artworkQueue.isNotEmpty()) { showSaveQueue = true }
+                        .padding(horizontal = 14.dp, vertical = 7.dp),
+            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier =
