@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
+import com.maxrave.simpmusic.ui.theme.LocalBatterySaver
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -91,7 +92,8 @@ internal fun AppleMusicLyricStrip(
     val playhead =
         rememberSweepPlayhead(
             rawMs = { state.timelineState.current - lyricsOffsetMs },
-            running = line != null && richSynced && state.controllerState.isPlaying,
+            // Battery saver: no frame loop; the sweep steps with each position report instead.
+            running = line != null && richSynced && state.controllerState.isPlaying && !LocalBatterySaver.current,
         )
 
     AnimatedContent(

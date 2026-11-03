@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.player.content.applemusic
 
+import com.maxrave.simpmusic.ui.icon.Add
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.animation.Crossfade
@@ -905,6 +906,8 @@ internal fun AppleMusicDockButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    // A small glyph on the icon's top-end corner, e.g. "+" on Lyrics while the tap adds lyrics.
+    badge: ImageVector? = null,
 ) {
     Box(
         modifier =
@@ -916,17 +919,27 @@ internal fun AppleMusicDockButton(
                 .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        val tint =
+            when {
+                !enabled -> Color.White.copy(alpha = 0.4f)
+                active -> activeContentColor
+                else -> Color.White.copy(alpha = 0.85f)
+            }
         Icon(
             imageVector = icon,
             contentDescription = "",
-            tint =
-                when {
-                    !enabled -> Color.White.copy(alpha = 0.4f)
-                    active -> activeContentColor
-                    else -> Color.White.copy(alpha = 0.85f)
-                },
+            tint = tint,
             modifier = Modifier.size(22.dp),
         )
+        if (badge != null) {
+            Icon(
+                imageVector = badge,
+                contentDescription = null,
+                tint = tint,
+                // Over the glyph's top-end corner, inside the 40dp circle the button clips to.
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 5.dp).size(12.dp),
+            )
+        }
     }
 }
 
@@ -947,6 +960,9 @@ internal fun AppleMusicActionRow(
     onOpenListenTogether: () -> Unit,
     onOpenComments: () -> Unit,
     modifier: Modifier = Modifier,
+    // Non-null only for a song every provider came back empty for: Lyrics then opens Add lyrics
+    // instead of sitting disabled.
+    onAddLyrics: (() -> Unit)? = null,
 ) = LeftToRight {
     // Straight off the repository, like ListenTogetherIconButton: one boolean off a StateFlow is all
     // the capsule needs, and a ViewModel for it would be built every time the player opens.
@@ -968,14 +984,20 @@ internal fun AppleMusicActionRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Re-tapping the active tab returns to MAIN — the dock is a toggle, not one-way nav.
+            val addsLyrics = !lyricsAvailable && onAddLyrics != null
             AppleMusicDockButton(
                 icon = SimpIcons.Lyrics,
                 active = viewState == AppleMusicView.LYRICS,
                 activeColor = activeColor,
                 activeContentColor = activeContentColor,
-                enabled = lyricsAvailable,
+                enabled = lyricsAvailable || addsLyrics,
+                badge = if (addsLyrics) SimpIcons.Add else null,
                 onClick = {
-                    onSelectView(if (viewState == AppleMusicView.LYRICS) AppleMusicView.MAIN else AppleMusicView.LYRICS)
+                    if (addsLyrics) {
+                        onAddLyrics?.invoke()
+                    } else {
+                        onSelectView(if (viewState == AppleMusicView.LYRICS) AppleMusicView.MAIN else AppleMusicView.LYRICS)
+                    }
                 },
             )
             Row(
@@ -1158,6 +1180,7 @@ internal fun AppleMusicBottomCluster(
             onOpenOutput = onOpenOutput,
             onOpenListenTogether = actions.onOpenListenTogether,
             onOpenComments = actions.onShowComments,
+            onAddLyrics = actions.onAddLyrics.takeIf { state.screenData.lyricsNotFound && state.screenData.lyricsData == null },
         )
         Spacer(modifier = Modifier.height(14.dp))
         // Crossfaded, since it changes on its own — a headset connecting renames the line under the

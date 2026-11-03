@@ -1,5 +1,12 @@
 package com.maxrave.simpmusic.ui.screen.library
 
+import androidx.compose.foundation.layout.wrapContentHeight
+import com.maxrave.domain.data.type.RecentlyType
+import simpmusic.composeapp.generated.resources.all
+import simpmusic.composeapp.generated.resources.songs
+import simpmusic.composeapp.generated.resources.artists
+import simpmusic.composeapp.generated.resources.albums
+import simpmusic.composeapp.generated.resources.playlists
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.TextButton
@@ -194,6 +201,19 @@ fun LibraryScreen(
         remember(recentlyAdded) {
             recentlyAdded.data.orEmpty().distinctBy { it.recentlyKey() }
         }
+    // The history mixes songs, artists, albums and playlists; a chip row narrows it to one kind.
+    // Stored by name so it survives a rotation, and ignored once that kind has left the history.
+    var historyFilterName by rememberSaveable { mutableStateOf<String?>(null) }
+    val historyTypes =
+        remember(history) {
+            val present = history.mapTo(HashSet()) { it.objectType() }
+            HISTORY_TYPE_ORDER.filter { it in present }
+        }
+    val historyFilter = historyTypes.firstOrNull { it.name == historyFilterName }
+    val shownHistory =
+        remember(history, historyFilter) {
+            if (historyFilter == null) history else history.filter { it.objectType() == historyFilter }
+        }
     val cachedPreview by viewModel.cachedPreview.collectAsStateWithLifecycle()
     // The player cache is no table to observe, so the Cached card is read again each time the
     // screen is shown — coming back from the list after removing a song included.
@@ -371,6 +391,18 @@ fun LibraryScreen(
                         item(key = "history_header") {
                             LibraryHistoryHeader(appleLayout = appleLayout)
                         }
+                        if (historyTypes.size > 1) {
+                            item(key = "history_filters") {
+                                LibraryHistoryFilters(
+                                    types = historyTypes,
+                                    selected = historyFilter,
+                                    onSelect = {
+                                        historyFilterName = it?.name
+                                        showAllHistory = false
+                                    },
+                                )
+                            }
+                        }
                         if (history.isEmpty() && recentlyAdded is LocalResource.Loading) {
                             item(key = "history_loading") {
                                 Box(
@@ -382,7 +414,7 @@ fun LibraryScreen(
                             }
                         }
                         items(
-                            items = if (showAllHistory) history else history.take(HISTORY_PREVIEW),
+                            items = if (showAllHistory) shownHistory else shownHistory.take(HISTORY_PREVIEW),
                             key = { "history:${it.recentlyKey()}" },
                             contentType = { it.objectType() },
                         ) { entry ->
@@ -396,7 +428,7 @@ fun LibraryScreen(
                                 onSongMore = { historySheetSong = it },
                             )
                         }
-                        if (history.size > HISTORY_PREVIEW) {
+                        if (shownHistory.size > HISTORY_PREVIEW) {
                             item(key = "history_toggle") {
                                 TextButton(
                                     onClick = { showAllHistory = !showAllHistory },
@@ -774,3 +806,41 @@ private fun LibraryHistoryHeader(appleLayout: Boolean) {
 
 /** How much of the history shows before "Show all": about two screens' worth. */
 private const val HISTORY_PREVIEW = 25
+
+/** The order the history's kinds are offered in, whichever of them it holds. */
+private val HISTORY_TYPE_ORDER =
+    listOf(RecentlyType.Type.SONG, RecentlyType.Type.ARTIST, RecentlyType.Type.ALBUM, RecentlyType.Type.PLAYLIST)
+
+/** All, then one compact chip per kind the history holds. [selected] null is All. */
+@Composable
+private fun LibraryHistoryFilters(
+    types: List<RecentlyType.Type>,
+    selected: RecentlyType.Type?,
+    onSelect: (RecentlyType.Type?) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Chip(isSelected = selected == null, text = stringResource(Res.string.all), compact = true) { onSelect(null) }
+        types.forEach { type ->
+            Chip(
+                isSelected = selected == type,
+                text =
+                    stringResource(
+                        when (type) {
+                            RecentlyType.Type.SONG -> Res.string.songs
+                            RecentlyType.Type.ARTIST -> Res.string.artists
+                            RecentlyType.Type.ALBUM -> Res.string.albums
+                            RecentlyType.Type.PLAYLIST -> Res.string.playlists
+                        },
+                    ),
+                compact = true,
+            ) { onSelect(type) }
+        }
+    }
+}

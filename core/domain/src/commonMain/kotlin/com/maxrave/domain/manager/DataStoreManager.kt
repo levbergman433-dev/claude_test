@@ -710,6 +710,9 @@ interface DataStoreManager {
         const val FONT_POPPINS = "POPPINS"
 
         const val THEME_MODE_GRAPHITE = "GRAPHITE"
+
+        // Pure black for OLED screens. Plain Dark has been a theme-tinted dark grey since upstream 2.4.0.
+        const val THEME_MODE_BLACK = "BLACK"
         const val THEME_MODE_MIDNIGHT = "MIDNIGHT"
         const val THEME_MODE_FOREST = "FOREST"
         const val THEME_MODE_PLUM = "PLUM"

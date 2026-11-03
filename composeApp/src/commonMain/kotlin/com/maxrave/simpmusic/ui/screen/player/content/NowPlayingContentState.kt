@@ -192,6 +192,12 @@ class NowPlayingContentActions(
     val onRemoveQueueItem: (index: Int) -> Unit,
     /** Opens the night-mode player — see [NightModePlayer]. */
     val onShowNightMode: () -> Unit = {},
+    /**
+     * Opens the Add lyrics sheet for the track playing. Does nothing unless every provider and the
+     * offline cache came back empty for it ([NowPlayingScreenData.lyricsNotFound]), the same gate
+     * the ⋯ sheet's Add lyrics row has.
+     */
+    val onAddLyrics: () -> Unit = {},
     /** Opens the full song sheet for one queue entry; `index` is absolute, as above. */
     val onQueueItemMore: (index: Int, track: Track) -> Unit,
 )

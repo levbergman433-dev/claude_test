@@ -1,5 +1,6 @@
 package com.maxrave.simpmusic.ui.screen.home
 
+import simpmusic.composeapp.generated.resources.theme_mode_black
 import com.maxrave.simpmusic.expect.ui.LoginSyncDialog
 import simpmusic.composeapp.generated.resources.login_sync_section
 import simpmusic.composeapp.generated.resources.login_sync_android_title
@@ -948,6 +949,7 @@ fun SettingScreen(
                     listOf(
                         DataStoreManager.THEME_MODE_SYSTEM to stringResource(Res.string.theme_mode_system),
                         DataStoreManager.THEME_MODE_DARK to stringResource(Res.string.theme_mode_dark),
+                        DataStoreManager.THEME_MODE_BLACK to stringResource(Res.string.theme_mode_black),
                         DataStoreManager.THEME_MODE_LIGHT to stringResource(Res.string.theme_mode_light),
                         DataStoreManager.THEME_MODE_GRAPHITE to stringResource(Res.string.theme_mode_graphite),
                         DataStoreManager.THEME_MODE_MIDNIGHT to stringResource(Res.string.theme_mode_midnight),

@@ -755,6 +755,14 @@ fun NowPlayingScreenContent(
                 mediaPlayerHandler.removeMediaItem(index)
             },
             onShowNightMode = { showNightMode = true },
+            onAddLyrics = {
+                nowPlayingState
+                    ?.songEntity
+                    ?.takeIf { screenDataState.lyricsNotFound && screenDataState.lyricsData == null }
+                    ?.let { song ->
+                        addLyricsFor = arrayListOf(song.videoId, song.title, song.artistName?.joinToString(", ").orEmpty())
+                    }
+            },
             onQueueItemMore = { index, track -> queueMoreFor = index to track },
         )
 

@@ -974,7 +974,8 @@ fun RichSyncLyricsLineItem(
     wrappedLineSpacing: Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
-    val playhead = rememberSmoothPlayhead(currentTimeMs, enabled = isCurrent)
+    // Battery saver: the light steps with each position report instead of gliding every frame.
+    val playhead = rememberSmoothPlayhead(currentTimeMs, enabled = isCurrent && !LocalBatterySaver.current)
     val originalWords = remember(parsedLine.words) { parsedLine.words.joinToString(" ") { it.text } }
     val lineDirection = rememberLyricLayoutDirection(originalWords)
 

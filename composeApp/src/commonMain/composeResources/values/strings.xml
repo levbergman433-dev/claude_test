@@ -985,6 +985,7 @@
     <string name="credits_maiker_title">Modified by maiker</string>
     <string name="credits_maiker_subtitle">Apple Music-style design, liquid glass and speed improvements</string>
     <string name="theme_mode_graphite">Graphite (dark grey)</string>
+    <string name="theme_mode_black">Black (OLED)</string>
     <string name="theme_mode_midnight">Midnight (dark blue)</string>
     <string name="theme_mode_forest">Forest (dark green)</string>
     <string name="theme_mode_plum">Plum (dark purple)</string>

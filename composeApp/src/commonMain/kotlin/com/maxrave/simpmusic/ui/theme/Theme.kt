@@ -341,11 +341,14 @@ fun isDarkTheme(themeMode: String): Boolean =
     }
 
 /**
- * The page colour of a colour theme; null for plain Dark / Light / System, which keep their own
- * pure-black and neutral-grey surfaces.
+ * The page colour of a colour theme; null for plain Dark / Light / System, which keep the generated
+ * surfaces (a theme-tinted dark grey, or the neutral light ramp).
  */
 private fun surfaceThemeFor(themeMode: String): Color? =
     when (themeMode) {
+        // OLED black, the page plain Dark had before upstream 2.4.0 tinted it; containers still lift
+        // towards white so cards and sheets stay readable as surfaces of their own.
+        DataStoreManager.THEME_MODE_BLACK -> Color.Black
         // Apple's dark mode: the elevated grey of iOS rather than OLED black.
         DataStoreManager.THEME_MODE_GRAPHITE -> Color(0xFF1C1C1E)
         DataStoreManager.THEME_MODE_MIDNIGHT -> Color(0xFF0B1224)
