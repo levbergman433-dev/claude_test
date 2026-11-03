@@ -39,6 +39,7 @@ import org.koin.core.context.loadKoinModules
 import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.simpmusic.crashlytics.configCrashlytics
+import org.simpmusic.discord.configDiscord
 import org.simpmusic.lastfm.configLastfm
 import java.io.File
 import java.lang.reflect.Field
@@ -60,6 +61,8 @@ class SimpMusicApplication :
         Logger.isVerbose = BuildConfig.DEBUG
         configCrashlytics(this, BuildKonfig.sentryDsn)
         configLastfm(BuildKonfig.lastfmApiKey, BuildKonfig.lastfmSecret)
+        // Before Koin: DiscordRepository is created at start and reads which login this build uses.
+        configDiscord(BuildKonfig.discordClientId)
         startKoin {
             androidLogger(level = if (BuildConfig.DEBUG) Level.DEBUG else Level.ERROR)
             androidContext(this@SimpMusicApplication)
