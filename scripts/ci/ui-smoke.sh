@@ -155,6 +155,17 @@ run_pass() {
         # shows the mini player picking up again once the sheet has gone.
         sleep 4
         shot "closed-$tag"
+        # The queue, where "Save queue as playlist" lives: reopen the player and tap its queue
+        # button. Positions are the 1080x2400 emulator's, read off the nowplaying shots: the last
+        # button of Classic's bottom row, and the Apple Music dock's right-hand button.
+        open_link "simpmusic://player"
+        sleep 5
+        case "$style" in
+            SPOTIFY) adb shell input tap 994 2280 ;;
+            *) adb shell input tap 910 2116 ;;
+        esac
+        sleep 5
+        shot "queue-$tag"
     else
         note "[$tag] emulator went down while opening Now Playing"
     fi
