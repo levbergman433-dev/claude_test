@@ -220,6 +220,10 @@ class HomeViewModel(
     private val _mainHomeThumbnail: MutableStateFlow<String?> = MutableStateFlow(null)
     val mainHomeThumbnail: StateFlow<String?> = _mainHomeThumbnail
 
+    // The page background image YouTube sends with Home, null when it sends none.
+    private val _homeBackground: MutableStateFlow<String?> = MutableStateFlow(null)
+    val homeBackground: StateFlow<String?> = _homeBackground
+
     init {
         if (runBlocking { dataStoreManager.cookie.first() }.isEmpty() &&
             runBlocking {
@@ -359,6 +363,7 @@ class HomeViewModel(
                                 ?.contents
                                 ?.mapNotNull { it?.videoId }
                                 ?.let { prefetchStreams(it) }
+                            _homeBackground.value = home.data?.third
                         }
 
                         else -> {

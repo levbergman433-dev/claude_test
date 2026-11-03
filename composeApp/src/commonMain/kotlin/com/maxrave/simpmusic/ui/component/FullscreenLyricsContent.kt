@@ -93,6 +93,7 @@ import com.maxrave.simpmusic.expect.ui.isLyricsBlurSupported
 import com.maxrave.simpmusic.expect.ui.layerBackdrop
 import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.KeepScreenOn
+import com.maxrave.simpmusic.extension.LeftToRight
 import com.maxrave.simpmusic.extension.formatDuration
 import com.maxrave.simpmusic.extension.getScreenSizeInfo
 import com.maxrave.simpmusic.extension.hsvToColor
@@ -241,8 +242,8 @@ fun FullscreenLyricsContent(
         }
 
     val screenInfo = getScreenSizeInfo()
-    val isLandscape = screenInfo.wDP > screenInfo.hDP
     val isDesktop = getPlatform() == Platform.Desktop
+    val isLandscape = isDesktop && screenInfo.wDP > screenInfo.hDP
     // Glass source for the Desktop chrome. Each layout marks its own background with it, and the
     // pills are always drawn as siblings of that background — nesting them inside the source is
     // the render-feedback loop that crashes the RuntimeShader.
@@ -484,102 +485,104 @@ fun FullscreenLyricsContent(
                     }
 
                     // Progress Bar and Time - Always visible
-                    Column {
-                        FullscreenLyricsSeekBar(
-                            timelineHolder = timelineHolder,
-                            trackColor = sliderTrackColor,
-                            onSeek = { sharedViewModel.onUIEvent(UIEvent.UpdateProgress(it)) },
-                        )
-                        LazyColumn {
-                            item {
-                                FullscreenLyricsTimeRow(timelineHolder = timelineHolder)
+                    LeftToRight {
+                        Column {
+                            FullscreenLyricsSeekBar(
+                                timelineHolder = timelineHolder,
+                                trackColor = sliderTrackColor,
+                                onSeek = { sharedViewModel.onUIEvent(UIEvent.UpdateProgress(it)) },
+                            )
+                            LazyColumn {
+                                item {
+                                    FullscreenLyricsTimeRow(timelineHolder = timelineHolder)
 
-                                Spacer(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .height(5.dp),
-                                )
-                            }
-
-                            item {
-                                // Control Buttons - Animated visibility
-                                AnimatedVisibility(
-                                    visible = showControlButtons,
-                                    enter =
-                                        expandVertically(
-                                            tween(300),
-                                        ),
-                                    exit =
-                                        shrinkVertically(
-                                            tween(300),
-                                        ),
-                                ) {
-                                    PlayerControlLayout(controllerState) {
-                                        sharedViewModel.onUIEvent(it)
-                                    }
-                                }
-                                AnimatedVisibility(
-                                    visible = showControlButtons,
-                                    enter =
-                                        expandVertically(
-                                            tween(300),
-                                        ),
-                                    exit =
-                                        shrinkVertically(
-                                            tween(300),
-                                        ),
-                                ) {
-                                    // List Bottom Buttons
-                                    Box(
+                                    Spacer(
                                         modifier =
                                             Modifier
-                                                .height(32.dp)
                                                 .fillMaxWidth()
-                                                .padding(horizontal = 40.dp),
+                                                .height(5.dp),
+                                    )
+                                }
+
+                                item {
+                                    // Control Buttons - Animated visibility
+                                    AnimatedVisibility(
+                                        visible = showControlButtons,
+                                        enter =
+                                            expandVertically(
+                                                tween(300),
+                                            ),
+                                        exit =
+                                            shrinkVertically(
+                                                tween(300),
+                                            ),
                                     ) {
-                                        IconButton(
+                                        PlayerControlLayout(controllerState) {
+                                            sharedViewModel.onUIEvent(it)
+                                        }
+                                    }
+                                    AnimatedVisibility(
+                                        visible = showControlButtons,
+                                        enter =
+                                            expandVertically(
+                                                tween(300),
+                                            ),
+                                        exit =
+                                            shrinkVertically(
+                                                tween(300),
+                                            ),
+                                    ) {
+                                        // List Bottom Buttons
+                                        Box(
                                             modifier =
                                                 Modifier
-                                                    .size(24.dp)
-                                                    .aspectRatio(1f)
-                                                    .align(Alignment.CenterStart)
-                                                    .clip(
-                                                        CircleShape,
-                                                    ),
-                                            onClick = {
-                                                showInfoBottomSheet = true
-                                                showControlButtons = true
-                                            },
+                                                    .height(32.dp)
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 40.dp),
                                         ) {
-                                            Icon(imageVector = SimpIcons.Info, tint = Color.White, contentDescription = "")
-                                        }
-                                        Row(
-                                            Modifier.align(Alignment.CenterEnd),
-                                        ) {
-                                            Spacer(modifier = Modifier.size(8.dp))
                                             IconButton(
                                                 modifier =
                                                     Modifier
                                                         .size(24.dp)
                                                         .aspectRatio(1f)
+                                                        .align(Alignment.CenterStart)
                                                         .clip(
                                                             CircleShape,
                                                         ),
                                                 onClick = {
-                                                    showQueueBottomSheet = true
+                                                    showInfoBottomSheet = true
                                                     showControlButtons = true
                                                 },
                                             ) {
-                                                Icon(
-                                                    imageVector = SimpIcons.QueueMusic,
-                                                    tint = Color.White,
-                                                    contentDescription = "",
-                                                )
+                                                Icon(imageVector = SimpIcons.Info, tint = Color.White, contentDescription = "")
+                                            }
+                                            Row(
+                                                Modifier.align(Alignment.CenterEnd),
+                                            ) {
+                                                Spacer(modifier = Modifier.size(8.dp))
+                                                IconButton(
+                                                    modifier =
+                                                        Modifier
+                                                            .size(24.dp)
+                                                            .aspectRatio(1f)
+                                                            .clip(
+                                                                CircleShape,
+                                                            ),
+                                                    onClick = {
+                                                        showQueueBottomSheet = true
+                                                        showControlButtons = true
+                                                    },
+                                                ) {
+                                                    Icon(
+                                                        imageVector = SimpIcons.QueueMusic,
+                                                        tint = Color.White,
+                                                        contentDescription = "",
+                                                    )
+                                                }
                                             }
                                         }
+                                        Spacer(modifier = Modifier.height(20.dp))
                                     }
-                                    Spacer(modifier = Modifier.height(20.dp))
                                 }
                             }
                         }
@@ -998,6 +1001,19 @@ private fun FullscreenLyricsList(
                     )
                 }
             }
+        }
+        // Bottom-start, clear of the offset button at bottom-end; glass like the rest of this page's
+        // floating chrome. Shows only what the remote config places under the lyrics, and only over
+        // lyrics, as on the Apple Music player's Lyrics tab.
+        if (lyricsData != null) {
+            LyricsPromoLine(
+                backdrop = backdrop,
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 12.dp, end = 72.dp, bottom = 12.dp),
+                sharedViewModel = sharedViewModel,
+            )
         }
         // Here rather than in either layout, so portrait, landscape and Desktop all get it. Bottom-end,
         // over the dimmest lines. Glass, like the rest of this page's floating chrome.

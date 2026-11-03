@@ -45,6 +45,7 @@ import com.maxrave.simpmusic.ui.component.taste.libraryCardColor
 import com.maxrave.simpmusic.ui.icon.AutoGraph
 import com.maxrave.simpmusic.ui.icon.Download
 import com.maxrave.simpmusic.ui.icon.DownloadForOffline
+import com.maxrave.simpmusic.ui.icon.DownloadForOfflineOutlined
 import com.maxrave.simpmusic.ui.icon.Favorite
 import com.maxrave.simpmusic.ui.icon.Insights
 import com.maxrave.simpmusic.ui.icon.LibraryMusic
@@ -60,6 +61,7 @@ import com.maxrave.simpmusic.ui.theme.typo
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import simpmusic.composeapp.generated.resources.Res
+import simpmusic.composeapp.generated.resources.cached
 import simpmusic.composeapp.generated.resources.downloaded
 import simpmusic.composeapp.generated.resources.downloaded_playlists
 import simpmusic.composeapp.generated.resources.favorite
@@ -213,8 +215,9 @@ private fun ShortcutTile(
 
 /**
  * Every other way into the library as a pill: your playlists, YouTube's (signed in only), saved
- * and downloaded playlists, podcasts, charts and Wrapped (local tracking only). Wrapped onto as
- * many lines as it takes rather than scrolled sideways, so none of them hides off the edge.
+ * and downloaded playlists, podcasts, charts, Wrapped (local tracking only) and the songs held in
+ * the player cache ([onOpenCached], Android only). Wrapped onto as many lines as it takes rather
+ * than scrolled sideways, so none of them hides off the edge.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -223,6 +226,7 @@ fun LibraryCollectionPills(
     showWrapped: Boolean,
     onOpenCategory: (LibraryChipType) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenCached: (() -> Unit)? = null,
 ) {
     val pills =
         buildList {
@@ -234,36 +238,53 @@ fun LibraryCollectionPills(
             add(Triple(Res.string.simpmusic_charts, SimpIcons.AutoGraph, LibraryChipType.CHART))
             if (showWrapped) add(Triple(Res.string.wrapped, SimpIcons.Insights, LibraryChipType.WRAPPED))
         }
+    val pillModifier =
+        Modifier
+            .height(PILL_HEIGHT)
+            .clip(CircleShape)
+            .background(libraryCardColor())
     FlowRow(
         modifier = modifier.fillMaxWidth().padding(horizontal = AppleEdge - 4.dp),
         horizontalArrangement = Arrangement.spacedBy(PILL_GAP),
         verticalArrangement = Arrangement.spacedBy(PILL_GAP),
     ) {
         pills.forEach { (label, icon, type) ->
-            Row(
-                modifier =
-                    Modifier
-                        .height(PILL_HEIGHT)
-                        .clip(CircleShape)
-                        .background(libraryCardColor())
-                        .clickable { onOpenCategory(type) }
-                        .padding(start = 12.dp, end = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp).accentTint(),
-                )
-                Text(
-                    text = stringResource(label),
-                    style = typo().titleSmall.copy(color = MaterialTheme.colorScheme.onBackground),
-                    maxLines = 1,
-                )
-            }
+            CollectionPill(label = stringResource(label), icon = icon, modifier = pillModifier) { onOpenCategory(type) }
         }
+        if (onOpenCached != null) {
+            CollectionPill(
+                label = stringResource(Res.string.cached),
+                icon = SimpIcons.DownloadForOfflineOutlined,
+                modifier = pillModifier,
+                onClick = onOpenCached,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CollectionPill(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = modifier.clickable(onClick = onClick).padding(start = 12.dp, end = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(18.dp).accentTint(),
+        )
+        Text(
+            text = label,
+            style = typo().titleSmall.copy(color = MaterialTheme.colorScheme.onBackground),
+            maxLines = 1,
+        )
     }
 }
 

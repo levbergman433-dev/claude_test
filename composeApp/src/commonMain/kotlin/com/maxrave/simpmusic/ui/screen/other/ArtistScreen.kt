@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
@@ -100,6 +101,7 @@ import com.maxrave.simpmusic.extension.artworkScrimBrush
 import com.maxrave.simpmusic.extension.barBlurStyle
 import com.maxrave.simpmusic.extension.getColorFromPalette
 import com.maxrave.simpmusic.extension.getScreenSizeInfo
+import com.maxrave.simpmusic.extension.mouseDragScroll
 import com.maxrave.simpmusic.extension.getStringBlocking
 import com.maxrave.simpmusic.extension.hexToColorOrNull
 import com.maxrave.simpmusic.extension.rgbFactor
@@ -251,9 +253,19 @@ fun ArtistScreen(
 
     // Accent color for the action buttons, sourced from the artist name-logo image's dominant
     // color (hidden catalog). Falls back to white until the logo loads (or if none exists), and
-    // fades to the logo's colour instead of snapping when it does.
+    // fades to the logo's colour instead of snapping when it does. A logo colour without WCAG's 3:1
+    // contrast against the page also falls back to white: Ariana Grande's is near-black on a
+    // near-black page, which hid all three buttons.
     val artistAccent by animateColorAsState(
-        targetValue = artistLogo?.bgColorHex?.hexToColorOrNull() ?: Color.White,
+        targetValue =
+            artistLogo
+                ?.bgColorHex
+                ?.hexToColorOrNull()
+                ?.takeIf {
+                    val accent = it.luminance()
+                    val page = mutedPaletteBg.luminance()
+                    (maxOf(accent, page) + 0.05f) / (minOf(accent, page) + 0.05f) >= 3f
+                } ?: Color.White,
         animationSpec = tween(500),
         label = "artistAccent",
     )
@@ -908,7 +920,10 @@ private fun ArtistSections(
                         Text(stringResource(Res.string.more), style = typo().bodySmall)
                     }
                 }
+                val singlesRowState = rememberLazyListState()
                 LazyRow(
+                    modifier = Modifier.mouseDragScroll(singlesRowState),
+                    state = singlesRowState,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     item {
@@ -976,7 +991,10 @@ private fun ArtistSections(
                         Text(stringResource(Res.string.more), style = typo().bodySmall)
                     }
                 }
+                val albumsRowState = rememberLazyListState()
                 LazyRow(
+                    modifier = Modifier.mouseDragScroll(albumsRowState),
+                    state = albumsRowState,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     item {
@@ -1043,7 +1061,10 @@ private fun ArtistSections(
                         Text(stringResource(Res.string.more), style = typo().bodySmall)
                     }
                 }
+                val videosRowState = rememberLazyListState()
                 LazyRow(
+                    modifier = Modifier.mouseDragScroll(videosRowState),
+                    state = videosRowState,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     item {
@@ -1110,7 +1131,10 @@ private fun ArtistSections(
                                 .padding(vertical = 10.dp),
                     )
                 }
+                val featuredRowState = rememberLazyListState()
                 LazyRow(
+                    modifier = Modifier.mouseDragScroll(featuredRowState),
+                    state = featuredRowState,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     item {
@@ -1158,7 +1182,10 @@ private fun ArtistSections(
                                 .padding(vertical = 10.dp),
                     )
                 }
+                val relatedRowState = rememberLazyListState()
                 LazyRow(
+                    modifier = Modifier.mouseDragScroll(relatedRowState),
+                    state = relatedRowState,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     item {

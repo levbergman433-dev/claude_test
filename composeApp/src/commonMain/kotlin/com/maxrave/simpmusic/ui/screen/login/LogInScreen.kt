@@ -86,7 +86,6 @@ fun LoginScreen(
     // Hide bottom navigation when entering this screen
     LaunchedEffect(Unit) {
         hideBottomNavigation()
-        createWebViewCookieManager().removeAllCookies()
     }
 
     // Show bottom navigation when leaving this screen
@@ -130,7 +129,8 @@ fun LoginScreen(
                             type = DevLogInType.YouTube,
                         )
                     }
-                }
+                },
+                clearCookies = true,
             ) { url ->
                 Logger.d("LogInScreen", "Current URL: $url")
                 if (url == Config.YOUTUBE_MUSIC_MAIN_URL) {

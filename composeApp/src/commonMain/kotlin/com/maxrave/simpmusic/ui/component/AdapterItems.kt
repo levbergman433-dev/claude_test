@@ -20,9 +20,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,10 +44,12 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,6 +107,8 @@ import com.maxrave.domain.utils.toSongEntity
 import com.maxrave.domain.utils.toTrack
 import com.maxrave.simpmusic.Platform
 import com.maxrave.simpmusic.expect.ui.HorizontalScrollBar
+import com.maxrave.simpmusic.extension.getStringBlocking
+import com.maxrave.simpmusic.extension.mouseDragScroll
 import com.maxrave.simpmusic.getPlatform
 import com.maxrave.simpmusic.ui.navigation.destination.list.AlbumDestination
 import com.maxrave.simpmusic.ui.navigation.destination.list.ArtistDestination
@@ -127,6 +133,7 @@ import simpmusic.composeapp.generated.resources.description
 import simpmusic.composeapp.generated.resources.more
 import simpmusic.composeapp.generated.resources.play_all
 import simpmusic.composeapp.generated.resources.playlist
+import simpmusic.composeapp.generated.resources.radio
 import simpmusic.composeapp.generated.resources.subscribers
 import simpmusic.composeapp.generated.resources.wrapped_recap_subtitle
 import simpmusic.composeapp.generated.resources.you
@@ -169,6 +176,7 @@ fun HomeItem(
     Column {
         HomeSectionHeader(data = data, navController = navController, onPlayAll = { homeViewModel.playAll(data) })
         LazyRow(
+            modifier = Modifier.mouseDragScroll(lazyListState, snapperFlingBehavior),
             state = lazyListState,
             flingBehavior = snapperFlingBehavior,
         ) {
@@ -252,16 +260,18 @@ fun HomeSectionHeader(
                 contentDescription = "",
                 placeholder = rememberHolderPainter(),
                 error = rememberHolderPainter(),
+                // The gap belongs to the picture: a shelf without one starts its title on the
+                // section's edge, where Quick picks and the other headers start theirs.
                 modifier =
                     Modifier
+                        .padding(end = 10.dp)
                         .size(36.dp)
                         .artworkFrame(CircleShape),
             )
         }
         Column(
             Modifier
-                .weight(1f)
-                .padding(start = 10.dp),
+                .weight(1f),
         ) {
             AnimatedVisibility(visible = (data.subtitle != null && data.subtitle != "")) {
                 Text(
@@ -278,25 +288,40 @@ fun HomeSectionHeader(
             )
         }
         if (moreEndpoint != null) {
-            TextButton(
+            SectionHeaderButton(
+                text = stringResource(Res.string.more),
                 onClick = { navController.navigateToMoreEndpoint(moreEndpoint, data.title) },
-                colors =
-                    ButtonDefaults
-                        .textButtonColors()
-                        .copy(contentColor = MaterialTheme.colorScheme.onSurface),
-            ) {
-                Text(stringResource(Res.string.more), style = typo().bodySmall)
-            }
+            )
         } else if (data.playAllEndpoint != null) {
-            TextButton(
-                onClick = onPlayAll,
-                colors =
-                    ButtonDefaults
-                        .textButtonColors()
-                        .copy(contentColor = MaterialTheme.colorScheme.onSurface),
-            ) {
-                Text(stringResource(Res.string.play_all), style = typo().bodySmall)
-            }
+            SectionHeaderButton(text = stringResource(Res.string.play_all), onClick = onPlayAll)
+        }
+    }
+}
+
+/**
+ * The "More" / "Play all" button beside a section title. Material reserves 48dp around every
+ * clickable and gives a button a 40dp minimum height, which made a header carrying this button
+ * 20dp taller than one without it. This one is only its text plus 2dp above and below, so a header
+ * with the button and a header without it stand the same height. Fingers still get a 48dp target:
+ * Compose widens the touch bounds of anything smaller than that on its own.
+ */
+@Composable
+fun SectionHeaderButton(
+    text: String,
+    onClick: () -> Unit,
+) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+        TextButton(
+            onClick = onClick,
+            // Any non-zero minimum here keeps TextButton's own 40dp minimum height from applying.
+            modifier = Modifier.defaultMinSize(minHeight = 1.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+            colors =
+                ButtonDefaults
+                    .textButtonColors()
+                    .copy(contentColor = MaterialTheme.colorScheme.onSurface),
+        ) {
+            Text(text, style = typo().bodySmall)
         }
     }
 }
@@ -419,6 +444,23 @@ internal fun rememberCardHover(enabled: Boolean): Pair<Modifier, Boolean> {
     return modifier to active
 }
 
+/**
+ * Zooms a hovered Home card's artwork inside its own frame. It goes after the frame's clip, so the
+ * picture grows while the frame stays put and never spills onto the next card in the row.
+ */
+@Composable
+internal fun Modifier.hoverZoom(active: Boolean): Modifier {
+    val scale by animateFloatAsState(
+        targetValue = if (active) 1.06f else 1f,
+        animationSpec = tween(200),
+        label = "hoverZoom",
+    )
+    return graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+}
+
 /** The theme-coloured play button of a hovered Home card, rising onto the artwork's corner. */
 @Composable
 internal fun BoxScope.HoverPlayButton(
@@ -469,7 +511,7 @@ internal fun Content.playRadio(viewModel: BaseViewModel) {
             listTracks = arrayListOf(firstQueue),
             firstPlayedTrack = firstQueue,
             playlistId = "RDAMVM$videoId",
-            playlistName = title,
+            playlistName = "\"$title\" ${getStringBlocking(Res.string.radio)}",
             playlistType = PlaylistType.RADIO,
             continuation = null,
         ),
@@ -753,7 +795,8 @@ fun HomeItemContentPlaylist(
                     modifier =
                         (if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier.size(thumbSize))
                             .aspectRatio(1f)
-                            .artworkFrame(RoundedCornerShape(10.dp)),
+                            .artworkFrame(RoundedCornerShape(10.dp))
+                            .hoverZoom(hovered),
                 )
                 if (onPlay != null) HoverPlayButton(visible = hovered, onClick = onPlay)
             }
@@ -952,7 +995,12 @@ fun QuickPicksItem(
                                 velocity = 25.dp,
                             ),
                 )
-                LazyRow(verticalAlignment = Alignment.CenterVertically) {
+                val subtitleRowState = rememberLazyListState()
+                LazyRow(
+                    modifier = Modifier.mouseDragScroll(subtitleRowState),
+                    state = subtitleRowState,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     item {
                         androidx.compose.animation.AnimatedVisibility(visible = data.isExplicit == true) {
                             ExplicitBadge(
@@ -963,6 +1011,9 @@ fun QuickPicksItem(
                                         .weight(1f),
                             )
                         }
+                    }
+                    if (data.isLive) {
+                        item { LiveBadge(modifier = Modifier.padding(end = 6.dp)) }
                     }
                     item {
                         Text(
@@ -1044,7 +1095,8 @@ fun HomeItemSong(
                     modifier =
                         Modifier
                             .then(if (fillMaxWidth) Modifier.fillMaxWidth().aspectRatio(1f) else Modifier.size(160.dp))
-                            .artworkFrame(RoundedCornerShape(10.dp)),
+                            .artworkFrame(RoundedCornerShape(10.dp))
+                            .hoverZoom(hovered),
                 )
                 if (onPlay != null) HoverPlayButton(visible = hovered, onClick = onPlay)
             }
@@ -1139,15 +1191,16 @@ fun HomeItemVideo(
                             .diskCacheKey(thumb)
                             .crossfade(550)
                             .build(),
-                    placeholder = rememberHolderPainter(isVideo = true),
-                    error = rememberHolderPainter(isVideo = true),
+                    placeholder = rememberHolderPainter(),
+                    error = rememberHolderPainter(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier =
                         Modifier
                             .then(if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier.height(160.dp))
                             .aspectRatio(16f / 9f)
-                            .artworkFrame(RoundedCornerShape(10.dp)),
+                            .artworkFrame(RoundedCornerShape(10.dp))
+                            .hoverZoom(hovered),
                 )
                 if (onPlay != null) HoverPlayButton(visible = hovered, onClick = onPlay)
             }
@@ -1202,7 +1255,7 @@ fun HomeItemVideo(
  * SemiBold, which made the chip taller than the line it sits on.
  */
 @Composable
-private fun LiveBadge(modifier: Modifier = Modifier) {
+internal fun LiveBadge(modifier: Modifier = Modifier) {
     Text(
         text = stringResource(Res.string.live_badge),
         style = typo().bodySmall.copy(fontSize = 9.sp, lineHeight = 11.sp, fontWeight = FontWeight.Bold),
@@ -1370,8 +1423,8 @@ fun ItemVideoChart(
                         .diskCacheKey(thumb)
                         .crossfade(550)
                         .build(),
-                placeholder = rememberHolderPainter(isVideo = true),
-                error = rememberHolderPainter(isVideo = true),
+                placeholder = rememberHolderPainter(),
+                error = rememberHolderPainter(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier =
@@ -1667,11 +1720,14 @@ fun MoodAndGenresContentItem(
                         horizontal = 15.dp,
                     ).fillMaxWidth(),
         )
+        val rowState = rememberLazyListState()
         LazyRow(
             modifier =
-                Modifier.padding(
-                    10.dp,
-                ),
+                Modifier
+                    .padding(
+                        10.dp,
+                    ).mouseDragScroll(rowState),
+            state = rowState,
         ) {
             val itemList =
                 when (data) {

@@ -83,6 +83,8 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         mediaPlayerHandler.setUiVisible(true)
         startMusicService()
+        // Every return to the screen asks; the pass itself runs at most once a day.
+        viewModel.runSmartDownloadsIfDue()
     }
 
     override fun onStop() {

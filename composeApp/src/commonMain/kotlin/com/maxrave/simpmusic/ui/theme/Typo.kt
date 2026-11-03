@@ -6,10 +6,14 @@ import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.Font
 import simpmusic.composeapp.generated.resources.Res
@@ -63,6 +67,16 @@ fun typo(
     val titleColor = if (forceDark) Color.White else colorScheme.onBackground
     val bodyColor = if (forceDark) Color(0xFFA8A8A8) else colorScheme.onSurfaceVariant
 
+    // Right-to-left layouts only. Compose gives every paragraph the layout's direction unless told
+    // otherwise (TextStyle.resolveTextDirection), so a Latin title or URL was laid out right-to-left:
+    // its closing punctuation jumped to the front, and titles mixing Latin with Hebrew came out
+    // scrambled. Content lets each paragraph take its direction from its own text. Content alone
+    // would also move Latin text to the left edge, so Right keeps it on the layout's start edge,
+    // where a TextView keeps it with gravity START.
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val textDirection = if (rtl) TextDirection.Content else TextDirection.Unspecified
+    val textAlign = if (rtl) TextAlign.Right else TextAlign.Unspecified
+
     val typo =
         Typography(
             /***
@@ -74,6 +88,8 @@ fun typo(
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = fontFamily,
                     color = titleColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             titleMedium =
                 TextStyle(
@@ -81,6 +97,8 @@ fun typo(
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = fontFamily,
                     color = titleColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             titleLarge =
                 TextStyle(
@@ -88,6 +106,8 @@ fun typo(
                     fontWeight = FontWeight.Bold,
                     fontFamily = fontFamily,
                     color = titleColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             bodySmall =
                 TextStyle(
@@ -95,6 +115,8 @@ fun typo(
                     fontWeight = FontWeight.Normal,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             bodyMedium =
                 TextStyle(
@@ -102,6 +124,8 @@ fun typo(
                     fontWeight = FontWeight.Normal,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             bodyLarge =
                 TextStyle(
@@ -109,6 +133,8 @@ fun typo(
                     fontWeight = FontWeight.Normal,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             displayLarge =
                 TextStyle(
@@ -116,6 +142,8 @@ fun typo(
                     fontWeight = FontWeight.Normal,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             headlineMedium =
                 TextStyle(
@@ -123,6 +151,8 @@ fun typo(
                     fontWeight = FontWeight.Bold,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             headlineLarge =
                 TextStyle(
@@ -130,6 +160,8 @@ fun typo(
                     fontWeight = FontWeight.Bold,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             labelMedium =
                 TextStyle(
@@ -137,6 +169,8 @@ fun typo(
                     fontWeight = FontWeight.Bold,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             labelSmall =
                 TextStyle(
@@ -144,6 +178,8 @@ fun typo(
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = fontFamily,
                     color = bodyColor,
+                    textDirection = textDirection,
+                    textAlign = textAlign,
                 ),
             // ...
         )

@@ -32,43 +32,30 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -91,6 +78,8 @@ import com.maxrave.domain.data.model.taste.TasteProfile
 import com.maxrave.domain.utils.LocalResource
 import com.maxrave.logger.Logger
 import com.maxrave.simpmusic.Platform
+import com.maxrave.simpmusic.expect.ui.layerBackdrop
+import com.maxrave.simpmusic.expect.ui.rememberBackdrop
 import com.maxrave.simpmusic.extension.copy
 import com.maxrave.simpmusic.extension.isScrollingUp
 import com.maxrave.simpmusic.extension.ultraThinBarStyle
@@ -99,6 +88,7 @@ import com.maxrave.simpmusic.ui.component.AddToPlaylistModalBottomSheet
 import com.maxrave.simpmusic.ui.component.AppleBackRow
 import com.maxrave.simpmusic.ui.component.AppleLibraryRow
 import com.maxrave.simpmusic.ui.component.Chip
+import com.maxrave.simpmusic.ui.component.CreateLocalPlaylistSheet
 import com.maxrave.simpmusic.ui.component.EndOfPage
 import com.maxrave.simpmusic.ui.component.GridLibraryPlaylist
 import com.maxrave.simpmusic.ui.component.LibraryItem
@@ -131,6 +121,7 @@ import com.maxrave.simpmusic.ui.navigation.destination.library.LibraryDynamicPla
 import com.maxrave.simpmusic.ui.theme.LocalAppleLayout
 import com.maxrave.simpmusic.ui.theme.LocalLargeTitles
 import com.maxrave.simpmusic.ui.navigation.destination.home.SettingsDestination
+import com.maxrave.simpmusic.ui.theme.LocalLiquidGlassEnabled
 import com.maxrave.simpmusic.ui.theme.typo
 import com.maxrave.simpmusic.viewModel.LibraryViewModel
 import com.maxrave.simpmusic.viewModel.SharedViewModel
@@ -141,9 +132,6 @@ import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.blur.hazeBlur
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.koinInject
@@ -166,8 +154,6 @@ import simpmusic.composeapp.generated.resources.no_favorite_playlists
 import simpmusic.composeapp.generated.resources.no_favorite_podcasts
 import simpmusic.composeapp.generated.resources.no_playlists_added
 import simpmusic.composeapp.generated.resources.no_playlists_downloaded
-import simpmusic.composeapp.generated.resources.playlist_name
-import simpmusic.composeapp.generated.resources.playlist_name_cannot_be_empty
 import simpmusic.composeapp.generated.resources.simpmusic_charts
 import simpmusic.composeapp.generated.resources.wrapped
 import simpmusic.composeapp.generated.resources.your_library
@@ -205,6 +191,12 @@ fun LibraryScreen(
         remember(recentlyAdded) {
             recentlyAdded.data.orEmpty().distinctBy { it.recentlyKey() }
         }
+    val cachedPreview by viewModel.cachedPreview.collectAsStateWithLifecycle()
+    // The player cache is no table to observe, so the Cached card is read again each time the
+    // screen is shown — coming back from the list after removing a song included.
+    if (getPlatform() == Platform.Android) {
+        LaunchedEffect(Unit) { viewModel.refreshCachedPreview() }
+    }
 
     val selectionState = rememberSongSelectionState()
     val selectionViewModel: SongSelectionViewModel = koinViewModel()
@@ -290,8 +282,11 @@ fun LibraryScreen(
         }
     }
 
+    // The floating chip row refracts the page scrolling under it, so the page is the glass source and
+    // the row its sibling (nesting the row inside the source is the RuntimeShader feedback loop).
+    val chipBackdrop = rememberBackdrop(MaterialTheme.colorScheme.background)
     Crossfade(
-        modifier = Modifier.hazeSource(hazeState),
+        modifier = Modifier.then(if (LocalLiquidGlassEnabled.current) Modifier.layerBackdrop(chipBackdrop) else Modifier).hazeSource(hazeState),
         targetState = currentFilter,
     ) { filter ->
         when (filter) {
@@ -347,12 +342,23 @@ fun LibraryScreen(
                                     showYouTube = loggedIn,
                                     showWrapped = localTrackingEnabled,
                                     onOpenCategory = { viewModel.setCurrentScreen(it) },
+                                    // Android only: Desktop keeps no song cache.
+                                    onOpenCached =
+                                        if (getPlatform() == Platform.Android) {
+                                            {
+                                                navController.navigate(
+                                                    LibraryDynamicPlaylistDestination(type = LibraryDynamicPlaylistType.Cached.toStringParams()),
+                                                )
+                                            }
+                                        } else {
+                                            null
+                                        },
                                     modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
                                 )
                             }
                         } else {
                             item(key = "tiles") {
-                                LibraryTilingBox(navController, libraryOverview)
+                                LibraryTilingBox(navController, libraryOverview, cachedPreview)
                             }
                         }
 
@@ -541,83 +547,11 @@ fun LibraryScreen(
     sharingTaste?.let { profile ->
         ShareTasteSheet(profile = profile, onDismiss = { sharingTaste = null })
     }
-    val coroutineScope = rememberCoroutineScope()
     if (showAddSheet) {
-        var newTitle by remember { mutableStateOf("") }
-        val showAddSheetState =
-            rememberModalBottomSheetState(
-                skipPartiallyExpanded = true,
-            )
-        val hideEditTitleBottomSheet: () -> Unit =
-            {
-                coroutineScope.launch {
-                    showAddSheetState.hide()
-                    showAddSheet = false
-                }
-            }
-        ModalBottomSheet(
-            onDismissRequest = { showAddSheet = false },
-            sheetState = showAddSheetState,
-            containerColor = Color.Transparent,
-            contentColor = Color.Transparent,
-            dragHandle = null,
-            scrimColor = Color.Black.copy(alpha = .5f),
-        ) {
-            Card(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight(),
-                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
-                colors = CardDefaults.cardColors().copy(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Card(
-                        modifier =
-                            Modifier
-                                .width(60.dp)
-                                .height(4.dp),
-                        colors =
-                            CardDefaults.cardColors().copy(
-                                containerColor = MaterialTheme.colorScheme.outline,
-                            ),
-                        shape = RoundedCornerShape(50),
-                    ) {}
-                    Spacer(modifier = Modifier.height(5.dp))
-                    OutlinedTextField(
-                        value = newTitle,
-                        onValueChange = { s -> newTitle = s },
-                        label = {
-                            Text(text = stringResource(Res.string.playlist_name))
-                        },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
-                    )
-                    Spacer(modifier = Modifier.height(5.dp))
-                    TextButton(
-                        onClick = {
-                            if (newTitle.isBlank()) {
-                                viewModel.makeToast(runBlocking { getString(Res.string.playlist_name_cannot_be_empty) })
-                            } else {
-                                viewModel.createPlaylist(newTitle)
-                                hideEditTitleBottomSheet()
-                            }
-                        },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.CenterHorizontally),
-                    ) {
-                        Text(text = stringResource(Res.string.create))
-                    }
-                }
-            }
-        }
+        CreateLocalPlaylistSheet(
+            onDismiss = { showAddSheet = false },
+            onCreate = viewModel::createPlaylist,
+        )
     }
     val appleLayoutBar = LocalAppleLayout.current
     Column(
@@ -758,6 +692,7 @@ fun LibraryScreen(
                                 LibraryChipType.CHART -> stringResource(Res.string.simpmusic_charts)
                                 LibraryChipType.WRAPPED -> stringResource(Res.string.wrapped)
                             },
+                        backdrop = chipBackdrop,
                     ) {
                         viewModel.setCurrentScreen(type)
                     }
